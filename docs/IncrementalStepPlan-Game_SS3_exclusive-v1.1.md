@@ -32,6 +32,7 @@
 | Step 0 **DONE** via harness Sprint 1 | 0 | Committed |
 | Step 1 **DONE** (seed EventBus + 4 tests) | 1 | Committed |
 | Step 2 ElementSystem — **add `fast-check` property-based test** | 2 | CEO TODO #8 |
+| **Step 3 spec fix**: v1.0 wording "loadMockLOs(3,'G5') returns MathG5 + KEN G8 (total 4)" is semantically wrong — the function filters strictly by grade. Corrected to "G5 only (3 LOs)". Implementation at commit `1f1bf44` is correct; v1.0 spec was imprecise. | 3 | Discovered during implementation |
 | **NEW Step 3.5**: Server-side validation gate (mock endpoint) | 3.5 | CEO critical #2 |
 | **NEW Step 9.5**: HMAC signing wrapper for SaveState + EventQueue | 9.5 | CEO critical #3 |
 | Step 10 — replace manual memory leak test với automated assertion | 10 | CEO TODO #7 |

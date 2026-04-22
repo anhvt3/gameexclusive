@@ -187,7 +187,8 @@ Tuân tự tự 7 phase:
 
 **Test cases:**
 - **Backend tests:**
-  - `loadMockLOs(3, 'G5')` returns MathG5 + KEN G8 MC (total 4)
+  - `loadMockLOs(3, 'G5')` returns only G5 MC LOs (3 items — from multiple_choice_math_g5.json)
+  - `loadMockLOs(3, 'G8')` returns only G8 MC LOs (2 items — from multiple_choice_ken_g8.json)
   - `loadMockLOs(1, 'G4')` returns 2 Cloze items
   - Invalid JSON → Zod throws with clear error message
   - Missing field `correct_option_id` on MC → validation fail
