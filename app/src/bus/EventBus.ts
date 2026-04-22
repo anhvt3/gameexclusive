@@ -69,6 +69,18 @@ class TypedEventBus {
   clear(): void {
     this.emitter.all.clear();
   }
+
+  /**
+   * Count total registered listeners across all event types.
+   * Test helper — verifies no leak after mount/unmount cycles.
+   */
+  getListenerCount(): number {
+    let total = 0;
+    for (const handlers of this.emitter.all.values()) {
+      total += handlers.length;
+    }
+    return total;
+  }
 }
 
 export const eventBus = new TypedEventBus();

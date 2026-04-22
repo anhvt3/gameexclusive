@@ -9,9 +9,9 @@
 
 ## 🟢 BATCH 1: Khởi tạo Core Game (14 request)
 **Mục tiêu:** Chốt style nhân vật chính, Mascot dẫn truyện và Môi trường cơ bản. (Priority 1)
-- [ ] **F.1.1** Wizard male walk spritesheet (1 ảnh)
-- [ ] **F.2.1** Forest tileset 32x32 (1 ảnh)
-- [ ] **Appendix C** Mascot Sóc Guide (C.1 & C.2) (4 ảnh - Greet, Point, Cheer, Think)
+- [x] **F.1.1** Wizard male walk spritesheet (1 ảnh)
+- [x] **F.2.1** Forest tileset 32x32 (1 ảnh)
+- [x] **Appendix C** Mascot Sóc Guide (C.1 & C.2) (4 ảnh - Greet, Point/Talk, Cheer, Think)
 - [ ] **Appendix A** Monster 1 (Embershed - Fire) (4 ảnh - Idle, Atk, Hit, Faint)
 - [ ] **Appendix A** Monster 2 (Aquament - Water) (4 ảnh - Idle, Atk, Hit, Faint)
 
