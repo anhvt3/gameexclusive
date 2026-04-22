@@ -1,0 +1,22 @@
+#!/usr/bin/env sh
+# Harness pre-commit hook — Game_SS3_exclusive
+# Delegates checks into app/ subfolder.
+
+set -e
+
+echo "🔒 [harness] Running pre-commit checks from app/..."
+
+cd "$(dirname "$0")/../app" || exit 1
+
+# 1. Lint + format staged files
+npx lint-staged
+
+# 2. Type check
+echo "🔒 [harness] Type checking..."
+npm run typecheck
+
+# 3. Verify AP compliance
+echo "🔒 [harness] AP compliance check..."
+npm run verify
+
+echo "✅ [harness] All pre-commit checks passed."

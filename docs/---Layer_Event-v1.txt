@@ -1,0 +1,53 @@
+# Event Flow Architecture
+
+## 1. Event
+
+| Event Source | Description |
+|---|---|
+| **bpevent** | |
+| BPLogv2: **bp_cuie_cuievent** | |
+| Comaker: **bp_cuie_cuievent** | |
+| +CUI | |
+| **USIDuty** | |
+| bp_cuie_cuievent (Mongo) | |
+
+---
+
+## 2. EventDetails
+
+### bp_pod_details
+- **Realtime:** PODEDetailListener (`pode-worker`)
+
+### bp_cuie_details_cmp
+- **Realtime:** ClassInCuieDetailConsumer (`prw-worker`)
+
+### bp_cuie_details
+- **Realtime:** ClassInCuieDetailConsumer (`prw-worker`)
+- **Batch:** CuieSessionDataExtractionServiceImpl
+
+---
+
+## 3. CalculateKR Output
+
+| Table | Service |
+|---|---|
+| **bp_poded_cutoff** | PODEDAutoReportServiceImpl |
+| **bp_cmp_cutoff** | CmpCutoffInternalService |
+| **bp_cuied_cutoff** | CUIEDAutoReportServiceImpl |
+| **bp_cuie_details_usi** | CuieUsiDataExtractionServiceImpl |
+| **bp_cuie_details_usi_lo** | CuieUsiLODataExtractionServiceImpl |
+| **bp_cuie_details_ush** | CuieUsiDataExtractionServiceImpl |
+| **student_test_details** (bp_cuie_details_usi_pc) | CuIEDetailServiceImpl |
+| **student_progress_report** | CuieUsiLODataExtractionServiceImpl |
+| **cuie_details_extract** | |
+| **so_rows** | |
+| **so_cell** | |
+| **so_rows_v2** | |
+| **so_cell_processed_v2** | |
+
+---
+
+## 4. ExtractEvents
+
+---
+

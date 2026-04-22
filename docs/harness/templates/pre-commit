@@ -1,0 +1,26 @@
+#!/usr/bin/env sh
+# Harness pre-commit hook — Game_SS3_exclusive
+# Blocks commit if:
+#   - Lint fails on staged files
+#   - Format drift on staged files
+#   - Typecheck fails
+#   - verify.ts fails (AP compliance)
+#
+# Rule: Fail fast. Don't claim done when harness fails.
+
+set -e
+
+echo "🔒 [harness] Running pre-commit checks..."
+
+# 1. Lint + format staged files
+npx lint-staged
+
+# 2. Type check (whole project — fast with tsc --noEmit)
+echo "🔒 [harness] Type checking..."
+npm run typecheck
+
+# 3. Verify AP compliance
+echo "🔒 [harness] AP compliance check..."
+npm run verify
+
+echo "✅ [harness] All pre-commit checks passed."

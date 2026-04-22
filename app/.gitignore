@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output
+dist/
+build/
+.vite/
+
+# Test output
+coverage/
+playwright-report/
+test-results/
+.playwright/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+runs.jsonl
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Secrets
+secrets/
+*.pem
+*.key
+
+# Cache
+.eslintcache
+.cache/
+.parcel-cache/
+
+# OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Temp
+tmp/
+temp/
