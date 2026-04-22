@@ -200,6 +200,128 @@ AP v1.1 = **Type C change** (đụng Event Layer spec + Security hardening) → 
 
 ---
 
+## 11. INVENTORY, EQUIPMENT & LEVEL-UP REWARD (NEW, v1.1 addendum)
+
+**Trigger:** Antigravity review 22/04/2026 flagged core Prodigy-parity gap —
+`SaveStateStore` had no `inventory` / `equipment`, `gainExp` gave no tangible
+reward at level-up, and Appendix F only covered UI chrome (not actual items).
+Classified **Type C** (Entity Schema + CL change) → POSUP + ARCH approved.
+
+This section is additive. No existing entity is removed or renamed; the
+SaveState schema bumps `version: 1 → 2` with a forward migration that
+injects empty `inventory: []` + empty `equipment: {...}` for players who
+pre-date the upgrade.
+
+### 11.1 New Entities
+
+```ts
+// src/types/item.ts — enum + id
+export const ITEM_SLOTS = ['hat', 'outfit', 'wand', 'shoes'] as const;
+export type EquipmentSlot = (typeof ITEM_SLOTS)[number];
+
+export const ITEM_RARITIES = ['common', 'rare', 'epic', 'legendary'] as const;
+export type ItemRarity = (typeof ITEM_RARITIES)[number];
+
+// src/data/staticConfig/items.ts — registry entry
+export interface ItemDef {
+  id: string;                // kebab-case, stable across saves ('wand-fire-01')
+  slot: EquipmentSlot;
+  displayNameVi: string;
+  rarity: ItemRarity;
+  iconKey: string;           // preload key, e.g. 'item_wand_fire_01_icon'
+  spriteKey: string;         // character-overlay sprite key
+  modifiers: ItemModifier[]; // see §11.3
+  drop_weight: number;       // relative weight in level-up drop table
+  minLevel: number;          // gated — can't drop before this level
+}
+
+// Instance carried by the student. Stacking is out of scope — each instance
+// is its own row so future enchantments/durability plug in cleanly.
+export interface InventoryItem {
+  instanceId: string;        // uuid at creation
+  itemId: string;            // references ItemDef.id
+  acquiredAt: number;        // ms epoch
+}
+
+export type EquipmentMap = {
+  [K in EquipmentSlot]: string | null;  // instanceId or null
+};
+```
+
+**SaveState schema v2 delta (breaking from v1):**
+```ts
+{
+  ...v1,
+  inventory: InventoryItem[],          // default []
+  equipment: { hat: null, outfit: null, wand: null, shoes: null },
+  lastLevelUpAt: number | null,        // debounce reward animations
+}
+```
+
+Migration v1 → v2: additive only, never fails → no backup/reset path needed.
+Registered in `SaveStateStore.persist({ migrate })`.
+
+### 11.2 New Complex Logic — CL6bis "Level Up Reward"
+
+Extends existing CL6 (EXP curve). When `gainExp` pushes level across a
+threshold, **for each** level gained:
+
+1. Roll drop table filtered by `minLevel ≤ newLevel` weighted by `drop_weight`.
+   Drop is deterministic in tests via injectable `rng` (default
+   `Math.random`).
+2. Mint an `InventoryItem` with fresh `instanceId` + `acquiredAt = Date.now()`.
+3. Append to `inventory[]` via Zustand set (immutable).
+4. Emit `LEVEL_UP` event on EventBus: `{ newLevel, grantedItemId }` — picked
+   up by UI to show banner + observability.
+
+**Rules:**
+- One item per level-up level (multi-level jumps grant multiple items).
+- Dupes allowed — stacking is not modeled in Phase 1.
+- No coins/stars in v1.1; those come with economy work in Phase 2.
+
+### 11.3 New Complex Logic — CL7 "Equipment Stat Modifiers"
+
+```ts
+export type ItemModifier =
+  | { kind: 'maxHp'; delta: number }                      // flat +N max HP
+  | { kind: 'spellDamage'; element: Element; pct: number } // +5% Fire damage
+  | { kind: 'critChance'; pct: number }                   // +N% crit roll
+  | { kind: 'expGain'; pct: number };                     // +N% EXP gained
+```
+
+`computeEffectiveStats(saveState)` is a pure selector that folds the
+equipped modifiers into a single `EffectiveStats` object used by:
+- `CombatScene` reads `effectiveMaxHp` + per-element damage multipliers
+  when applying damage (extends `ElementSystem.calculateDamage` call site).
+- `HpBar` reads `effectiveMaxHp`.
+- `gainExp` multiplies incoming EXP by `1 + expGainPct`.
+
+Pure — no side effects. Test harness: property test that unequipping an
+item always returns stats to the no-equipment baseline (inverse invariant).
+
+### 11.4 Error Registry Additions
+
+| # | Operation | Failure | Exception | Rescue | User msg |
+|---|---|---|---|---|---|
+| E11 | SaveState migrate v1→v2 | Missing inventory field | `SchemaMigrationError` | ✅ Inject defaults, re-sign | Silent |
+| E12 | `equipItem(slot, instanceId)` | instanceId not in inventory | `InvalidEquipError` | ❌ Propagate — dev bug | "Trang bị lỗi, thử lại" |
+| E13 | `unequipItem(slot)` | Slot already null | `noop` | ✅ Early return | Silent |
+| E14 | Drop table roll | Empty pool for level | `EmptyDropTableError` | ✅ Skip reward + warn | Silent |
+
+### 11.5 Approval & Task Classification
+
+| Change | Task | Reviewer |
+|---|---|---|
+| New entity Item/EquipmentSlot | C | POSUP + ARCH |
+| SaveState schema v2 migration | C | POSUP + ARCH |
+| CL6bis Level-up reward | C | POSUP + ARCH |
+| CL7 Equipment stat modifiers | C | POSUP + ARCH |
+| Appendix H asset prompts | B | POSUP |
+
+All approved 22/04/2026 via Antigravity review session.
+
+---
+
 ## HARNESS STATUS (new metadata section)
 
 Harness Sprint 1 committed `bc3ebfd` (22/04/2026):

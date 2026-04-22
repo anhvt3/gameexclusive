@@ -76,8 +76,12 @@
 | 22 | E2E Integration Test | 12h | ⏳ (updated) |
 | **22.5** | **Guild leaderboard (static single-player)** | 3h | ⏳ NEW |
 | **22.6** | **Boss quest (1 boss single-player)** | 4h | ⏳ NEW |
+| **22.7** | **Inventory + Equipment schema (v2 migration)** | 3h | ⏳ NEW v1.1 |
+| **22.8** | **Level-up reward (drop table + LEVEL_UP event)** | 3h | ⏳ NEW v1.1 |
+| **22.9** | **Inventory UI + Equip/Unequip screen** | 4h | ⏳ NEW v1.1 |
+| **22.10** | **Equipment stat modifiers wired into combat** | 3h | ⏳ NEW v1.1 |
 
-**Total Phase 1 remaining:** ~70h (↑ từ 60h v1.0, ~9 working days).
+**Total Phase 1 remaining:** ~83h (↑ từ 70h, ~10.5 working days).
 
 ---
 
@@ -226,6 +230,98 @@ it('no memory leak across 10 mount/unmount cycles', async () => {
 - 2 attempts cùng ngày → 2nd blocked với message
 - Next day → unlocked again
 - Reward calculation test
+
+---
+
+## Step 22.7 — Inventory + Equipment Schema (v2 migration) (NEW)
+
+**Goal:** Extend `SaveStateStore` with `inventory` + `equipment` per AP §11.1,
+ship the v1 → v2 migration, land Zod schemas + static item registry.
+
+**Scope:**
+- `src/types/item.ts` — ITEM_SLOTS, EquipmentSlot, ITEM_RARITIES enums
+- `src/data/staticConfig/items.ts` — 10 starter items (3 hats/3 robes/3 wands/1 boots) matching Appendix H
+- `SaveStateStore` schema v2: add `inventory: InventoryItem[]`, `equipment: EquipmentMap`, `lastLevelUpAt: number | null`
+- `persist({ version: 2, migrate })` — v1 rows get empty inventory/equipment injected
+- `equipItem(slot, instanceId)` + `unequipItem(slot)` actions
+- HMAC re-sign after migration (AP §3.2 compatibility)
+
+**Test:**
+- Migration v1 save → v2 adds empty inventory/equipment without losing hp/exp
+- Zod rejects malformed item instance (bad slot enum)
+- equipItem on missing instanceId → throws InvalidEquipError (AP E12)
+- unequipItem on empty slot → noop (AP E13)
+- HMAC verify still passes after migration
+
+---
+
+## Step 22.8 — Level-Up Reward (drop table + LEVEL_UP event) (NEW)
+
+**Goal:** `gainExp` grants 1 item per level-gained via weighted drop table;
+emits `LEVEL_UP` on EventBus so UI can banner + metrics can log.
+
+**Scope:**
+- `src/domain/LevelUpReward.ts` — pure `rollDrop(level, rng)` against item registry
+- Extend `gainExp` to loop per level gained, call `rollDrop`, push `InventoryItem`
+- New EventBus event: `LEVEL_UP { newLevel, grantedItemId }`
+- Wire `eventStreamBridge` to append `level_up` events (new type, extends discriminated union)
+- Metrics: emit `level_up_reward` (new 6th metric? — keep 5-metric contract; route through Sentry breadcrumb instead)
+- Empty drop pool → warn + skip (AP E14)
+
+**Test:**
+- Fixed RNG (seed=0) → deterministic drop
+- Multi-level jump (exp awards 2 levels at once) → 2 items granted
+- drop_weight=0 items never selected (property test)
+- minLevel gate respected
+- LEVEL_UP event fires once per level, with correct grantedItemId
+
+---
+
+## Step 22.9 — Inventory UI + Equip Screen (NEW)
+
+**Goal:** React screen to view inventory, equip/unequip per slot. Route `/inventory`
+reachable from MainMenu + in-world HUD button.
+
+**Scope:**
+- `src/react/screens/InventoryScreen.tsx` — 4 equipment slots on left, bag grid on right
+- Click item in bag → preview modifiers + "Trang bị" CTA → calls `equipItem`
+- Click equipped slot → "Tháo" action → `unequipItem`
+- Rarity color border (common gray, rare blue, epic purple, legendary orange)
+- Empty slot placeholder icon
+- Route registered in `AppRouter`; MainMenu adds "Kho đồ" button after leaderboard
+
+**Test:**
+- Renders empty state when inventory = []
+- 10 items → 10 bag tiles
+- Click → equip → slot shows item sprite + item removed from bag
+- Equip over occupied slot → previous item returns to bag
+- Unequip → bag reclaims item
+- Stat preview panel shows totals from `computeEffectiveStats`
+
+---
+
+## Step 22.10 — Equipment Stat Modifiers in Combat (NEW)
+
+**Goal:** Equipment modifiers per AP §11.3 actually change gameplay:
+- `maxHp` extends player HP bar ceiling + heal to new max on equip
+- `spellDamage` element bump applied in `CombatScene.applyPlayerDamage`
+- `expGain` applied in `gainExp` before level-up roll
+- `critChance` fed into `calculateDamage(isCrit=...)` via a roll
+
+**Scope:**
+- `src/domain/EffectiveStats.ts` — pure `computeEffectiveStats(saveState)` selector
+- Hook into `CombatScene`: read effective stats at `create()` + on equipment change
+- `HpBar.setHp(current, effectiveMaxHp)`
+- Damage calc in `applyPlayerDamage`: multiply by `(1 + spellDamagePct[spell.element])`
+- Crit chance roll: `rng() < critPct` → pass `isCrit: true` to `calculateDamage`
+- E2E spec: equip wand-fire-01 (+10% fire damage) → assert damage delta vs baseline
+
+**Test:**
+- computeEffectiveStats with no equipment → baseline (100 maxHp, 0% all)
+- Equip outfit +10 maxHp → effectiveMaxHp = 110, hp clamped to new max
+- Fire wand (+5% Fire dmg) × Fire spell vs Plant monster: damage × 1.05
+- Unequip → stats back to baseline (inverse invariant via property test)
+- E2E: victory achievable faster with equipped vs naked (deterministic RNG)
 
 ---
 
