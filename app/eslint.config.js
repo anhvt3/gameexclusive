@@ -34,6 +34,9 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      // react-hooks/purity flags Date.now() / Math.random() in event handlers as false positives.
+      // React docs say event handlers CAN call impure functions. Disable to avoid noise.
+      'react-hooks/purity': 'off',
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
       // HARNESS: Layer boundary enforcement (AP 3.1)
       'import/no-restricted-paths': [
