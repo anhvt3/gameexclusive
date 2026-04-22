@@ -81,6 +81,6 @@ describe('PhaserGame — React wrapper', () => {
     render(<PhaserGame />);
     const cfg = mockGameCtor.mock.calls[0]?.[0] as { scene: unknown[] };
     expect(cfg.scene).toBeInstanceOf(Array);
-    expect(cfg.scene).toHaveLength(3); // Boot + Preload + World (Step 11)
+    expect(cfg.scene).toHaveLength(4); // Boot + Preload + World + Combat (Step 14)
   });
 });

@@ -5,7 +5,7 @@ vi.mock('phaser', () => {
   class MockScene {
     scale = { width: 1280, height: 720 };
     cameras = { main: { setBackgroundColor: vi.fn() } };
-    scene = { pause: vi.fn() };
+    scene = { pause: vi.fn(), launch: vi.fn() };
     physics = {
       world: { setBounds: vi.fn() },
       add: {

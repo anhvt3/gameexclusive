@@ -16,6 +16,7 @@ import Phaser from 'phaser';
 import { BootScene } from './scenes/BootScene';
 import { PreloadScene } from './scenes/PreloadScene';
 import { WorldScene } from './scenes/WorldScene';
+import { CombatScene } from './scenes/CombatScene';
 
 interface Props {
   width?: number;
@@ -44,7 +45,7 @@ export function PhaserGame({ width = 1280, height = 720 }: Props) {
         default: 'arcade',
         arcade: { gravity: { x: 0, y: 0 }, debug: false },
       },
-      scene: [BootScene, PreloadScene, WorldScene],
+      scene: [BootScene, PreloadScene, WorldScene, CombatScene],
     });
     gameRef.current = game;
 

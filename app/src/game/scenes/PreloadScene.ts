@@ -14,12 +14,86 @@ import Phaser from 'phaser';
 export const PRELOAD_SCENE_KEY = 'PreloadScene';
 
 /**
- * Phase 1 minimum asset manifest.
- * Replaced with real paths as Antigravity delivers (batch_plan_v2_antigravity.md).
+ * Phase 1 asset manifest — Antigravity delivery (22/04/2026).
+ * Keys follow convention: category_codename_state.
  */
+
+const MONSTERS = ['embershed', 'tidus', 'applepot', 'frostfang', 'voltee'] as const;
+const MONSTER_STATES = ['idle', 'attack', 'hurt', 'death'] as const;
+const SPELL_ELEMENTS = [
+  'fire',
+  'water',
+  'earth',
+  'ice',
+  'storm',
+  'plant',
+  'shadow',
+  'astral',
+] as const;
+
 export const PHASE1_ASSETS = {
-  images: [] as Array<{ key: string; path: string }>,
-  spritesheets: [] as Array<{
+  images: [
+    // Backgrounds
+    { key: 'bg_combat_forest', path: '/assets/backgrounds/combat_forest_1280x720.png' },
+    { key: 'bg_main_menu', path: '/assets/backgrounds/main_menu_bg.png' },
+    // Tileset
+    { key: 'forest_tileset', path: '/assets/tilesets/forest_tileset_256.png' },
+    // Mascot Sóc — 4 poses
+    { key: 'mascot_soc_greet', path: '/assets/mascot/soc_guide_greet_512.png' },
+    { key: 'mascot_soc_talk', path: '/assets/mascot/soc_guide_talk_256.png' },
+    { key: 'mascot_soc_cheer', path: '/assets/mascot/soc_guide_cheer_512.png' },
+    { key: 'mascot_soc_think', path: '/assets/mascot/soc_guide_think_256.png' },
+    // Player wizard portraits
+    {
+      key: 'wizard_portrait_neutral',
+      path: '/assets/player/wizard_male_portrait_neutral_128.png',
+    },
+    {
+      key: 'wizard_portrait_excited',
+      path: '/assets/player/wizard_male_portrait_excited_128.png',
+    },
+    {
+      key: 'wizard_portrait_worried',
+      path: '/assets/player/wizard_male_portrait_worried_128.png',
+    },
+    {
+      key: 'wizard_portrait_focused',
+      path: '/assets/player/wizard_male_portrait_focused_128.png',
+    },
+    // Monsters — 5 starters × 4 states = 20
+    ...MONSTERS.flatMap((codename) =>
+      MONSTER_STATES.map((state) => ({
+        key: `monster_${codename}_${state}`,
+        path: `/assets/monsters/${codename}_${state}_128.png`,
+      }))
+    ),
+    // UI — HP/MP bars 4 states each
+    { key: 'hp_bar_empty', path: '/assets/ui/hp_bar_empty.png' },
+    { key: 'hp_bar_100', path: '/assets/ui/hp_bar_100.png' },
+    { key: 'hp_bar_50', path: '/assets/ui/hp_bar_50.png' },
+    { key: 'hp_bar_20', path: '/assets/ui/hp_bar_20.png' },
+    { key: 'mp_bar_empty', path: '/assets/ui/mp_bar_empty.png' },
+    { key: 'mp_bar_100', path: '/assets/ui/mp_bar_100.png' },
+    { key: 'mp_bar_50', path: '/assets/ui/mp_bar_50.png' },
+    { key: 'mp_bar_20', path: '/assets/ui/mp_bar_20.png' },
+    // Spell icons (8 elements)
+    ...SPELL_ELEMENTS.map((elem) => ({
+      key: `spell_icon_${elem}`,
+      path: `/assets/ui/spell_icon_${elem}.png`,
+    })),
+    // Banners
+    { key: 'banner_victory', path: '/assets/ui/banner_victory_800x120.png' },
+    { key: 'banner_defeat', path: '/assets/ui/banner_defeat.png' },
+    { key: 'banner_levelup', path: '/assets/ui/banner_levelup_800x120.png' },
+  ] as Array<{ key: string; path: string }>,
+  spritesheets: [
+    {
+      key: 'wizard_walk',
+      path: '/assets/player/wizard_male_walk_spritesheet_128x128.png',
+      frameWidth: 32,
+      frameHeight: 32,
+    },
+  ] as Array<{
     key: string;
     path: string;
     frameWidth: number;

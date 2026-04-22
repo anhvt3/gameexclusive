@@ -77,6 +77,7 @@ export class WorldScene extends Phaser.Scene {
       this.combatTriggered = true;
       eventBus.emit('ENTER_COMBAT', { monster_id: enemy.monsterId });
       this.scene.pause();
+      this.scene.launch('CombatScene', { monsterId: enemy.monsterId });
     });
   }
 
