@@ -1,5 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useSaveState, thresholdForLevel, SAVE_STATE_KEY } from './SaveStateStore';
+import {
+  useSaveState,
+  thresholdForLevel,
+  SAVE_STATE_KEY,
+  SCHEMA_VERSION,
+  InvalidEquipError,
+} from './SaveStateStore';
+import { EMPTY_EQUIPMENT, type InventoryItem } from '@/types/item';
 
 beforeEach(() => {
   localStorage.clear();
@@ -112,5 +119,113 @@ describe('SaveStateStore — persistence', () => {
     const raw = localStorage.getItem(SAVE_STATE_KEY);
     const parsed = JSON.parse(raw!);
     expect(parsed.version).toBeDefined();
+  });
+
+  it('SCHEMA_VERSION is at v2 (Step 22.7 inventory bump)', () => {
+    expect(SCHEMA_VERSION).toBe(2);
+  });
+});
+
+describe('SaveStateStore — Step 22.7 inventory + equipment (v2)', () => {
+  const sampleItem: InventoryItem = {
+    instanceId: 'uuid-apprentice-hat',
+    itemId: 'hat-apprentice-01',
+    acquiredAt: 1_700_000_000_000,
+  };
+
+  it('initial state ships empty inventory + all slots null', () => {
+    const s = useSaveState.getState();
+    expect(s.inventory).toEqual([]);
+    expect(s.equipment).toEqual(EMPTY_EQUIPMENT);
+    expect(s.lastLevelUpAt).toBeNull();
+  });
+
+  it('addInventoryItem appends without mutating existing array', () => {
+    const before = useSaveState.getState().inventory;
+    useSaveState.getState().addInventoryItem(sampleItem);
+    const after = useSaveState.getState().inventory;
+    expect(after).toHaveLength(1);
+    expect(after[0]).toEqual(sampleItem);
+    expect(after).not.toBe(before); // new array reference
+  });
+
+  it('equipItem happy path sets instanceId on slot', () => {
+    useSaveState.getState().addInventoryItem(sampleItem);
+    useSaveState.getState().equipItem('hat', sampleItem.instanceId);
+    expect(useSaveState.getState().equipment.hat).toBe(sampleItem.instanceId);
+  });
+
+  it('equipItem with unknown instanceId throws InvalidEquipError (AP E12)', () => {
+    expect(() => useSaveState.getState().equipItem('hat', 'ghost-id')).toThrow(InvalidEquipError);
+  });
+
+  it('equipItem replaces previous slot occupant without mutating inventory', () => {
+    const other: InventoryItem = {
+      instanceId: 'uuid-fire-hat',
+      itemId: 'hat-fire-01',
+      acquiredAt: 1_700_000_000_100,
+    };
+    useSaveState.getState().addInventoryItem(sampleItem);
+    useSaveState.getState().addInventoryItem(other);
+    useSaveState.getState().equipItem('hat', sampleItem.instanceId);
+    useSaveState.getState().equipItem('hat', other.instanceId);
+    const s = useSaveState.getState();
+    expect(s.equipment.hat).toBe(other.instanceId);
+    expect(s.inventory).toHaveLength(2); // both still owned
+  });
+
+  it('unequipItem on empty slot → noop (AP E13)', () => {
+    expect(() => useSaveState.getState().unequipItem('wand')).not.toThrow();
+    expect(useSaveState.getState().equipment.wand).toBeNull();
+  });
+
+  it('unequipItem clears the slot', () => {
+    useSaveState.getState().addInventoryItem(sampleItem);
+    useSaveState.getState().equipItem('hat', sampleItem.instanceId);
+    useSaveState.getState().unequipItem('hat');
+    expect(useSaveState.getState().equipment.hat).toBeNull();
+  });
+
+  it('reset() restores empty inventory + equipment', () => {
+    useSaveState.getState().addInventoryItem(sampleItem);
+    useSaveState.getState().equipItem('hat', sampleItem.instanceId);
+    useSaveState.getState().reset();
+    const s = useSaveState.getState();
+    expect(s.inventory).toEqual([]);
+    expect(s.equipment).toEqual(EMPTY_EQUIPMENT);
+  });
+});
+
+describe('SaveStateStore — v1 → v2 migration', () => {
+  it('v1 save survives bump with defaults injected for new fields', async () => {
+    // Seed a v1-shaped persisted blob that predates Step 22.7
+    const v1Save = {
+      state: {
+        hp: 73,
+        maxHp: 100,
+        mp: 50,
+        maxMp: 50,
+        level: 3,
+        exp: 120,
+        position: { x: 100, y: 200 },
+        flags: { tutorial_completed: true },
+        last_boss_attempt_date: '2026-04-20',
+      },
+      version: 1,
+    };
+    localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v1Save));
+    await useSaveState.persist.rehydrate();
+
+    const s = useSaveState.getState();
+    // Core fields preserved
+    expect(s.hp).toBe(73);
+    expect(s.exp).toBe(120);
+    expect(s.level).toBe(3);
+    expect(s.flags.tutorial_completed).toBe(true);
+    expect(s.last_boss_attempt_date).toBe('2026-04-20');
+    // v2 fields defaulted
+    expect(s.inventory).toEqual([]);
+    expect(s.equipment).toEqual(EMPTY_EQUIPMENT);
+    expect(s.lastLevelUpAt).toBeNull();
   });
 });

@@ -3,6 +3,8 @@
  * Lives in types/ so data layer can reference without importing game logic.
  */
 
+import { z } from 'zod';
+
 export const ELEMENTS = [
   'Fire',
   'Water',
@@ -15,3 +17,5 @@ export const ELEMENTS = [
 ] as const;
 
 export type Element = (typeof ELEMENTS)[number];
+
+export const ElementsSchema = z.enum(ELEMENTS);
