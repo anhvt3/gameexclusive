@@ -17,6 +17,7 @@ import { BootScene } from './scenes/BootScene';
 import { PreloadScene } from './scenes/PreloadScene';
 import { WorldScene } from './scenes/WorldScene';
 import { CombatScene } from './scenes/CombatScene';
+import { attachGameTestBridge, detachGameTestBridge } from '@/testing/gameTestBridge';
 
 interface Props {
   width?: number;
@@ -49,7 +50,16 @@ export function PhaserGame({ width = 1280, height = 720 }: Props) {
     });
     gameRef.current = game;
 
+    // DEV/test bridge: expose window.__GAME__ so Playwright (Step 22) can drive
+    // the game without pixel-matching the canvas. Stripped in prod by Vite.
+    if (import.meta.env.DEV) {
+      attachGameTestBridge(game);
+    }
+
     return () => {
+      if (import.meta.env.DEV) {
+        detachGameTestBridge();
+      }
       game.destroy(true, false);
       gameRef.current = null;
     };
