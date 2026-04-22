@@ -322,6 +322,32 @@ describe('CombatScene — Step 17 damage resolution + victory/defeat', () => {
     expect(exits[0]!.monster_id).toBe(1);
   });
 
+  it('boss monster (is_boss) → 5× HP scale on init', () => {
+    const scene = new CombatScene();
+    scene.init({ monsterId: 99 }); // Aldergasp boss, baseHp 45
+    expect(scene.getMonsterHp()).toBe(225);
+    expect(scene.getMonsterMaxHp()).toBe(225);
+  });
+
+  it('normal monster → 1× HP (no scale)', () => {
+    const scene = new CombatScene();
+    scene.init({ monsterId: 1 }); // Embershed, baseHp 40
+    expect(scene.getMonsterHp()).toBe(40);
+    expect(scene.getMonsterMaxHp()).toBe(40);
+  });
+
+  it('VICTORY vs boss grants 500 EXP (flat) instead of baseHp', () => {
+    const scene = new CombatScene();
+    scene.init({ monsterId: 99 });
+    scene.create();
+    scene.__setMonsterHp(1);
+    const exits: Array<{ won: boolean; exp_gained: number }> = [];
+    eventBus.on('EXIT_COMBAT', (p) => exits.push(p));
+    scene.onSpellClick('fire_blast');
+    eventBus.emit('QUIZ_RESULT', { correct: true, timeSpent: 3, attempts: 1, lo_id: 100001 });
+    expect(exits[0]!.exp_gained).toBe(500);
+  });
+
   it('DEFEAT respawns player (HP=maxHp, position reset) + stops scene', () => {
     useSaveState.getState().reset();
     useSaveState.getState().setHp(5);

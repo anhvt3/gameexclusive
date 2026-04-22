@@ -32,6 +32,8 @@ export interface SaveStateData {
   exp: number;
   position: { x: number; y: number };
   flags: Record<string, boolean>;
+  /** ISO date (YYYY-MM-DD, local wall clock) of the last boss-quest attempt. */
+  last_boss_attempt_date: string | null;
 }
 
 export interface SaveStateActions {
@@ -40,6 +42,7 @@ export interface SaveStateActions {
   gainExp: (amount: number) => void;
   setPosition: (x: number, y: number) => void;
   setFlag: (key: string, value: boolean) => void;
+  setLastBossAttemptDate: (iso: string) => void;
   reset: () => void;
 }
 
@@ -54,6 +57,7 @@ const INITIAL_STATE: SaveStateData = {
   exp: 0,
   position: { x: 0, y: 0 },
   flags: {},
+  last_boss_attempt_date: null,
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -87,6 +91,8 @@ export const useSaveState = create<SaveStateStore>()(
       setPosition: (x, y) => set({ position: { x, y } }),
 
       setFlag: (key, value) => set((state) => ({ flags: { ...state.flags, [key]: value } })),
+
+      setLastBossAttemptDate: (iso) => set({ last_boss_attempt_date: iso }),
 
       reset: () => set({ ...INITIAL_STATE }),
     }),

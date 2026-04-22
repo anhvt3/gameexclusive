@@ -11,8 +11,14 @@
 import Phaser from 'phaser';
 import { Player } from '../entities/Player';
 import { Enemy } from '../entities/Enemy';
-import { STARTER_MONSTERS, type MonsterDef } from '@data/staticConfig/monsters';
+import {
+  STARTER_MONSTERS,
+  DAILY_BOSS_MONSTER_ID,
+  type MonsterDef,
+} from '@data/staticConfig/monsters';
 import { eventBus, type Unsubscribe } from '@bus/EventBus';
+import { useSaveState } from '@persistence/SaveStateStore';
+import { BOSS_PENDING_FLAG, todayIso } from '@domain/BossQuest';
 
 export const WORLD_SCENE_KEY = 'WorldScene';
 export const TILE_SIZE = 32;
@@ -61,6 +67,18 @@ export class WorldScene extends Phaser.Scene {
       this.combatTriggered = false;
       this.scene.resume();
     });
+
+    // Step 22.6: MainMenu sets boss_pending flag before navigating here;
+    // fulfill the request by launching boss combat + stamping attempt date.
+    const save = useSaveState.getState();
+    if (save.flags[BOSS_PENDING_FLAG]) {
+      save.setFlag(BOSS_PENDING_FLAG, false);
+      save.setLastBossAttemptDate(todayIso());
+      this.combatTriggered = true;
+      eventBus.emit('ENTER_COMBAT', { monster_id: DAILY_BOSS_MONSTER_ID });
+      this.scene.pause();
+      this.scene.launch('CombatScene', { monsterId: DAILY_BOSS_MONSTER_ID });
+    }
   }
 
   shutdown(): void {

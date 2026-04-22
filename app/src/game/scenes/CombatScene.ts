@@ -22,6 +22,7 @@ import { calculateDamage } from '@game/systems/ElementSystem';
 import { loadMockLOs } from '@data/supham/LearningObjectAdapter';
 import type { LearningObject, Grade } from '@data/supham/LearningObjectSchema';
 import type { Element } from '@/types/element';
+import { BOSS_HP_SCALE, BOSS_VICTORY_EXP } from '@domain/BossQuest';
 import { HpBar } from '../entities/HpBar';
 
 export const COMBAT_SCENE_KEY = 'CombatScene';
@@ -61,6 +62,7 @@ const DEFAULT_QUIZ_TYPE_ID = 3; // multiple choice
 export class CombatScene extends Phaser.Scene {
   private monsterDef: MonsterDef | null = null;
   private monsterCurrentHp = 0;
+  private monsterMaxHp = 0;
   private playerHpBar: HpBar | null = null;
   private monsterHpBar: HpBar | null = null;
   private saveStateUnsub: (() => void) | null = null;
@@ -76,7 +78,11 @@ export class CombatScene extends Phaser.Scene {
 
   init(data: CombatSceneData): void {
     this.monsterDef = findMonsterById(data.monsterId) ?? null;
-    this.monsterCurrentHp = this.monsterDef?.baseHp ?? 0;
+    // Boss monsters (AP Appendix A tier='boss', is_boss flag) get 5× HP —
+    // ISP Step 22.6 daily-challenge scaling.
+    const scale = this.monsterDef?.is_boss ? BOSS_HP_SCALE : 1;
+    this.monsterMaxHp = (this.monsterDef?.baseHp ?? 0) * scale;
+    this.monsterCurrentHp = this.monsterMaxHp;
     this.combatState = 'INIT';
     this.selectedSpellId = null;
     this.activeLo = null;
@@ -121,7 +127,7 @@ export class CombatScene extends Phaser.Scene {
       monsterX,
       monsterY + 90,
       this.monsterCurrentHp,
-      this.monsterDef.baseHp
+      this.monsterMaxHp
     );
 
     this.saveStateUnsub = useSaveState.subscribe((s) => {
@@ -228,7 +234,7 @@ export class CombatScene extends Phaser.Scene {
       false
     );
     this.monsterCurrentHp = Math.max(0, this.monsterCurrentHp - dmg);
-    this.monsterHpBar?.setHp(this.monsterCurrentHp, this.monsterDef.baseHp);
+    this.monsterHpBar?.setHp(this.monsterCurrentHp, this.monsterMaxHp);
     this.combatState = nextCombatState(this.combatState, {
       type: 'DAMAGE_APPLIED',
       side: 'monster',
@@ -250,7 +256,9 @@ export class CombatScene extends Phaser.Scene {
   }
 
   private handleVictory(): void {
-    const exp = this.monsterDef?.baseHp ?? 0;
+    // Boss victory pays a flat BOSS_VICTORY_EXP (Step 22.6); normal monsters
+    // pay their baseHp. Item reward hooks in once Step 22.8 lands.
+    const exp = this.monsterDef?.is_boss ? BOSS_VICTORY_EXP : (this.monsterDef?.baseHp ?? 0);
     const monsterId = this.monsterDef?.id ?? null;
     useSaveState.getState().gainExp(exp);
     eventBus.emit('EXIT_COMBAT', {
@@ -308,7 +316,12 @@ export class CombatScene extends Phaser.Scene {
   __setMonsterHp(hp: number): void {
     this.monsterCurrentHp = hp;
     if (this.monsterDef) {
-      this.monsterHpBar?.setHp(hp, this.monsterDef.baseHp);
+      this.monsterHpBar?.setHp(hp, this.monsterMaxHp);
     }
+  }
+
+  /** Test-only: effective max HP after boss scaling. */
+  getMonsterMaxHp(): number {
+    return this.monsterMaxHp;
   }
 }

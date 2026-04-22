@@ -12,12 +12,21 @@
 import { useNavigate } from 'react-router-dom';
 import { useSaveState } from '@persistence/SaveStateStore';
 import { TUTORIAL_FLAG } from '@react/mascot/tutorialSteps';
+import { BOSS_PENDING_FLAG, canAttemptBoss } from '@domain/BossQuest';
 
 export function MainMenu() {
   const navigate = useNavigate();
   const hasProgress = useSaveState(
     (s) => s.flags[TUTORIAL_FLAG] === true || s.exp > 0 || s.level > 1
   );
+  const lastBossAttempt = useSaveState((s) => s.last_boss_attempt_date);
+  const setFlag = useSaveState((s) => s.setFlag);
+  const canFightBoss = canAttemptBoss(lastBossAttempt);
+
+  const handleBossClick = () => {
+    setFlag(BOSS_PENDING_FLAG, true);
+    navigate('/play');
+  };
 
   return (
     <main
@@ -55,6 +64,15 @@ export function MainMenu() {
           className="w-full rounded-xl bg-amber-500 px-6 py-3 text-lg font-semibold text-white shadow transition enabled:hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-amber-300"
         >
           Tiếp tục
+        </button>
+        <button
+          type="button"
+          onClick={handleBossClick}
+          disabled={!canFightBoss}
+          aria-label={canFightBoss ? 'Boss hôm nay' : 'Boss hôm nay — đã thử, quay lại ngày mai'}
+          className="w-full rounded-xl bg-rose-600 px-6 py-3 text-base font-bold text-white shadow transition enabled:hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-rose-300"
+        >
+          {canFightBoss ? '⚔️ Boss hôm nay' : '⏳ Boss — mai quay lại'}
         </button>
         <button
           type="button"

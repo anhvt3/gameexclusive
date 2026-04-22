@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { STARTER_MONSTERS, findMonsterById } from './monsters';
+import {
+  STARTER_MONSTERS,
+  BOSS_MONSTERS,
+  ALL_MONSTERS,
+  DAILY_BOSS_MONSTER_ID,
+  findMonsterById,
+} from './monsters';
 
 describe('Monster registry (Phase 1 starters)', () => {
   it('exports 5 starter monsters', () => {
@@ -41,5 +47,25 @@ describe('Monster registry (Phase 1 starters)', () => {
     for (const m of STARTER_MONSTERS) {
       expect(m.spritePath).toMatch(/_idle_128\.png$/);
     }
+  });
+});
+
+describe('Monster registry — Step 22.6 boss tier', () => {
+  it('BOSS_MONSTERS has Aldergasp at id=99 with is_boss flag', () => {
+    expect(BOSS_MONSTERS).toHaveLength(1);
+    expect(BOSS_MONSTERS[0]!.id).toBe(DAILY_BOSS_MONSTER_ID);
+    expect(BOSS_MONSTERS[0]!.codename).toBe('aldergasp');
+    expect(BOSS_MONSTERS[0]!.is_boss).toBe(true);
+    expect(BOSS_MONSTERS[0]!.tier).toBe('boss');
+  });
+
+  it('findMonsterById resolves boss id through ALL_MONSTERS union', () => {
+    expect(findMonsterById(DAILY_BOSS_MONSTER_ID)?.is_boss).toBe(true);
+    expect(ALL_MONSTERS).toHaveLength(STARTER_MONSTERS.length + BOSS_MONSTERS.length);
+  });
+
+  it('no monster id collisions between starters and bosses', () => {
+    const ids = ALL_MONSTERS.map((m) => m.id);
+    expect(new Set(ids).size).toBe(ids.length);
   });
 });

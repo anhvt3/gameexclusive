@@ -16,7 +16,12 @@ export interface MonsterDef {
   baseHp: number;
   spritePath: string; // placeholder OK; fallback rectangle if not loaded
   placeholderColor: number;
+  /** ISP Step 22.6 flag — triggers 5× HP scale + boss reward path in CombatScene. */
+  is_boss?: boolean;
 }
+
+/** Boss monster id — exposed so BossQuest domain + PlayScreen stay decoupled from registry order. */
+export const DAILY_BOSS_MONSTER_ID = 99;
 
 const ELEMENT_COLORS: Record<Element, number> = {
   Fire: 0xff6b35,
@@ -82,6 +87,30 @@ export const STARTER_MONSTERS: MonsterDef[] = [
   },
 ];
 
+/**
+ * Bosses are tracked separately from STARTER_MONSTERS so existing registry
+ * invariants (5 starters, tier='starter', 128-sized sprites) remain clean.
+ * ISP Step 22.6 — Phase 1 ships exactly one daily boss.
+ */
+export const BOSS_MONSTERS: MonsterDef[] = [
+  {
+    // Daily boss (ISP Step 22.6). Asset delivery deferred to Phase 2 batch —
+    // Phaser renders the default missing-texture placeholder until then.
+    id: DAILY_BOSS_MONSTER_ID,
+    codename: 'aldergasp',
+    displayNameVi: 'Lãnh Chúa Rừng Gai',
+    element: 'Plant',
+    tier: 'boss',
+    baseHp: 45, // × 5 scale applied by CombatScene → 225 effective
+    spritePath: '/assets/monsters/aldergasp_idle_256.png',
+    placeholderColor: ELEMENT_COLORS.Plant,
+    is_boss: true,
+  },
+];
+
+/** Union view for lookups — starters + bosses. */
+export const ALL_MONSTERS: MonsterDef[] = [...STARTER_MONSTERS, ...BOSS_MONSTERS];
+
 export function findMonsterById(id: number): MonsterDef | undefined {
-  return STARTER_MONSTERS.find((m) => m.id === id);
+  return ALL_MONSTERS.find((m) => m.id === id);
 }

@@ -4,6 +4,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { MainMenu } from './MainMenu';
 import { useSaveState } from '@persistence/SaveStateStore';
 import { TUTORIAL_FLAG } from '@react/mascot/tutorialSteps';
+import { BOSS_PENDING_FLAG, todayIso } from '@domain/BossQuest';
 
 function renderMenu(initialPath = '/') {
   return render(
@@ -71,5 +72,21 @@ describe('MainMenu — WF1', () => {
     renderMenu();
     fireEvent.click(screen.getByRole('button', { name: /Bảng xếp hạng lớp/i }));
     expect(screen.getByTestId('guild-screen')).toBeInTheDocument();
+  });
+
+  it('boss button enabled when no attempt today, sets pending flag + navigates /play', () => {
+    renderMenu();
+    const btn = screen.getByRole('button', { name: /Boss hôm nay/i });
+    expect(btn).toBeEnabled();
+    fireEvent.click(btn);
+    expect(useSaveState.getState().flags[BOSS_PENDING_FLAG]).toBe(true);
+    expect(screen.getByTestId('play-screen')).toBeInTheDocument();
+  });
+
+  it('boss button disabled + alt label when last attempt = today', () => {
+    useSaveState.getState().setLastBossAttemptDate(todayIso());
+    renderMenu();
+    const btn = screen.getByRole('button', { name: /ngày mai/i });
+    expect(btn).toBeDisabled();
   });
 });

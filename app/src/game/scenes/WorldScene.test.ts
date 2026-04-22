@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { eventBus } from '@bus/EventBus';
+import { useSaveState } from '@persistence/SaveStateStore';
+import { BOSS_PENDING_FLAG, todayIso } from '@domain/BossQuest';
 
 vi.mock('phaser', () => {
   class MockScene {
@@ -53,6 +55,8 @@ const { WorldScene, MAP_COLS, MAP_ROWS } = await import('./WorldScene');
 
 beforeEach(() => {
   eventBus.clear();
+  localStorage.clear();
+  useSaveState.getState().reset();
 });
 
 describe('WorldScene — Step 13 monster spawn + overlap', () => {
@@ -174,5 +178,34 @@ describe('WorldScene — Step 17 EXIT_COMBAT integration', () => {
     expect(eventBus.getListenerCount()).toBeGreaterThan(before);
     scene.shutdown();
     expect(eventBus.getListenerCount()).toBe(before);
+  });
+});
+
+describe('WorldScene — Step 22.6 boss_pending handoff', () => {
+  it('boss_pending=true → clears flag, stamps today, launches CombatScene with boss id', () => {
+    useSaveState.getState().setFlag(BOSS_PENDING_FLAG, true);
+    const received: Array<{ monster_id: number }> = [];
+    const off = eventBus.on('ENTER_COMBAT', (p) => received.push(p));
+
+    const scene = new WorldScene();
+    scene.create();
+
+    expect(received).toEqual([{ monster_id: 99 }]);
+    expect(useSaveState.getState().flags[BOSS_PENDING_FLAG]).toBe(false);
+    expect(useSaveState.getState().last_boss_attempt_date).toBe(todayIso());
+    expect(scene.scene.pause).toHaveBeenCalled();
+    expect(scene.scene.launch).toHaveBeenCalledWith('CombatScene', { monsterId: 99 });
+    expect(scene.isCombatTriggered()).toBe(true);
+    off();
+  });
+
+  it('boss_pending=false → no auto-launch', () => {
+    const fired = vi.fn();
+    const off = eventBus.on('ENTER_COMBAT', fired);
+    const scene = new WorldScene();
+    scene.create();
+    expect(fired).not.toHaveBeenCalled();
+    expect(scene.isCombatTriggered()).toBe(false);
+    off();
   });
 });
