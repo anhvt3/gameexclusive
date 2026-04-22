@@ -14,6 +14,7 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { createHmacStorage } from './HmacStorage';
 
 export const SAVE_STATE_KEY = 'game_ss3_save_v1';
 export const SCHEMA_VERSION = 1;
@@ -91,7 +92,9 @@ export const useSaveState = create<SaveStateStore>()(
     }),
     {
       name: SAVE_STATE_KEY,
-      storage: createJSONStorage(() => localStorage),
+      // HmacStorage wraps localStorage — signs when SessionKey set,
+      // passes through plain when ephemeral (ISP Step 9.5).
+      storage: createJSONStorage(() => createHmacStorage(localStorage)),
       version: SCHEMA_VERSION,
     }
   )
