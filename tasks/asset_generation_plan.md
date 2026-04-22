@@ -7,21 +7,20 @@
 
 ---
 
-## 🟢 BATCH 1: Khởi tạo Core Game (14 request)
-**Mục tiêu:** Chốt style nhân vật chính, Mascot dẫn truyện và Môi trường cơ bản. (Priority 1)
-- [x] **F.1.1** Wizard male walk spritesheet (1 ảnh)
+## 🟢 BATCH 1: Khởi tạo Core Game (15 request)
+**Mục tiêu:** Chốt style nhân vật chính, Mascot dẫn truyện, Môi trường cơ bản và Quái lửa. (Priority 1)
+- [x] **F.1.x** Wizard male walk spritesheet & 4 Portraits (5 ảnh)
 - [x] **F.2.1** Forest tileset 32x32 (1 ảnh)
-- [x] **Appendix C** Mascot Sóc Guide (C.1 & C.2) (4 ảnh - Greet, Point/Talk, Cheer, Think)
-- [ ] **Appendix A** Monster 1 (Embershed - Fire) (4 ảnh - Idle, Atk, Hit, Faint)
-- [ ] **Appendix A** Monster 2 (Aquament - Water) (4 ảnh - Idle, Atk, Hit, Faint)
+- [x] **Appendix C** Mascot Sóc Guide (4 ảnh - Greet, Talk, Cheer, Think)
+- [x] **Appendix A** Monster 1 (Embershed - Fire) (4 ảnh - Idle, Atk, Hit, Faint)
+- [x] **F.3.1** Forest combat background (1 ảnh)
 
-## 🟡 BATCH 2: Hoàn thiện Quái thú & Khởi tạo UI Core (15 request)
-**Mục tiêu:** Xử lý nốt 3 quái thú còn lại (để phân rã thuộc tính) và khung UI chiến đấu. (Priority 1 + 2)
-- [ ] **Appendix A** Monster 3 (Pebbler - Earth) (4 ảnh)
-- [ ] **Appendix A** Monster 4 (Zapwing - Storm) (4 ảnh)
-- [ ] **Appendix A** Monster 5 (Voidling - Astral) (4 ảnh)
-- [ ] **F.3.1** Forest combat background (1 ảnh)
-- [ ] **F.4.1** HP/MP Bar Frame cơ bản (2 ảnh - state đầy 100%)
+## 🟡 BATCH 2: Hoàn thiện Quái thú & Khởi tạo UI Core (16 request)
+**Mục tiêu:** Xử lý 4 quái starter còn lại và khung UI chiến đấu. (Priority 1 + 2)
+- [ ] **Appendix A** Monster 2 (Tidus - Water) (4 ảnh)
+- [ ] **Appendix A** Monster 3 (Applepot - Plant) (4 ảnh)
+- [ ] **Appendix A** Monster 4 (Frostfang - Ice) (4 ảnh)
+- [ ] **Appendix A** Monster 5 (Voltee - Storm) (4 ảnh)
 
 ## 🟠 BATCH 3: Nút bấm Phép thuật & Khung giao diện chính (14 request)
 **Mục tiêu:** Nút phép UI và các khung nền tĩnh. (Priority 2 + 3)

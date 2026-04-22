@@ -1,24 +1,21 @@
 /**
- * BootScene — ISP v1.1 Step 10 (stub)
+ * BootScene — ISP v1.1 Step 11
  *
- * Minimal placeholder. Step 11 will expand with asset preload pipeline.
+ * First scene: minimal config setup, then transition to PreloadScene.
+ * No asset loads here (PreloadScene handles that with progress bar).
  */
 
 import Phaser from 'phaser';
 
+export const BOOT_SCENE_KEY = 'BootScene';
+
 export class BootScene extends Phaser.Scene {
   constructor() {
-    super('BootScene');
+    super(BOOT_SCENE_KEY);
   }
 
   create(): void {
-    const { width, height } = this.scale;
-    this.add
-      .text(width / 2, height / 2, 'Game_SS3_exclusive\nbooting...', {
-        fontSize: '32px',
-        color: '#ffffff',
-        align: 'center',
-      })
-      .setOrigin(0.5);
+    // Background color is set in game config; nothing to do at boot except transition.
+    this.scene.start('PreloadScene');
   }
 }

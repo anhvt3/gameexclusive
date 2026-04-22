@@ -14,6 +14,8 @@
 import { useEffect, useRef } from 'react';
 import Phaser from 'phaser';
 import { BootScene } from './scenes/BootScene';
+import { PreloadScene } from './scenes/PreloadScene';
+import { WorldScene } from './scenes/WorldScene';
 
 interface Props {
   width?: number;
@@ -38,7 +40,7 @@ export function PhaserGame({ width = 1280, height = 720 }: Props) {
         mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH,
       },
-      scene: [BootScene],
+      scene: [BootScene, PreloadScene, WorldScene],
     });
     gameRef.current = game;
 
