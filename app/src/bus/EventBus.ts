@@ -38,6 +38,16 @@ type EventMap = {
 
 type Unsubscribe = () => void;
 
+/**
+ * Optional error reporter — injected by the observability layer (ISP Step 18.5).
+ * Kept as a module-level slot so EventBus stays pure (no observability import).
+ */
+export type EventBusErrorReporter = (err: unknown, context: { eventType: string }) => void;
+let errorReporter: EventBusErrorReporter | null = null;
+export function setEventBusErrorReporter(reporter: EventBusErrorReporter | null): void {
+  errorReporter = reporter;
+}
+
 class TypedEventBus {
   private emitter: Emitter<EventMap>;
 
@@ -62,7 +72,7 @@ class TypedEventBus {
       this.emitter.emit(type, payload);
     } catch (err) {
       console.error(`[EventBus] Listener error for "${String(type)}":`, err);
-      // TODO Phase 5: report to Sentry
+      errorReporter?.(err, { eventType: String(type) });
     }
   }
 
