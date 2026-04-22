@@ -12,7 +12,7 @@ import Phaser from 'phaser';
 import { Player } from '../entities/Player';
 import { Enemy } from '../entities/Enemy';
 import { STARTER_MONSTERS, type MonsterDef } from '@data/staticConfig/monsters';
-import { eventBus } from '@bus/EventBus';
+import { eventBus, type Unsubscribe } from '@bus/EventBus';
 
 export const WORLD_SCENE_KEY = 'WorldScene';
 export const TILE_SIZE = 32;
@@ -32,6 +32,7 @@ export class WorldScene extends Phaser.Scene {
   private player: Player | null = null;
   private enemies: Enemy[] = [];
   private combatTriggered = false;
+  private exitCombatUnsub: Unsubscribe | null = null;
 
   constructor() {
     super(WORLD_SCENE_KEY);
@@ -51,6 +52,28 @@ export class WorldScene extends Phaser.Scene {
 
     this.player = new Player(this, worldWidth / 2, worldHeight / 2);
     this.registerPlayerEnemyOverlap();
+
+    // Step 17: listen for combat exit — remove defeated enemy, resume scene
+    this.exitCombatUnsub = eventBus.on('EXIT_COMBAT', ({ won, monster_id }) => {
+      if (won && monster_id != null) {
+        this.removeEnemyById(monster_id);
+      }
+      this.combatTriggered = false;
+      this.scene.resume();
+    });
+  }
+
+  shutdown(): void {
+    this.exitCombatUnsub?.();
+    this.exitCombatUnsub = null;
+  }
+
+  private removeEnemyById(monsterId: number): void {
+    const idx = this.enemies.findIndex((e) => e.monsterId === monsterId);
+    if (idx === -1) return;
+    const enemy = this.enemies[idx]!;
+    enemy.sprite.destroy();
+    this.enemies.splice(idx, 1);
   }
 
   update(): void {

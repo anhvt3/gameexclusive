@@ -8,6 +8,7 @@ vi.mock('phaser', () => {
     scene = {
       pause: vi.fn(),
       resume: vi.fn(),
+      stop: vi.fn(),
     };
     add = {
       image: vi.fn().mockReturnValue({
@@ -185,23 +186,26 @@ describe('CombatScene — Step 16 FSM + Quiz integration', () => {
     expect(scene.scene.pause).not.toHaveBeenCalled();
   });
 
-  it('QUIZ_RESULT correct → state RESOLVE_DAMAGE + resume', () => {
+  it('QUIZ_RESULT correct (monster survives) → full round → PLAYER_TURN', () => {
+    // Step 17: after QUIZ_CORRECT flow runs damage → monster alive → monster
+    // retaliates → player alive → PLAYER_TURN. Intermediate states (RESOLVE_DAMAGE,
+    // MONSTER_TURN) are traversed but not observable via getCombatState().
     const scene = new CombatScene();
-    scene.init({ monsterId: 1 });
+    scene.init({ monsterId: 1 }); // Embershed 40 hp
     scene.create();
-    scene.onSpellClick('fire_blast');
+    scene.onSpellClick('fire_blast'); // fire_blast vs Fire = 1.0 mult, max 18 dmg
     eventBus.emit('QUIZ_RESULT', { correct: true, timeSpent: 3, attempts: 1, lo_id: 100001 });
-    expect(scene.getCombatState()).toBe('RESOLVE_DAMAGE');
+    expect(scene.getCombatState()).toBe('PLAYER_TURN');
     expect(scene.scene.resume).toHaveBeenCalledTimes(1);
   });
 
-  it('QUIZ_RESULT wrong → state MONSTER_TURN + resume', () => {
+  it('QUIZ_RESULT wrong → monster retaliates → PLAYER_TURN', () => {
     const scene = new CombatScene();
     scene.init({ monsterId: 1 });
     scene.create();
     scene.onSpellClick('fire_blast');
     eventBus.emit('QUIZ_RESULT', { correct: false, timeSpent: 8, attempts: 1, lo_id: 100001 });
-    expect(scene.getCombatState()).toBe('MONSTER_TURN');
+    expect(scene.getCombatState()).toBe('PLAYER_TURN');
     expect(scene.scene.resume).toHaveBeenCalledTimes(1);
   });
 
@@ -223,5 +227,112 @@ describe('CombatScene — Step 16 FSM + Quiz integration', () => {
     expect(eventBus.getListenerCount()).toBeGreaterThan(before);
     scene.shutdown();
     expect(eventBus.getListenerCount()).toBe(before);
+  });
+});
+
+describe('CombatScene — Step 17 damage resolution + victory/defeat', () => {
+  it('QUIZ_CORRECT applies element-typed damage to monster HP', () => {
+    const scene = new CombatScene();
+    scene.init({ monsterId: 1 }); // Embershed Fire 40hp
+    scene.create();
+    const beforeHp = scene.getMonsterHp();
+    scene.onSpellClick('water_jet'); // Water vs Fire = 2.0 mult
+    eventBus.emit('QUIZ_RESULT', { correct: true, timeSpent: 3, attempts: 1, lo_id: 100001 });
+    const afterHp = scene.getMonsterHp();
+    expect(afterHp).toBeLessThan(beforeHp);
+    expect(afterHp).toBeGreaterThan(0);
+  });
+
+  it('QUIZ_CORRECT updates monster HP bar', () => {
+    const scene = new CombatScene();
+    scene.init({ monsterId: 1 });
+    scene.create();
+    const bar = scene.getMonsterHpBar()!;
+    const before = bar.getCurrent();
+    scene.onSpellClick('water_jet');
+    eventBus.emit('QUIZ_RESULT', { correct: true, timeSpent: 3, attempts: 1, lo_id: 100001 });
+    expect(bar.getCurrent()).toBeLessThan(before);
+  });
+
+  it('QUIZ_WRONG decrements player HP by MONSTER_BASE_POWER (10)', () => {
+    useSaveState.getState().reset();
+    const hpBefore = useSaveState.getState().hp;
+    const scene = new CombatScene();
+    scene.init({ monsterId: 1 });
+    scene.create();
+    scene.onSpellClick('fire_blast');
+    eventBus.emit('QUIZ_RESULT', { correct: false, timeSpent: 8, attempts: 1, lo_id: 100001 });
+    expect(useSaveState.getState().hp).toBe(hpBefore - 10);
+  });
+
+  it('VICTORY when monster HP reaches 0 → emits EXIT_COMBAT won=true with monster_id + exp', () => {
+    const scene = new CombatScene();
+    scene.init({ monsterId: 1 });
+    scene.create();
+    scene.__setMonsterHp(1); // force next hit to kill
+    const exits: Array<{ won: boolean; exp_gained: number; monster_id: number | null }> = [];
+    eventBus.on('EXIT_COMBAT', (p) => exits.push(p));
+    scene.onSpellClick('fire_blast');
+    eventBus.emit('QUIZ_RESULT', { correct: true, timeSpent: 3, attempts: 1, lo_id: 100001 });
+    expect(scene.getCombatState()).toBe('VICTORY');
+    expect(exits).toHaveLength(1);
+    expect(exits[0]!.won).toBe(true);
+    expect(exits[0]!.monster_id).toBe(1);
+    expect(exits[0]!.exp_gained).toBe(40); // embershed baseHp
+  });
+
+  it('VICTORY grants EXP via SaveState.gainExp', () => {
+    useSaveState.getState().reset();
+    const scene = new CombatScene();
+    scene.init({ monsterId: 1 });
+    scene.create();
+    scene.__setMonsterHp(1);
+    const expBefore = useSaveState.getState().exp;
+    scene.onSpellClick('fire_blast');
+    eventBus.emit('QUIZ_RESULT', { correct: true, timeSpent: 3, attempts: 1, lo_id: 100001 });
+    // gainExp(40) with threshold 100 → exp = 40 (no level-up)
+    expect(useSaveState.getState().exp).toBe(expBefore + 40);
+  });
+
+  it('VICTORY stops CombatScene (no resume called)', () => {
+    const scene = new CombatScene();
+    scene.init({ monsterId: 1 });
+    scene.create();
+    scene.__setMonsterHp(1);
+    scene.onSpellClick('fire_blast');
+    eventBus.emit('QUIZ_RESULT', { correct: true, timeSpent: 3, attempts: 1, lo_id: 100001 });
+    expect(scene.scene.stop).toHaveBeenCalledTimes(1);
+    expect(scene.scene.resume).not.toHaveBeenCalled();
+  });
+
+  it('DEFEAT when player HP reaches 0 → emits EXIT_COMBAT won=false', () => {
+    useSaveState.getState().reset();
+    useSaveState.getState().setHp(5); // next monster hit (10 dmg) kills
+    const scene = new CombatScene();
+    scene.init({ monsterId: 1 });
+    scene.create();
+    const exits: Array<{ won: boolean; exp_gained: number; monster_id: number | null }> = [];
+    eventBus.on('EXIT_COMBAT', (p) => exits.push(p));
+    scene.onSpellClick('fire_blast');
+    eventBus.emit('QUIZ_RESULT', { correct: false, timeSpent: 8, attempts: 1, lo_id: 100001 });
+    expect(scene.getCombatState()).toBe('DEFEAT');
+    expect(exits).toHaveLength(1);
+    expect(exits[0]!.won).toBe(false);
+    expect(exits[0]!.exp_gained).toBe(0);
+    expect(exits[0]!.monster_id).toBe(1);
+  });
+
+  it('DEFEAT respawns player (HP=maxHp, position reset) + stops scene', () => {
+    useSaveState.getState().reset();
+    useSaveState.getState().setHp(5);
+    const scene = new CombatScene();
+    scene.init({ monsterId: 1 });
+    scene.create();
+    scene.onSpellClick('fire_blast');
+    eventBus.emit('QUIZ_RESULT', { correct: false, timeSpent: 8, attempts: 1, lo_id: 100001 });
+    const save = useSaveState.getState();
+    expect(save.hp).toBe(save.maxHp);
+    expect(save.position).toEqual({ x: 480, y: 320 }); // WorldScene center
+    expect(scene.scene.stop).toHaveBeenCalledTimes(1);
   });
 });

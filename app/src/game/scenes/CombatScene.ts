@@ -1,14 +1,16 @@
 /**
- * CombatScene — ISP v1.1 Step 14 + Step 16
+ * CombatScene — ISP v1.1 Steps 14 / 16 / 17
  *
  * Step 14: static layout + HP bars.
- * Step 16: FSM + EventBus wiring — spell buttons emit OPEN_QUIZ, listen
- *   QUIZ_RESULT → FSM transition → Phaser scene pause/resume.
+ * Step 16: FSM + EventBus wiring — spell buttons emit OPEN_QUIZ, QUIZ_RESULT
+ *   drives FSM + scene pause/resume.
+ * Step 17: full damage resolution —
+ *   - QUIZ_CORRECT → ElementSystem.calculateDamage → monster HP mutation →
+ *     VICTORY (emit EXIT_COMBAT, gain EXP, stop scene) or MONSTER_TURN.
+ *   - QUIZ_WRONG or survived RESOLVE → monster retaliates flat damage to
+ *     player HP → DEFEAT (emit EXIT_COMBAT, respawn) or PLAYER_TURN.
  *
- * Damage resolution (Step 17) still pending — QUIZ_CORRECT just lands state
- * in RESOLVE_DAMAGE, no HP mutation yet.
- *
- * Launched via scene.launch('CombatScene', {monsterId}) from WorldScene overlap.
+ * Launched via scene.launch('CombatScene', {monsterId}) from WorldScene.
  */
 
 import Phaser from 'phaser';
@@ -16,8 +18,10 @@ import { findMonsterById, type MonsterDef } from '@data/staticConfig/monsters';
 import { useSaveState } from '@persistence/SaveStateStore';
 import { eventBus, type Unsubscribe } from '@bus/EventBus';
 import { nextCombatState, type CombatState } from '@game/systems/CombatStateMachine';
+import { calculateDamage } from '@game/systems/ElementSystem';
 import { loadMockLOs } from '@data/supham/LearningObjectAdapter';
-import type { Grade } from '@data/supham/LearningObjectSchema';
+import type { LearningObject, Grade } from '@data/supham/LearningObjectSchema';
+import type { Element } from '@/types/element';
 import { HpBar } from '../entities/HpBar';
 
 export const COMBAT_SCENE_KEY = 'CombatScene';
@@ -30,14 +34,25 @@ interface SpellDef {
   id: string;
   label: string;
   color: number;
+  element: Element;
+  basePower: number;
 }
 
 const SPELLS: readonly SpellDef[] = [
-  { id: 'fire_blast', label: 'Fire', color: 0xff6633 },
-  { id: 'water_jet', label: 'Water', color: 0x3399ff },
-  { id: 'plant_whip', label: 'Plant', color: 0x66cc66 },
-  { id: 'ice_shard', label: 'Ice', color: 0x99ddff },
+  { id: 'fire_blast', label: 'Fire', color: 0xff6633, element: 'Fire', basePower: 12 },
+  { id: 'water_jet', label: 'Water', color: 0x3399ff, element: 'Water', basePower: 12 },
+  { id: 'plant_whip', label: 'Plant', color: 0x66cc66, element: 'Plant', basePower: 12 },
+  { id: 'ice_shard', label: 'Ice', color: 0x99ddff, element: 'Ice', basePower: 12 },
 ] as const;
+
+// Phase 1 simplification: flat monster attack power. Phase 2 will use a
+// monster.attackPower field + element-typed resolution vs player spell element.
+const MONSTER_BASE_POWER = 10;
+
+// Spawn respawn coords = WorldScene center (MAP_COLS/2 * TILE_SIZE, MAP_ROWS/2 * TILE_SIZE).
+// Duplicated here to avoid cross-scene import; Step 21 main-menu router will consolidate.
+const RESPAWN_X = 480;
+const RESPAWN_Y = 320;
 
 // TODO Step 18: read student grade from SaveState / profile.
 const DEFAULT_GRADE: Grade = 'G5';
@@ -50,9 +65,9 @@ export class CombatScene extends Phaser.Scene {
   private monsterHpBar: HpBar | null = null;
   private saveStateUnsub: (() => void) | null = null;
 
-  // Step 16
   private combatState: CombatState = 'INIT';
   private selectedSpellId: string | null = null;
+  private activeLo: LearningObject | null = null;
   private quizResultUnsub: Unsubscribe | null = null;
 
   constructor() {
@@ -64,6 +79,7 @@ export class CombatScene extends Phaser.Scene {
     this.monsterCurrentHp = this.monsterDef?.baseHp ?? 0;
     this.combatState = 'INIT';
     this.selectedSpellId = null;
+    this.activeLo = null;
   }
 
   create(): void {
@@ -112,7 +128,6 @@ export class CombatScene extends Phaser.Scene {
       this.playerHpBar?.setHp(s.hp, s.maxHp);
     });
 
-    // Step 16: FSM start + spell UI + quiz-result subscription
     this.combatState = nextCombatState(this.combatState, { type: 'START' });
     this.renderSpellButtons();
     this.quizResultUnsub = eventBus.on('QUIZ_RESULT', ({ correct }) =>
@@ -161,11 +176,11 @@ export class CombatScene extends Phaser.Scene {
       this.selectedSpellId = null;
       return;
     }
-    const lo = pool[Math.floor(Math.random() * pool.length)]!;
+    this.activeLo = pool[Math.floor(Math.random() * pool.length)]!;
 
     this.combatState = nextCombatState(this.combatState, { type: 'OPEN_QUIZ' });
     eventBus.emit('OPEN_QUIZ', {
-      lo_id: lo.id,
+      lo_id: this.activeLo.id,
       monster_id: this.monsterDef?.id ?? null,
     });
     this.scene.pause();
@@ -173,10 +188,90 @@ export class CombatScene extends Phaser.Scene {
 
   private handleQuizResult(correct: boolean): void {
     if (this.combatState !== 'QUIZ_GATE') return;
+
     this.combatState = nextCombatState(this.combatState, {
       type: correct ? 'QUIZ_CORRECT' : 'QUIZ_WRONG',
     });
+
+    if (correct) {
+      // state now RESOLVE_DAMAGE — apply player spell damage
+      this.applyPlayerDamage();
+      if (this.combatState === 'VICTORY') {
+        this.handleVictory();
+        return;
+      }
+      // else state = MONSTER_TURN — fall through to monster retaliation
+    }
+
+    // QUIZ_WRONG (MONSTER_TURN) or survived RESOLVE_DAMAGE → resume + monster attacks
     this.scene.resume();
+    this.runMonsterTurn();
+    if (this.combatState === 'DEFEAT') {
+      this.handleDefeat();
+    }
+  }
+
+  private applyPlayerDamage(): void {
+    if (!this.selectedSpellId || !this.monsterDef || !this.activeLo) return;
+    const spell = SPELLS.find((s) => s.id === this.selectedSpellId);
+    if (!spell) return;
+
+    const difficulty = parseInt(
+      this.activeLo.learning_object_difficulty.learning_object_difficulty_name,
+      10
+    );
+    const dmg = calculateDamage(
+      spell.basePower,
+      spell.element,
+      this.monsterDef.element,
+      difficulty,
+      false
+    );
+    this.monsterCurrentHp = Math.max(0, this.monsterCurrentHp - dmg);
+    this.monsterHpBar?.setHp(this.monsterCurrentHp, this.monsterDef.baseHp);
+    this.combatState = nextCombatState(this.combatState, {
+      type: 'DAMAGE_APPLIED',
+      side: 'monster',
+      remainingHp: this.monsterCurrentHp,
+    });
+  }
+
+  private runMonsterTurn(): void {
+    this.combatState = nextCombatState(this.combatState, { type: 'MONSTER_ACT' });
+    this.combatState = nextCombatState(this.combatState, { type: 'HIT_RESOLVED' });
+    const save = useSaveState.getState();
+    const newHp = Math.max(0, save.hp - MONSTER_BASE_POWER);
+    save.setHp(newHp);
+    this.combatState = nextCombatState(this.combatState, {
+      type: 'DAMAGE_APPLIED',
+      side: 'player',
+      remainingHp: newHp,
+    });
+  }
+
+  private handleVictory(): void {
+    const exp = this.monsterDef?.baseHp ?? 0;
+    const monsterId = this.monsterDef?.id ?? null;
+    useSaveState.getState().gainExp(exp);
+    eventBus.emit('EXIT_COMBAT', {
+      won: true,
+      exp_gained: exp,
+      monster_id: monsterId,
+    });
+    this.scene.stop();
+  }
+
+  private handleDefeat(): void {
+    const monsterId = this.monsterDef?.id ?? null;
+    const save = useSaveState.getState();
+    save.setHp(save.maxHp);
+    save.setPosition(RESPAWN_X, RESPAWN_Y);
+    eventBus.emit('EXIT_COMBAT', {
+      won: false,
+      exp_gained: 0,
+      monster_id: monsterId,
+    });
+    this.scene.stop();
   }
 
   shutdown(): void {
@@ -208,5 +303,12 @@ export class CombatScene extends Phaser.Scene {
   }
   getSelectedSpellId(): string | null {
     return this.selectedSpellId;
+  }
+  /** Test-only: force monster HP to a specific value (for setting up VICTORY path). */
+  __setMonsterHp(hp: number): void {
+    this.monsterCurrentHp = hp;
+    if (this.monsterDef) {
+      this.monsterHpBar?.setHp(hp, this.monsterDef.baseHp);
+    }
   }
 }

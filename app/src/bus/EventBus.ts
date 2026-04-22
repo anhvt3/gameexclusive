@@ -26,7 +26,10 @@ export type GameEvent =
       payload: { correct: boolean; timeSpent: number; attempts: number; lo_id?: number };
     }
   | { type: 'ENTER_COMBAT'; payload: { monster_id: number } }
-  | { type: 'EXIT_COMBAT'; payload: { won: boolean; exp_gained: number } };
+  | {
+      type: 'EXIT_COMBAT';
+      payload: { won: boolean; exp_gained: number; monster_id: number | null };
+    };
 
 // Strip `type` field and map to payload type
 type EventMap = {

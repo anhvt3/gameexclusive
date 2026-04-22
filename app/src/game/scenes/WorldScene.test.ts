@@ -5,7 +5,7 @@ vi.mock('phaser', () => {
   class MockScene {
     scale = { width: 1280, height: 720 };
     cameras = { main: { setBackgroundColor: vi.fn() } };
-    scene = { pause: vi.fn(), launch: vi.fn() };
+    scene = { pause: vi.fn(), resume: vi.fn(), launch: vi.fn() };
     physics = {
       world: { setBounds: vi.fn() },
       add: {
@@ -113,5 +113,66 @@ describe('WorldScene — Step 13 monster spawn + overlap', () => {
 
     expect(fires).toHaveBeenCalledTimes(1);
     off();
+  });
+});
+
+describe('WorldScene — Step 17 EXIT_COMBAT integration', () => {
+  it('EXIT_COMBAT won=true removes enemy matching monster_id', () => {
+    const scene = new WorldScene();
+    scene.create();
+    const target = scene.getEnemies()[0]!;
+    const initialCount = scene.getEnemies().length;
+
+    eventBus.emit('EXIT_COMBAT', {
+      won: true,
+      exp_gained: target.monsterId,
+      monster_id: target.monsterId,
+    });
+
+    expect(scene.getEnemies()).toHaveLength(initialCount - 1);
+    expect(scene.getEnemies().find((e) => e.monsterId === target.monsterId)).toBeUndefined();
+  });
+
+  it('EXIT_COMBAT won=false keeps enemies intact', () => {
+    const scene = new WorldScene();
+    scene.create();
+    const target = scene.getEnemies()[0]!;
+    const initialCount = scene.getEnemies().length;
+
+    eventBus.emit('EXIT_COMBAT', {
+      won: false,
+      exp_gained: 0,
+      monster_id: target.monsterId,
+    });
+
+    expect(scene.getEnemies()).toHaveLength(initialCount);
+  });
+
+  it('EXIT_COMBAT resumes scene + clears combatTriggered', () => {
+    const scene = new WorldScene();
+    scene.create();
+    // Simulate combat trigger first
+    const callback = (scene.physics.add.overlap as unknown as { mock: { calls: unknown[][] } }).mock
+      .calls[0]![2] as (p: unknown, e: unknown) => void;
+    callback(scene.getPlayer()!.sprite, scene.getEnemies()[0]!.sprite);
+    expect(scene.isCombatTriggered()).toBe(true);
+
+    eventBus.emit('EXIT_COMBAT', {
+      won: true,
+      exp_gained: 40,
+      monster_id: scene.getEnemies()[0]!.monsterId,
+    });
+
+    expect(scene.scene.resume).toHaveBeenCalled();
+    expect(scene.isCombatTriggered()).toBe(false);
+  });
+
+  it('shutdown() unsubscribes EXIT_COMBAT (no leak)', () => {
+    const before = eventBus.getListenerCount();
+    const scene = new WorldScene();
+    scene.create();
+    expect(eventBus.getListenerCount()).toBeGreaterThan(before);
+    scene.shutdown();
+    expect(eventBus.getListenerCount()).toBe(before);
   });
 });
