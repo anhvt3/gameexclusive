@@ -17,10 +17,10 @@
 
 ## 🟡 BATCH 2: Hoàn thiện Quái thú & Khởi tạo UI Core (16 request)
 **Mục tiêu:** Xử lý 4 quái starter còn lại và khung UI chiến đấu. (Priority 1 + 2)
-- [ ] **Appendix A** Monster 2 (Tidus - Water) (4 ảnh)
-- [ ] **Appendix A** Monster 3 (Applepot - Plant) (4 ảnh)
-- [ ] **Appendix A** Monster 4 (Frostfang - Ice) (4 ảnh)
-- [ ] **Appendix A** Monster 5 (Voltee - Storm) (4 ảnh)
+- [x] **Appendix A** Monster 2 (Tidus - Water) (4 ảnh)
+- [x] **Appendix A** Monster 3 (Applepot - Plant) (4 ảnh)
+- [x] **Appendix A** Monster 4 (Frostfang - Ice) (4 ảnh)
+- [x] **Appendix A** Monster 5 (Voltee - Storm) (4 ảnh)
 
 ## 🟠 BATCH 3: Nút bấm Phép thuật & Khung giao diện chính (14 request)
 **Mục tiêu:** Nút phép UI và các khung nền tĩnh. (Priority 2 + 3)
