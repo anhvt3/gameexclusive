@@ -44,7 +44,8 @@ export default tseslint.config(
         {
           zones: [
             // Layer 1 React cannot import Layer 2 Phaser engine
-            { target: './src/react', from: './src/game', message: '[Harness AP 3.1] src/react/** KHÔNG được import src/game/**. React là UI shell, Phaser là engine. Giao tiếp qua EventBus.' },
+            // Exception: PhaserGame.tsx is the explicit bridge component (AP 3.1 allows 1 bridge)
+            { target: './src/react', from: './src/game', except: ['./PhaserGame.tsx'], message: '[Harness AP 3.1] src/react/** KHÔNG được import src/game/** (trừ PhaserGame.tsx bridge). Giao tiếp qua EventBus.' },
             // Layer 2 Phaser cannot import Layer 1 React
             { target: './src/game', from: './src/react', message: '[Harness AP 3.1] src/game/** KHÔNG được import src/react/**. Phaser scene không phụ thuộc UI.' },
             // Bus is pure
