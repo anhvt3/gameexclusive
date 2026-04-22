@@ -56,6 +56,13 @@ export function MainMenu() {
         >
           Tiếp tục
         </button>
+        <button
+          type="button"
+          onClick={() => navigate('/guild')}
+          className="w-full rounded-xl bg-stone-100 px-6 py-3 text-base font-semibold text-amber-800 shadow transition hover:bg-stone-200"
+        >
+          Bảng xếp hạng lớp
+        </button>
         <div className="flex gap-3">
           <button
             type="button"

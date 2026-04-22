@@ -11,6 +11,7 @@ function renderMenu(initialPath = '/') {
       <Routes>
         <Route path="/" element={<MainMenu />} />
         <Route path="/play" element={<div data-testid="play-screen">PLAY</div>} />
+        <Route path="/guild" element={<div data-testid="guild-screen">GUILD</div>} />
       </Routes>
     </MemoryRouter>
   );
@@ -64,5 +65,11 @@ describe('MainMenu — WF1', () => {
     renderMenu();
     expect(screen.getByRole('button', { name: /Cài đặt/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /Giới thiệu/i })).toBeDisabled();
+  });
+
+  it('"Bảng xếp hạng lớp" navigates to /guild', () => {
+    renderMenu();
+    fireEvent.click(screen.getByRole('button', { name: /Bảng xếp hạng lớp/i }));
+    expect(screen.getByTestId('guild-screen')).toBeInTheDocument();
   });
 });
