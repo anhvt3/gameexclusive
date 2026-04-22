@@ -1,0 +1,51 @@
+{
+  "total": 2,
+  "list": [
+    {
+      "id": 300001,
+      "learning_object_code": "L4E_1832_CLOZE_PRESENT_01",
+      "learning_object_name": "Điền từ — Thì hiện tại đơn",
+      "short_name": "Cloze present simple",
+      "grade_name": "G4",
+      "subject_name": "KEN",
+      "learning_object_difficulty": { "learning_object_difficulty_name": "2" },
+      "quiz_type_id": 1,
+      "question_text": "She ___(1)___ to school every day and ___(2)___ her homework at 5pm.",
+      "blanks": [
+        {
+          "id": 1,
+          "correct_answer": "goes",
+          "alternatives": ["goes", "Goes"],
+          "hint": "verb — present simple, 3rd person singular"
+        },
+        {
+          "id": 2,
+          "correct_answer": "does",
+          "alternatives": ["does", "Does"],
+          "hint": "verb — present simple, 3rd person singular"
+        }
+      ],
+      "case_sensitive": false,
+      "time_limit_sec": 60,
+      "min_time_sec": 5
+    },
+    {
+      "id": 300002,
+      "learning_object_code": "L4E_1832_CLOZE_NOUN_01",
+      "learning_object_name": "Điền từ — Danh từ",
+      "short_name": "Cloze nouns",
+      "grade_name": "G4",
+      "subject_name": "KEN",
+      "learning_object_difficulty": { "learning_object_difficulty_name": "1" },
+      "quiz_type_id": 1,
+      "question_text": "I have two ___(1)___ and one ___(2)___.",
+      "blanks": [
+        { "id": 1, "correct_answer": "cats", "alternatives": ["cats"], "hint": "noun plural" },
+        { "id": 2, "correct_answer": "dog", "alternatives": ["dog"], "hint": "noun singular" }
+      ],
+      "case_sensitive": false,
+      "time_limit_sec": 45,
+      "min_time_sec": 4
+    }
+  ]
+}

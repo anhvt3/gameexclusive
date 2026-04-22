@@ -1,0 +1,22 @@
+{
+  "total": 1,
+  "list": [
+    {
+      "id": 310001,
+      "learning_object_code": "MATH_G7_EQUATION_LINEAR_01",
+      "learning_object_name": "Giải phương trình bậc nhất",
+      "short_name": "PT bậc nhất",
+      "grade_name": "G7",
+      "subject_name": "Math",
+      "learning_object_difficulty": { "learning_object_difficulty_name": "3" },
+      "quiz_type_id": 1,
+      "question_text": "Giải: 2x + 5 = 13 → x = ___(1)___",
+      "blanks": [
+        { "id": 1, "correct_answer": "4", "alternatives": ["4", "4.0", "+4"], "hint": "số nguyên" }
+      ],
+      "case_sensitive": false,
+      "time_limit_sec": 90,
+      "min_time_sec": 8
+    }
+  ]
+}

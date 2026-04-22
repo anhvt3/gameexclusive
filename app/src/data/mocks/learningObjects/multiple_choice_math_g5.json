@@ -1,0 +1,68 @@
+{
+  "total": 3,
+  "list": [
+    {
+      "id": 100001,
+      "learning_object_code": "MATH_G5_FRAC_ADD_01",
+      "learning_object_name": "Cộng hai phân số khác mẫu số — Ví dụ 1",
+      "short_name": "Cộng phân số khác mẫu",
+      "grade_name": "G5",
+      "subject_name": "Math",
+      "learning_object_difficulty": { "learning_object_difficulty_name": "2" },
+      "quiz_type_id": 3,
+      "question_text": "Kết quả của 1/2 + 1/4 = ?",
+      "options": [
+        { "id": "a", "text": "1/6" },
+        { "id": "b", "text": "3/4" },
+        { "id": "c", "text": "2/6" },
+        { "id": "d", "text": "1/8" }
+      ],
+      "correct_option_id": "b",
+      "explanation": "1/2 = 2/4, nên 2/4 + 1/4 = 3/4",
+      "time_limit_sec": 60,
+      "min_time_sec": 3
+    },
+    {
+      "id": 100002,
+      "learning_object_code": "MATH_G5_FRAC_ADD_02",
+      "learning_object_name": "Cộng hai phân số khác mẫu số — Ví dụ 2",
+      "short_name": "Cộng phân số khác mẫu",
+      "grade_name": "G5",
+      "subject_name": "Math",
+      "learning_object_difficulty": { "learning_object_difficulty_name": "3" },
+      "quiz_type_id": 3,
+      "question_text": "2/3 + 1/6 = ?",
+      "options": [
+        { "id": "a", "text": "3/9" },
+        { "id": "b", "text": "5/6" },
+        { "id": "c", "text": "3/6" },
+        { "id": "d", "text": "1/2" }
+      ],
+      "correct_option_id": "b",
+      "explanation": "2/3 = 4/6, nên 4/6 + 1/6 = 5/6",
+      "time_limit_sec": 60,
+      "min_time_sec": 3
+    },
+    {
+      "id": 100003,
+      "learning_object_code": "MATH_G5_GEO_AREA_PARALLELOGRAM",
+      "learning_object_name": "Diện tích hình bình hành",
+      "short_name": "Diện tích HBH",
+      "grade_name": "G5",
+      "subject_name": "Math",
+      "learning_object_difficulty": { "learning_object_difficulty_name": "3" },
+      "quiz_type_id": 3,
+      "question_text": "Hình bình hành có đáy 8 cm và chiều cao 5 cm. Diện tích bằng?",
+      "options": [
+        { "id": "a", "text": "13 cm²" },
+        { "id": "b", "text": "40 cm²" },
+        { "id": "c", "text": "26 cm²" },
+        { "id": "d", "text": "20 cm²" }
+      ],
+      "correct_option_id": "b",
+      "explanation": "S = đáy × chiều cao = 8 × 5 = 40 cm²",
+      "time_limit_sec": 90,
+      "min_time_sec": 5
+    }
+  ]
+}

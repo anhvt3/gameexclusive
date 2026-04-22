@@ -1,0 +1,47 @@
+{
+  "total": 2,
+  "list": [
+    {
+      "id": 200001,
+      "learning_object_code": "L4E_1833_GRAM_TENSE_01",
+      "learning_object_name": "Thì hiện tại đơn — Trắc nghiệm",
+      "short_name": "Present simple MC",
+      "grade_name": "G8",
+      "subject_name": "KEN",
+      "learning_object_difficulty": { "learning_object_difficulty_name": "2" },
+      "quiz_type_id": 3,
+      "question_text": "Choose the correct form: She ___ to school every day.",
+      "options": [
+        { "id": "a", "text": "go" },
+        { "id": "b", "text": "goes" },
+        { "id": "c", "text": "going" },
+        { "id": "d", "text": "gone" }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Chủ ngữ She (third person singular) → động từ thêm -s/-es",
+      "time_limit_sec": 45,
+      "min_time_sec": 2
+    },
+    {
+      "id": 200002,
+      "learning_object_code": "L4E_1833_GRAM_TENSE_02",
+      "learning_object_name": "Thì hiện tại đơn — Trắc nghiệm 2",
+      "short_name": "Present simple MC",
+      "grade_name": "G8",
+      "subject_name": "KEN",
+      "learning_object_difficulty": { "learning_object_difficulty_name": "1" },
+      "quiz_type_id": 3,
+      "question_text": "They ___ football every Sunday.",
+      "options": [
+        { "id": "a", "text": "plays" },
+        { "id": "b", "text": "play" },
+        { "id": "c", "text": "played" },
+        { "id": "d", "text": "playing" }
+      ],
+      "correct_option_id": "b",
+      "explanation": "They + bare verb",
+      "time_limit_sec": 45,
+      "min_time_sec": 2
+    }
+  ]
+}

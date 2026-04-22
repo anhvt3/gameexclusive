@@ -1,0 +1,39 @@
+{
+  "total": 1,
+  "list": [
+    {
+      "id": 400001,
+      "learning_object_code": "L4E_1833_DD_POS_01",
+      "learning_object_name": "Phân loại danh từ và động từ",
+      "short_name": "Parts of speech DD",
+      "grade_name": "G6",
+      "subject_name": "KEN",
+      "learning_object_difficulty": { "learning_object_difficulty_name": "2" },
+      "quiz_type_id": 8,
+      "question_text": "Kéo các từ sau vào ô phù hợp:",
+      "drop_zones": [
+        {
+          "id": "nouns",
+          "label": "Danh từ (Noun)",
+          "capacity": 3,
+          "correct_items": ["apple", "book", "tree"]
+        },
+        {
+          "id": "verbs",
+          "label": "Động từ (Verb)",
+          "capacity": 2,
+          "correct_items": ["run", "jump"]
+        }
+      ],
+      "draggable_items": [
+        { "id": "run", "text": "run" },
+        { "id": "apple", "text": "apple" },
+        { "id": "jump", "text": "jump" },
+        { "id": "book", "text": "book" },
+        { "id": "tree", "text": "tree" }
+      ],
+      "time_limit_sec": 90,
+      "min_time_sec": 10
+    }
+  ]
+}

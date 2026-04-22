@@ -87,13 +87,18 @@ function checkClevaiTerminology() {
   }
 
   // Recursively walk src/ — find .ts/.tsx files
+  // Skip test files + __tests__/ dirs + mocks/ (test fixtures use Clevai subject codes as string values, not logic)
   const files: string[] = [];
   function walk(dir: string) {
     for (const name of readdirSync(dir)) {
       const full = join(dir, name);
       const st = statSync(full);
-      if (st.isDirectory() && name !== 'node_modules') walk(full);
-      else if (/\.(ts|tsx)$/.test(name)) files.push(full);
+      if (st.isDirectory()) {
+        if (name === 'node_modules' || name === '__tests__' || name === 'mocks') continue;
+        walk(full);
+      } else if (/\.(ts|tsx)$/.test(name) && !/\.(test|spec)\.(ts|tsx)$/.test(name)) {
+        files.push(full);
+      }
     }
   }
   walk(SRC_DIR);

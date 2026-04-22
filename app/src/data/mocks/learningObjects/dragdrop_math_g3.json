@@ -1,0 +1,30 @@
+{
+  "total": 1,
+  "list": [
+    {
+      "id": 410001,
+      "learning_object_code": "MATH_G3_SORT_ODD_EVEN",
+      "learning_object_name": "Phân loại số chẵn lẻ",
+      "short_name": "Chẵn lẻ DD",
+      "grade_name": "G3",
+      "subject_name": "Math",
+      "learning_object_difficulty": { "learning_object_difficulty_name": "1" },
+      "quiz_type_id": 8,
+      "question_text": "Kéo các số vào nhóm đúng:",
+      "drop_zones": [
+        { "id": "even", "label": "Số chẵn", "capacity": 3, "correct_items": ["2", "4", "8"] },
+        { "id": "odd", "label": "Số lẻ", "capacity": 3, "correct_items": ["1", "5", "7"] }
+      ],
+      "draggable_items": [
+        { "id": "1", "text": "1" },
+        { "id": "2", "text": "2" },
+        { "id": "4", "text": "4" },
+        { "id": "5", "text": "5" },
+        { "id": "7", "text": "7" },
+        { "id": "8", "text": "8" }
+      ],
+      "time_limit_sec": 60,
+      "min_time_sec": 6
+    }
+  ]
+}
