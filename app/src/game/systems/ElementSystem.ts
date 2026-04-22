@@ -13,18 +13,10 @@
  * Damage formula: power × multiplier × (1 + difficulty/10) × (crit ? 1.5 : 1.0)
  */
 
-export const ELEMENTS = [
-  'Fire',
-  'Water',
-  'Earth',
-  'Ice',
-  'Storm',
-  'Plant',
-  'Shadow',
-  'Astral',
-] as const;
+export { ELEMENTS } from '@/types/element';
+export type { Element } from '@/types/element';
 
-export type Element = (typeof ELEMENTS)[number];
+import { ELEMENTS, type Element } from '@/types/element';
 
 /**
  * Rock-paper-scissors matrix. Value = damage multiplier from attacker to defender.

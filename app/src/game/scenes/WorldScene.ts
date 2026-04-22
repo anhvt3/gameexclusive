@@ -1,29 +1,45 @@
 /**
- * WorldScene — ISP v1.1 Step 12
+ * WorldScene — ISP v1.1 Step 13 (expansion)
  *
- * Top-down world map. Phase 1 uses placeholder checkerboard instead of real
- * tilemap (real tileset forest_tileset_256.png pending Antigravity Batch 1).
+ * Top-down world map, placeholder checkerboard background.
+ * Spawns 5 starter monsters at hard-coded positions.
+ * Player overlap with any enemy → emit ENTER_COMBAT + pause scene.
  *
- * Player spawns at center, WASD movement with world bounds collision.
- * When real tileset arrives, replace `drawPlaceholderGrid` with `this.make.tilemap(...)`.
+ * Tilemap from Tiled editor is Step 14+ — pending real tileset asset.
  */
 
 import Phaser from 'phaser';
 import { Player } from '../entities/Player';
+import { Enemy } from '../entities/Enemy';
+import { STARTER_MONSTERS, type MonsterDef } from '@data/staticConfig/monsters';
+import { eventBus } from '@bus/EventBus';
 
 export const WORLD_SCENE_KEY = 'WorldScene';
 export const TILE_SIZE = 32;
 export const MAP_COLS = 30;
 export const MAP_ROWS = 20;
 
+/** Hard-coded spawn positions for Phase 1 (grid coords × TILE_SIZE). */
+const SPAWN_POSITIONS: Array<{ col: number; row: number }> = [
+  { col: 5, row: 4 },
+  { col: 24, row: 4 },
+  { col: 5, row: 15 },
+  { col: 24, row: 15 },
+  { col: 15, row: 3 },
+];
+
 export class WorldScene extends Phaser.Scene {
   private player: Player | null = null;
+  private enemies: Enemy[] = [];
+  private combatTriggered = false;
 
   constructor() {
     super(WORLD_SCENE_KEY);
   }
 
   create(): void {
+    this.combatTriggered = false;
+    this.enemies = [];
     const worldWidth = MAP_COLS * TILE_SIZE;
     const worldHeight = MAP_ROWS * TILE_SIZE;
 
@@ -31,19 +47,39 @@ export class WorldScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, worldWidth, worldHeight);
 
     this.drawPlaceholderGrid(worldWidth, worldHeight);
+    this.spawnEnemies();
 
-    // Spawn player at center of map
     this.player = new Player(this, worldWidth / 2, worldHeight / 2);
+    this.registerPlayerEnemyOverlap();
   }
 
   update(): void {
     this.player?.update();
   }
 
-  /**
-   * TEMPORARY — placeholder checkerboard until real tileset lands.
-   * Replace with `this.make.tilemap({ key: 'forest_01' })` + layer load.
-   */
+  private spawnEnemies(): void {
+    const defs = STARTER_MONSTERS.slice(0, SPAWN_POSITIONS.length);
+    defs.forEach((def: MonsterDef, i: number) => {
+      const pos = SPAWN_POSITIONS[i]!;
+      const x = pos.col * TILE_SIZE + TILE_SIZE / 2;
+      const y = pos.row * TILE_SIZE + TILE_SIZE / 2;
+      this.enemies.push(new Enemy(this, x, y, def));
+    });
+  }
+
+  private registerPlayerEnemyOverlap(): void {
+    if (!this.player) return;
+    const enemySprites = this.enemies.map((e) => e.sprite);
+    this.physics.add.overlap(this.player.sprite, enemySprites, (_player, enemySprite) => {
+      if (this.combatTriggered) return;
+      const enemy = (enemySprite as Phaser.GameObjects.Rectangle).getData('enemy') as Enemy;
+      if (!enemy) return;
+      this.combatTriggered = true;
+      eventBus.emit('ENTER_COMBAT', { monster_id: enemy.monsterId });
+      this.scene.pause();
+    });
+  }
+
   private drawPlaceholderGrid(worldWidth: number, worldHeight: number): void {
     for (let y = 0; y < MAP_ROWS; y++) {
       for (let x = 0; x < MAP_COLS; x++) {
@@ -57,7 +93,6 @@ export class WorldScene extends Phaser.Scene {
         );
       }
     }
-    // Dev marker for world size debugging
     this.add
       .text(worldWidth - 8, worldHeight - 8, `${MAP_COLS}×${MAP_ROWS} placeholder`, {
         fontSize: '10px',
@@ -68,5 +103,14 @@ export class WorldScene extends Phaser.Scene {
 
   getPlayer(): Player | null {
     return this.player;
+  }
+
+  getEnemies(): Enemy[] {
+    return this.enemies;
+  }
+
+  /** Test-only helper: expose combat state. */
+  isCombatTriggered(): boolean {
+    return this.combatTriggered;
   }
 }

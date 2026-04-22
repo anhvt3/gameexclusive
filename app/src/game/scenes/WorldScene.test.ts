@@ -1,22 +1,36 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { eventBus } from '@bus/EventBus';
 
 vi.mock('phaser', () => {
   class MockScene {
     scale = { width: 1280, height: 720 };
     cameras = { main: { setBackgroundColor: vi.fn() } };
+    scene = { pause: vi.fn() };
     physics = {
       world: { setBounds: vi.fn() },
-      add: { existing: vi.fn() },
+      add: {
+        existing: vi.fn(),
+        overlap: vi.fn(),
+      },
     };
     add = {
-      rectangle: vi.fn().mockReturnValue({
-        body: {
-          setVelocity: vi.fn(),
-          setVelocityX: vi.fn(),
-          setVelocityY: vi.fn(),
-          setCollideWorldBounds: vi.fn(),
-        },
-        destroy: vi.fn(),
+      rectangle: vi.fn().mockImplementation(() => {
+        const rect: Record<string, unknown> = {
+          body: {
+            setVelocity: vi.fn(),
+            setVelocityX: vi.fn(),
+            setVelocityY: vi.fn(),
+            setCollideWorldBounds: vi.fn(),
+            setImmovable: vi.fn(),
+          },
+          destroy: vi.fn(),
+          _data: {} as Record<string, unknown>,
+        };
+        rect.setData = vi.fn((k: string, v: unknown) => {
+          (rect._data as Record<string, unknown>)[k] = v;
+        });
+        rect.getData = vi.fn((k: string) => (rect._data as Record<string, unknown>)[k]);
+        return rect;
       }),
       text: vi.fn().mockReturnValue({ setOrigin: vi.fn().mockReturnThis() }),
     };
@@ -35,55 +49,69 @@ vi.mock('phaser', () => {
   return { default: { Scene: MockScene } };
 });
 
-const { WorldScene, WORLD_SCENE_KEY, TILE_SIZE, MAP_COLS, MAP_ROWS } = await import('./WorldScene');
+const { WorldScene, MAP_COLS, MAP_ROWS } = await import('./WorldScene');
 
-describe('WorldScene — Step 12 placeholder', () => {
-  it('scene key = "WorldScene"', () => {
-    expect(WORLD_SCENE_KEY).toBe('WorldScene');
-  });
+beforeEach(() => {
+  eventBus.clear();
+});
 
-  it('exports map constants (30 cols × 20 rows × 32px)', () => {
-    expect(MAP_COLS).toBe(30);
-    expect(MAP_ROWS).toBe(20);
-    expect(TILE_SIZE).toBe(32);
-  });
-
-  it('create() sets camera background + physics world bounds', () => {
+describe('WorldScene — Step 13 monster spawn + overlap', () => {
+  it('create() spawns 5 enemies', () => {
     const scene = new WorldScene();
     scene.create();
-    expect(scene.cameras.main.setBackgroundColor).toHaveBeenCalledWith('#2a5a3a');
-    expect(scene.physics.world.setBounds).toHaveBeenCalledWith(
-      0,
-      0,
-      MAP_COLS * TILE_SIZE,
-      MAP_ROWS * TILE_SIZE
-    );
+    expect(scene.getEnemies()).toHaveLength(5);
   });
 
-  it('create() draws checkerboard placeholder (30×20 = 600 rectangles + 1 player)', () => {
+  it('create() spawns exactly 606 rectangles (600 tiles + 5 enemies + 1 player)', () => {
     const scene = new WorldScene();
     scene.create();
-    // 600 placeholder tiles + 1 player rect = 601
-    expect(scene.add.rectangle).toHaveBeenCalledTimes(MAP_COLS * MAP_ROWS + 1);
+    expect(scene.add.rectangle).toHaveBeenCalledTimes(MAP_COLS * MAP_ROWS + 5 + 1);
   });
 
-  it('create() spawns Player at world center', () => {
+  it('registers physics.add.overlap(player, enemies[])', () => {
     const scene = new WorldScene();
     scene.create();
-    expect(scene.getPlayer()).not.toBeNull();
+    expect(scene.physics.add.overlap).toHaveBeenCalledTimes(1);
+    const call = (scene.physics.add.overlap as unknown as { mock: { calls: unknown[][] } }).mock
+      .calls[0]!;
+    expect(Array.isArray(call[1])).toBe(true);
+    expect((call[1] as unknown[]).length).toBe(5);
   });
 
-  it('update() calls player.update when player exists', () => {
+  it('overlap callback → emit ENTER_COMBAT with monster_id + pause scene', () => {
     const scene = new WorldScene();
+    const received: Array<{ monster_id: number }> = [];
+    const off = eventBus.on('ENTER_COMBAT', (p) => received.push(p));
+
     scene.create();
-    const player = scene.getPlayer()!;
-    const spy = vi.spyOn(player, 'update');
-    scene.update();
-    expect(spy).toHaveBeenCalled();
+    const overlapCall = (scene.physics.add.overlap as unknown as { mock: { calls: unknown[][] } })
+      .mock.calls[0]!;
+    const callback = overlapCall[2] as (p: unknown, e: unknown) => void;
+    const enemies = scene.getEnemies();
+    const enemySprite = enemies[0]!.sprite;
+
+    callback(scene.getPlayer()!.sprite, enemySprite);
+
+    expect(received).toHaveLength(1);
+    expect(received[0]?.monster_id).toBe(enemies[0]!.monsterId);
+    expect(scene.scene.pause).toHaveBeenCalled();
+    expect(scene.isCombatTriggered()).toBe(true);
+    off();
   });
 
-  it('update() no-op when player null (safety)', () => {
+  it('second overlap (already triggered) → no duplicate event', () => {
     const scene = new WorldScene();
-    expect(() => scene.update()).not.toThrow();
+    const fires = vi.fn();
+    const off = eventBus.on('ENTER_COMBAT', fires);
+
+    scene.create();
+    const callback = (scene.physics.add.overlap as unknown as { mock: { calls: unknown[][] } }).mock
+      .calls[0]![2] as (p: unknown, e: unknown) => void;
+    const enemySprite = scene.getEnemies()[0]!.sprite;
+    callback(scene.getPlayer()!.sprite, enemySprite);
+    callback(scene.getPlayer()!.sprite, enemySprite);
+
+    expect(fires).toHaveBeenCalledTimes(1);
+    off();
   });
 });
