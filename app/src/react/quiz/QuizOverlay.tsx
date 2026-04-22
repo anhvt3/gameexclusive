@@ -1,0 +1,70 @@
+/**
+ * QuizOverlay — ISP v1.1 Step 8
+ *
+ * Event-driven React container that:
+ *   - Mounts at app root, subscribes to OPEN_QUIZ on mount
+ *   - Resolves lo_id → LearningObject via adapter
+ *   - Renders QuizFactory fullscreen overlay over Phaser canvas
+ *   - On child submit: emits QUIZ_RESULT (includes lo_id) → hides overlay
+ *   - Cleanup on unmount (AP 7.4 leak prevention)
+ *
+ * CSS: fixed inset-0, backdrop blur, centered content. Phase 1 fade defer (CSS-only).
+ */
+
+import { useEffect, useState } from 'react';
+import { eventBus } from '@bus/EventBus';
+import { findLOById } from '@data/supham/LearningObjectAdapter';
+import type { LearningObject } from '@data/supham/LearningObjectSchema';
+import { QuizFactory, type QuizResult } from './QuizFactory';
+
+export function QuizOverlay() {
+  const [activeLO, setActiveLO] = useState<LearningObject | null>(null);
+
+  useEffect(() => {
+    const off = eventBus.on('OPEN_QUIZ', ({ lo_id }) => {
+      const lo = findLOById(lo_id);
+      if (!lo) {
+        console.warn(`[QuizOverlay] OPEN_QUIZ received unknown lo_id=${lo_id}`);
+        return;
+      }
+      setActiveLO(lo);
+    });
+    return off;
+  }, []);
+
+  if (!activeLO) return null;
+
+  const handleSubmit = (result: QuizResult) => {
+    const loId = activeLO.id;
+    setActiveLO(null);
+    eventBus.emit('QUIZ_RESULT', {
+      correct: result.isCorrect,
+      timeSpent: result.timeSpent,
+      attempts: 1,
+      lo_id: loId,
+    });
+  };
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Câu hỏi"
+      className="quiz-overlay fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+    >
+      <div className="quiz-panel w-full max-w-2xl rounded-xl bg-white p-6 shadow-2xl">
+        <div className="quiz-header mb-4 flex items-center justify-between border-b pb-2">
+          <div>
+            <span className="subject-tag rounded bg-orange-100 px-2 py-1 text-xs font-semibold text-orange-700">
+              {activeLO.subject_name} · {activeLO.grade_name}
+            </span>
+          </div>
+          <div className="text-xs text-gray-500">
+            Độ khó {activeLO.learning_object_difficulty.learning_object_difficulty_name}/5
+          </div>
+        </div>
+        <QuizFactory lo={activeLO} onSubmit={handleSubmit} />
+      </div>
+    </div>
+  );
+}

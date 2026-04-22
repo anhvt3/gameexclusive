@@ -54,3 +54,8 @@ export function loadMockLOs(quizTypeId: number, grade: Grade): LearningObject[] 
 export function getMockLOCount(): number {
   return ALL_LOS.length;
 }
+
+/** Find a single LO by id — used when EventBus carries lo_id only. */
+export function findLOById(id: number): LearningObject | null {
+  return ALL_LOS.find((lo) => lo.id === id) ?? null;
+}

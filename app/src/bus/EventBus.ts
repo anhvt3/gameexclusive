@@ -21,7 +21,10 @@ import type { Emitter, Handler } from 'mitt';
 // Discriminated union — extend in ISP Step 1
 export type GameEvent =
   | { type: 'OPEN_QUIZ'; payload: { lo_id: number; monster_id: number | null } }
-  | { type: 'QUIZ_RESULT'; payload: { correct: boolean; timeSpent: number; attempts: number } }
+  | {
+      type: 'QUIZ_RESULT';
+      payload: { correct: boolean; timeSpent: number; attempts: number; lo_id?: number };
+    }
   | { type: 'ENTER_COMBAT'; payload: { monster_id: number } }
   | { type: 'EXIT_COMBAT'; payload: { won: boolean; exp_gained: number } };
 
