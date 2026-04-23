@@ -24,9 +24,22 @@ import type { LearningObject, Grade } from '@data/supham/LearningObjectSchema';
 import type { Element } from '@/types/element';
 import { BOSS_HP_SCALE, BOSS_VICTORY_EXP } from '@domain/BossQuest';
 import { rollDrop } from '@domain/LevelUpReward';
+import { computeEffectiveStats } from '@domain/EffectiveStats';
 import { ITEM_REGISTRY } from '@data/staticConfig/items';
 import type { InventoryItem } from '@/types/item';
 import { HpBar } from '../entities/HpBar';
+
+/**
+ * Combat RNG seam — tests swap this via __setCombatRng so crit-chance
+ * rolls stay deterministic without leaking scene internals.
+ */
+let _combatRng: () => number = Math.random;
+export function __setCombatRng(fn: () => number): void {
+  _combatRng = fn;
+}
+export function __resetCombatRng(): void {
+  _combatRng = Math.random;
+}
 
 export const COMBAT_SCENE_KEY = 'CombatScene';
 
@@ -124,7 +137,10 @@ export class CombatScene extends Phaser.Scene {
     this.add.sprite(playerX, playerY, 'wizard_walk', 4).setScale(2);
 
     const state = useSaveState.getState();
-    this.playerHpBar = new HpBar(this, playerX, playerY + 90, state.hp, state.maxHp);
+    // AP §11.3 / Step 22.10 — player bar reads effective max (base + equip maxHp).
+    const effectiveMax = (s: typeof state) =>
+      s.maxHp + computeEffectiveStats(s.equipment, s.inventory, ITEM_REGISTRY).maxHpDelta;
+    this.playerHpBar = new HpBar(this, playerX, playerY + 90, state.hp, effectiveMax(state));
     this.monsterHpBar = new HpBar(
       this,
       monsterX,
@@ -134,7 +150,7 @@ export class CombatScene extends Phaser.Scene {
     );
 
     this.saveStateUnsub = useSaveState.subscribe((s) => {
-      this.playerHpBar?.setHp(s.hp, s.maxHp);
+      this.playerHpBar?.setHp(s.hp, effectiveMax(s));
     });
 
     this.combatState = nextCombatState(this.combatState, { type: 'START' });
@@ -229,13 +245,21 @@ export class CombatScene extends Phaser.Scene {
       this.activeLo.learning_object_difficulty.learning_object_difficulty_name,
       10
     );
-    const dmg = calculateDamage(
+
+    // AP §11.3 CL7 — equipment modifiers: crit roll + per-element damage bump.
+    const save = useSaveState.getState();
+    const stats = computeEffectiveStats(save.equipment, save.inventory, ITEM_REGISTRY);
+    const isCrit = _combatRng() < stats.critChancePct / 100;
+    const elementBonusPct = stats.spellDamagePct[spell.element] ?? 0;
+    const base = calculateDamage(
       spell.basePower,
       spell.element,
       this.monsterDef.element,
       difficulty,
-      false
+      isCrit
     );
+    const dmg = Math.round(base * (1 + elementBonusPct / 100));
+
     this.monsterCurrentHp = Math.max(0, this.monsterCurrentHp - dmg);
     this.monsterHpBar?.setHp(this.monsterCurrentHp, this.monsterMaxHp);
     this.combatState = nextCombatState(this.combatState, {

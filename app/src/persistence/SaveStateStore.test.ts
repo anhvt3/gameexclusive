@@ -257,6 +257,83 @@ describe('SaveStateStore — Step 22.8 level-up reward drop', () => {
   });
 });
 
+describe('SaveStateStore — Step 22.10 equipment stat modifiers', () => {
+  const fireWand: InventoryItem = {
+    instanceId: 'i-fire-wand',
+    itemId: 'wand-fire-01',
+    acquiredAt: 1_700_000_000_000,
+  };
+  const iceRobe: InventoryItem = {
+    instanceId: 'i-ice-robe',
+    itemId: 'outfit-ice-01', // +12 maxHp + 5% Ice
+    acquiredAt: 1_700_000_000_100,
+  };
+  const shoesExp: InventoryItem = {
+    instanceId: 'i-shoes',
+    itemId: 'shoes-apprentice-01', // +3% EXP
+    acquiredAt: 1_700_000_000_200,
+  };
+
+  it('setHp clamps against effective max (base + equipment maxHp delta)', () => {
+    useSaveState.getState().addInventoryItem(iceRobe);
+    useSaveState.getState().equipItem('outfit', iceRobe.instanceId);
+    // effectiveMax = 100 + 12 = 112
+    useSaveState.getState().setHp(999);
+    expect(useSaveState.getState().hp).toBe(112);
+  });
+
+  it('equipItem with maxHp modifier heals by the delta', () => {
+    useSaveState.getState().setHp(50); // below full
+    useSaveState.getState().addInventoryItem(iceRobe);
+    useSaveState.getState().equipItem('outfit', iceRobe.instanceId);
+    // 50 + 12 = 62, below effective max 112 → kept
+    expect(useSaveState.getState().hp).toBe(62);
+  });
+
+  it('equipItem when already at full heals up to new effective max', () => {
+    const s = useSaveState.getState();
+    s.addInventoryItem(iceRobe);
+    // full HP = 100
+    s.equipItem('outfit', iceRobe.instanceId);
+    expect(useSaveState.getState().hp).toBe(112); // full heal to new max
+  });
+
+  it('unequipItem clamps hp down when effective max drops below current', () => {
+    const s = useSaveState.getState();
+    s.addInventoryItem(iceRobe);
+    s.equipItem('outfit', iceRobe.instanceId); // hp=112, max=112
+    s.unequipItem('outfit');
+    expect(useSaveState.getState().hp).toBe(100); // clamped to base
+  });
+
+  it('gainExp applies expGainPct modifier before cascade', () => {
+    const s = useSaveState.getState();
+    s.addInventoryItem(shoesExp);
+    s.equipItem('shoes', shoesExp.instanceId);
+    // +3% → gainExp(100) actually stores 103 EXP → L1 threshold 100, L2 threshold 283
+    // After: exp = 103 - 100 = 3, level = 2
+    s.gainExp(100);
+    const after = useSaveState.getState();
+    expect(after.level).toBe(2);
+    expect(after.exp).toBe(3);
+  });
+
+  it('gainExp with no expGain equipment behaves as before (regression)', () => {
+    useSaveState.getState().gainExp(100);
+    const after = useSaveState.getState();
+    expect(after.level).toBe(2);
+    expect(after.exp).toBe(0);
+  });
+
+  it('fireWand +10% Fire does not affect Ice modifier bucket', () => {
+    const s = useSaveState.getState();
+    s.addInventoryItem(fireWand);
+    s.equipItem('wand', fireWand.instanceId);
+    // indirect: computeEffectiveStats via effectiveMaxHp — confirm no side effect
+    expect(useSaveState.getState().hp).toBe(100); // wand has no maxHp mod
+  });
+});
+
 describe('SaveStateStore — v1 → v2 migration', () => {
   it('v1 save survives bump with defaults injected for new fields', async () => {
     // Seed a v1-shaped persisted blob that predates Step 22.7

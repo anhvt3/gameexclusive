@@ -28,6 +28,7 @@ import {
 } from '@/types/item';
 import { ITEM_REGISTRY } from '@data/staticConfig/items';
 import { rollDrop } from '@domain/LevelUpReward';
+import { computeEffectiveStats } from '@domain/EffectiveStats';
 import { eventBus } from '@bus/EventBus';
 
 export const SAVE_STATE_KEY = 'game_ss3_save_v1';
@@ -116,6 +117,16 @@ function clamp(value: number, min: number, max: number): number {
   return value;
 }
 
+/**
+ * Read-side helper — returns the effective maxHp (base + equipment
+ * maxHp deltas). Exported so CombatScene + HpBar can hit the same
+ * canonical source without duplicating the CL7 fold.
+ */
+export function effectiveMaxHp(state: SaveStateData): number {
+  const stats = computeEffectiveStats(state.equipment, state.inventory, ITEM_REGISTRY);
+  return state.maxHp + stats.maxHpDelta;
+}
+
 /** Additive migration v1 → v2 — inject inventory/equipment/lastLevelUpAt when absent. */
 function migrate(persisted: unknown, version: number): SaveStateData {
   const base = (
@@ -141,15 +152,24 @@ export const useSaveState = create<SaveStateStore>()(
     (set, get) => ({
       ...INITIAL_STATE,
 
-      setHp: (value) => set((state) => ({ hp: clamp(value, 0, state.maxHp) })),
+      setHp: (value) => set((state) => ({ hp: clamp(value, 0, effectiveMaxHp(state)) })),
 
       setMp: (value) => set((state) => ({ mp: clamp(value, 0, state.maxMp) })),
 
       gainExp: (amount) => {
         if (amount <= 0) return;
-        const startLevel = get().level;
-        let { exp, level } = get();
-        exp += amount;
+        const currentState = get();
+        const stats = computeEffectiveStats(
+          currentState.equipment,
+          currentState.inventory,
+          ITEM_REGISTRY
+        );
+        // AP §11.3 CL7 — expGain modifier scales incoming EXP before
+        // the level-up cascade rolls.
+        const scaledAmount = Math.floor(amount * (1 + stats.expGainPct / 100));
+        const startLevel = currentState.level;
+        let { exp, level } = currentState;
+        exp += scaledAmount;
         let threshold = thresholdForLevel(level);
         // Drops collected per level crossed (AP §11.2 CL6bis).
         const grants: Array<{
@@ -213,13 +233,23 @@ export const useSaveState = create<SaveStateStore>()(
         // AP §11.1: each ItemDef is locked to one slot. The caller is responsible
         // for matching, but guard here so a UI bug can't silently misfile an item.
         // (ItemDef lookup lives in data layer — we only have instanceId + itemId here.)
-        set({ equipment: { ...state.equipment, [slot]: instanceId } });
+        const maxBefore = effectiveMaxHp(state);
+        const nextEquipment = { ...state.equipment, [slot]: instanceId };
+        const maxAfter = effectiveMaxHp({ ...state, equipment: nextEquipment });
+        const hpDelta = maxAfter - maxBefore;
+        // AP §11.3 / ISP 22.10 — heal on equip when the swap raises max HP.
+        // Keep hp when max shrinks until the next clamp (setHp) catches it.
+        const nextHp =
+          hpDelta > 0 ? Math.min(state.hp + hpDelta, maxAfter) : Math.min(state.hp, maxAfter);
+        set({ equipment: nextEquipment, hp: nextHp });
       },
 
       unequipItem: (slot) => {
-        const current = get().equipment[slot];
-        if (current === null) return; // AP E13: noop
-        set((state) => ({ equipment: { ...state.equipment, [slot]: null } }));
+        const state = get();
+        if (state.equipment[slot] === null) return; // AP E13: noop
+        const nextEquipment = { ...state.equipment, [slot]: null };
+        const maxAfter = effectiveMaxHp({ ...state, equipment: nextEquipment });
+        set({ equipment: nextEquipment, hp: Math.min(state.hp, maxAfter) });
       },
 
       reset: () => set({ ...INITIAL_STATE, equipment: { ...EMPTY_EQUIPMENT } }),

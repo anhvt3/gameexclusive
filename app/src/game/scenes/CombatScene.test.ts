@@ -230,6 +230,106 @@ describe('CombatScene — Step 16 FSM + Quiz integration', () => {
   });
 });
 
+describe('CombatScene — Step 22.10 equipment stat modifiers in combat', () => {
+  it('equipping wand-fire-01 (+10% Fire) deals more damage vs same monster', async () => {
+    const mod = await import('./CombatScene');
+    mod.__resetCombatRng();
+    mod.__setCombatRng(() => 1); // never crit
+    // Pin Math.random so both scenes pick the same LO (same difficulty).
+    const rngSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
+
+    // baseline: no equipment, fire_blast vs Embershed (Fire 40hp)
+    const baselineScene = new mod.CombatScene();
+    baselineScene.init({ monsterId: 1 });
+    baselineScene.create();
+    const baselineStart = baselineScene.getMonsterHp();
+    baselineScene.onSpellClick('fire_blast');
+    eventBus.emit('QUIZ_RESULT', { correct: true, timeSpent: 1, attempts: 1, lo_id: 100001 });
+    const baselineAfter = baselineScene.getMonsterHp();
+    const baselineDmg = baselineStart - baselineAfter;
+
+    // equipped: same, but with +10% Fire wand
+    eventBus.clear();
+    useSaveState.getState().reset();
+    const fireWand = {
+      instanceId: 'i-fw',
+      itemId: 'wand-fire-01',
+      acquiredAt: 1,
+    };
+    useSaveState.getState().addInventoryItem(fireWand);
+    useSaveState.getState().equipItem('wand', fireWand.instanceId);
+
+    const equippedScene = new mod.CombatScene();
+    equippedScene.init({ monsterId: 1 });
+    equippedScene.create();
+    const equippedStart = equippedScene.getMonsterHp();
+    equippedScene.onSpellClick('fire_blast');
+    eventBus.emit('QUIZ_RESULT', { correct: true, timeSpent: 1, attempts: 1, lo_id: 100001 });
+    const equippedAfter = equippedScene.getMonsterHp();
+    const equippedDmg = equippedStart - equippedAfter;
+
+    expect(equippedDmg).toBeGreaterThan(baselineDmg);
+    rngSpy.mockRestore();
+    mod.__resetCombatRng();
+  });
+
+  it('crit roll rng=0 → damage uses isCrit=true (×1.5)', async () => {
+    const mod = await import('./CombatScene');
+    // Guarantee crit by forcing rng=0 AND setting crit chance via hat-storm-01
+    useSaveState.getState().reset();
+    const stormHat = {
+      instanceId: 'i-sh',
+      itemId: 'hat-storm-01',
+      acquiredAt: 1,
+    };
+    useSaveState.getState().addInventoryItem(stormHat);
+    useSaveState.getState().equipItem('hat', stormHat.instanceId);
+    mod.__setCombatRng(() => 0); // always crit
+
+    const scene = new mod.CombatScene();
+    scene.init({ monsterId: 1 });
+    scene.create();
+    const start = scene.getMonsterHp();
+    scene.onSpellClick('fire_blast');
+    eventBus.emit('QUIZ_RESULT', { correct: true, timeSpent: 1, attempts: 1, lo_id: 100001 });
+    const critDmg = start - scene.getMonsterHp();
+
+    // Non-crit reference with rng forced to 1 (never crit) and no hat
+    eventBus.clear();
+    useSaveState.getState().reset();
+    mod.__setCombatRng(() => 1);
+    const plain = new mod.CombatScene();
+    plain.init({ monsterId: 1 });
+    plain.create();
+    const startPlain = plain.getMonsterHp();
+    plain.onSpellClick('fire_blast');
+    eventBus.emit('QUIZ_RESULT', { correct: true, timeSpent: 1, attempts: 1, lo_id: 100001 });
+    const plainDmg = startPlain - plain.getMonsterHp();
+
+    expect(critDmg).toBeGreaterThan(plainDmg);
+    mod.__resetCombatRng();
+  });
+
+  it('playerHpBar uses effective max (base + equipment maxHp delta)', async () => {
+    const mod = await import('./CombatScene');
+    useSaveState.getState().reset();
+    const iceRobe = {
+      instanceId: 'i-ir',
+      itemId: 'outfit-ice-01', // +12 maxHp
+      acquiredAt: 1,
+    };
+    useSaveState.getState().addInventoryItem(iceRobe);
+    useSaveState.getState().equipItem('outfit', iceRobe.instanceId);
+    const scene = new mod.CombatScene();
+    scene.init({ monsterId: 1 });
+    scene.create();
+    const bar = scene.getPlayerHpBar()!;
+    // HpBar exposes getCurrent — inspect internal max via re-setHp behaviour
+    useSaveState.getState().setHp(112);
+    expect(bar.getCurrent()).toBe(112); // clamped against effectiveMax=112, not base 100
+  });
+});
+
 describe('CombatScene — Step 17 damage resolution + victory/defeat', () => {
   it('QUIZ_CORRECT applies element-typed damage to monster HP', () => {
     const scene = new CombatScene();
