@@ -51,15 +51,23 @@ export const CombatCompletedEventSchema = BaseFields.extend({
   duration_ms: z.number().nonnegative(),
 });
 
+export const LevelUpEventSchema = BaseFields.extend({
+  type: z.literal('level_up'),
+  new_level: z.number().int().positive(),
+  granted_item_id: z.string().nullable(),
+});
+
 export const GameStreamEventSchema = z.discriminatedUnion('type', [
   QuizAnsweredEventSchema,
   CombatStartedEventSchema,
   CombatCompletedEventSchema,
+  LevelUpEventSchema,
 ]);
 
 export type QuizAnsweredEvent = z.infer<typeof QuizAnsweredEventSchema>;
 export type CombatStartedEvent = z.infer<typeof CombatStartedEventSchema>;
 export type CombatCompletedEvent = z.infer<typeof CombatCompletedEventSchema>;
+export type LevelUpEvent = z.infer<typeof LevelUpEventSchema>;
 export type GameStreamEvent = z.infer<typeof GameStreamEventSchema>;
 
 interface EventStreamSchema extends Record<string, unknown> {
@@ -95,6 +103,8 @@ export type AppendInput =
   | (Omit<CombatStartedEvent, 'idempotencyKey' | 'ts'> &
       Partial<Pick<GameStreamEvent, 'idempotencyKey' | 'ts'>>)
   | (Omit<CombatCompletedEvent, 'idempotencyKey' | 'ts'> &
+      Partial<Pick<GameStreamEvent, 'idempotencyKey' | 'ts'>>)
+  | (Omit<LevelUpEvent, 'idempotencyKey' | 'ts'> &
       Partial<Pick<GameStreamEvent, 'idempotencyKey' | 'ts'>>);
 
 export type AppendResult =

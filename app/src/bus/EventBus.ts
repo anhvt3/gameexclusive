@@ -29,6 +29,10 @@ export type GameEvent =
   | {
       type: 'EXIT_COMBAT';
       payload: { won: boolean; exp_gained: number; monster_id: number | null };
+    }
+  | {
+      type: 'LEVEL_UP';
+      payload: { newLevel: number; grantedItemId: string | null };
     };
 
 // Strip `type` field and map to payload type

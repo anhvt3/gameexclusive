@@ -1,16 +1,27 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   useSaveState,
   thresholdForLevel,
   SAVE_STATE_KEY,
   SCHEMA_VERSION,
   InvalidEquipError,
+  __setLevelUpRng,
+  __resetLevelUpRng,
 } from './SaveStateStore';
 import { EMPTY_EQUIPMENT, type InventoryItem } from '@/types/item';
+import { eventBus } from '@bus/EventBus';
 
 beforeEach(() => {
   localStorage.clear();
   useSaveState.getState().reset();
+  eventBus.clear();
+  // Force a deterministic drop (first eligible item) so gainExp tests
+  // that cross thresholds don't flake on Math.random.
+  __setLevelUpRng(() => 0);
+});
+
+afterEach(() => {
+  __resetLevelUpRng();
 });
 
 describe('thresholdForLevel (AP CL6)', () => {
@@ -193,6 +204,56 @@ describe('SaveStateStore — Step 22.7 inventory + equipment (v2)', () => {
     const s = useSaveState.getState();
     expect(s.inventory).toEqual([]);
     expect(s.equipment).toEqual(EMPTY_EQUIPMENT);
+  });
+});
+
+describe('SaveStateStore — Step 22.8 level-up reward drop', () => {
+  it('gainExp without crossing threshold → no inventory grant, no LEVEL_UP', () => {
+    const seen: Array<{ newLevel: number; grantedItemId: string | null }> = [];
+    eventBus.on('LEVEL_UP', (p) => seen.push(p));
+    useSaveState.getState().gainExp(50);
+    expect(useSaveState.getState().inventory).toEqual([]);
+    expect(seen).toEqual([]);
+  });
+
+  it('gainExp crossing one threshold → 1 item granted, 1 LEVEL_UP emitted', () => {
+    const seen: Array<{ newLevel: number; grantedItemId: string | null }> = [];
+    eventBus.on('LEVEL_UP', (p) => seen.push(p));
+    useSaveState.getState().gainExp(100); // L1 → L2
+    const s = useSaveState.getState();
+    expect(s.level).toBe(2);
+    expect(s.inventory).toHaveLength(1);
+    expect(seen).toHaveLength(1);
+    expect(seen[0]!.newLevel).toBe(2);
+    expect(seen[0]!.grantedItemId).toBe(s.inventory[0]!.itemId);
+    expect(s.lastLevelUpAt).not.toBeNull();
+  });
+
+  it('multi-level jump grants one item per level crossed', () => {
+    const seen: Array<{ newLevel: number; grantedItemId: string | null }> = [];
+    eventBus.on('LEVEL_UP', (p) => seen.push(p));
+    useSaveState.getState().gainExp(1000); // L1 → ~L3 or L4
+    const s = useSaveState.getState();
+    expect(s.level).toBeGreaterThanOrEqual(3);
+    expect(s.inventory.length).toBe(s.level - 1);
+    expect(seen).toHaveLength(s.level - 1);
+    // Levels strictly increasing and matching the final level
+    expect(seen.map((g) => g.newLevel)).toEqual(
+      Array.from({ length: s.level - 1 }, (_, i) => i + 2)
+    );
+  });
+
+  it('inventory items receive unique instanceIds', () => {
+    useSaveState.getState().gainExp(2000);
+    const ids = useSaveState.getState().inventory.map((i) => i.instanceId);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('rng=0 deterministically picks first eligible item', () => {
+    useSaveState.getState().gainExp(100);
+    // At level 2, filterByLevel includes minLevel ≤ 2: all L1/L2 items.
+    // First eligible in registry order is 'hat-apprentice-01'.
+    expect(useSaveState.getState().inventory[0]!.itemId).toBe('hat-apprentice-01');
   });
 });
 

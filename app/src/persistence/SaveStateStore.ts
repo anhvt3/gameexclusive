@@ -26,6 +26,9 @@ import {
   type EquipmentSlot,
   type InventoryItem,
 } from '@/types/item';
+import { ITEM_REGISTRY } from '@data/staticConfig/items';
+import { rollDrop } from '@domain/LevelUpReward';
+import { eventBus } from '@bus/EventBus';
 
 export const SAVE_STATE_KEY = 'game_ss3_save_v1';
 export const SCHEMA_VERSION = 2;
@@ -39,6 +42,25 @@ export class InvalidEquipError extends Error {
     super(message);
     this.name = 'InvalidEquipError';
   }
+}
+
+/**
+ * Level-up RNG seam — tests swap the underlying rng via __setLevelUpRng
+ * so drop rolls stay deterministic without exposing the store internals.
+ */
+let _rng: () => number = Math.random;
+export function __setLevelUpRng(fn: () => number): void {
+  _rng = fn;
+}
+export function __resetLevelUpRng(): void {
+  _rng = Math.random;
+}
+
+function genInstanceId(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+  return `inst_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
 export interface SaveStateData {
@@ -125,15 +147,51 @@ export const useSaveState = create<SaveStateStore>()(
 
       gainExp: (amount) => {
         if (amount <= 0) return;
+        const startLevel = get().level;
         let { exp, level } = get();
         exp += amount;
         let threshold = thresholdForLevel(level);
+        // Drops collected per level crossed (AP §11.2 CL6bis).
+        const grants: Array<{
+          newLevel: number;
+          itemId: string | null;
+          instance: InventoryItem | null;
+        }> = [];
         while (exp >= threshold) {
           exp -= threshold;
           level += 1;
+          const dropped = rollDrop({ pool: ITEM_REGISTRY, level, rng: _rng });
+          if (dropped) {
+            const instance: InventoryItem = {
+              instanceId: genInstanceId(),
+              itemId: dropped.id,
+              acquiredAt: Date.now(),
+            };
+            grants.push({ newLevel: level, itemId: dropped.id, instance });
+          } else {
+            // AP E14 — empty drop pool for this level. Level still awarded.
+            console.warn(`[SaveState] LEVEL_UP ${level}: no eligible items in pool`);
+            grants.push({ newLevel: level, itemId: null, instance: null });
+          }
           threshold = thresholdForLevel(level);
         }
-        set({ exp, level });
+        const newInstances = grants
+          .map((g) => g.instance)
+          .filter((i): i is InventoryItem => i !== null);
+        set((state) => ({
+          exp,
+          level,
+          inventory:
+            newInstances.length > 0 ? [...state.inventory, ...newInstances] : state.inventory,
+          lastLevelUpAt: level > startLevel ? Date.now() : state.lastLevelUpAt,
+        }));
+        // Emit after commit so listeners see the updated inventory.
+        for (const grant of grants) {
+          eventBus.emit('LEVEL_UP', {
+            newLevel: grant.newLevel,
+            grantedItemId: grant.itemId,
+          });
+        }
       },
 
       setPosition: (x, y) => set({ position: { x, y } }),

@@ -75,9 +75,22 @@ export function wireEventStream(): Unsubscribe {
     );
   });
 
+  const offLevelUp = eventBus.on('LEVEL_UP', ({ newLevel, grantedItemId }) => {
+    const ts = tsAt();
+    queue = queue.then(() =>
+      appendEvent({
+        type: 'level_up',
+        ts,
+        new_level: newLevel,
+        granted_item_id: grantedItemId,
+      }).catch((err) => console.error('[eventStreamBridge] level_up append failed:', err))
+    );
+  });
+
   return () => {
     offQuiz();
     offEnter();
     offExit();
+    offLevelUp();
   };
 }

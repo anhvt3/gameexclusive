@@ -99,8 +99,21 @@ describe('eventStreamBridge — persists runtime events', () => {
   it('cleanup unsubscribes all listeners', () => {
     const before = eventBus.getListenerCount();
     const off = wireEventStream();
-    expect(eventBus.getListenerCount()).toBe(before + 3);
+    expect(eventBus.getListenerCount()).toBe(before + 4);
     off();
     expect(eventBus.getListenerCount()).toBe(before);
+  });
+
+  it('LEVEL_UP appends level_up event with new_level + granted_item_id', async () => {
+    const off = wireEventStream();
+    eventBus.emit('LEVEL_UP', { newLevel: 3, grantedItemId: 'hat-fire-01' });
+    eventBus.emit('LEVEL_UP', { newLevel: 4, grantedItemId: null });
+    await flush();
+    // by-type index order isn't guaranteed — sort by ts to match emit order.
+    const events = (await readEventsByType('level_up')).slice().sort((a, b) => a.ts - b.ts);
+    expect(events).toHaveLength(2);
+    expect(events[0]).toMatchObject({ new_level: 3, granted_item_id: 'hat-fire-01' });
+    expect(events[1]).toMatchObject({ new_level: 4, granted_item_id: null });
+    off();
   });
 });

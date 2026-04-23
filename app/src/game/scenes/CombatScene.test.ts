@@ -336,6 +336,19 @@ describe('CombatScene — Step 17 damage resolution + victory/defeat', () => {
     expect(scene.getMonsterMaxHp()).toBe(40);
   });
 
+  it('boss victory grants a guaranteed inventory item (Step 22.8 retrofit)', () => {
+    const scene = new CombatScene();
+    scene.init({ monsterId: 99 });
+    scene.create();
+    scene.__setMonsterHp(1);
+    const before = useSaveState.getState().inventory.length;
+    scene.onSpellClick('fire_blast');
+    eventBus.emit('QUIZ_RESULT', { correct: true, timeSpent: 3, attempts: 1, lo_id: 100001 });
+    // Boss path: guaranteed rollDrop call + any level-up cascade drops from 500 EXP.
+    const after = useSaveState.getState().inventory.length;
+    expect(after).toBeGreaterThan(before);
+  });
+
   it('VICTORY vs boss grants 500 EXP (flat) instead of baseHp', () => {
     const scene = new CombatScene();
     scene.init({ monsterId: 99 });

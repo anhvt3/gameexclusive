@@ -23,6 +23,9 @@ import { loadMockLOs } from '@data/supham/LearningObjectAdapter';
 import type { LearningObject, Grade } from '@data/supham/LearningObjectSchema';
 import type { Element } from '@/types/element';
 import { BOSS_HP_SCALE, BOSS_VICTORY_EXP } from '@domain/BossQuest';
+import { rollDrop } from '@domain/LevelUpReward';
+import { ITEM_REGISTRY } from '@data/staticConfig/items';
+import type { InventoryItem } from '@/types/item';
 import { HpBar } from '../entities/HpBar';
 
 export const COMBAT_SCENE_KEY = 'CombatScene';
@@ -257,10 +260,32 @@ export class CombatScene extends Phaser.Scene {
 
   private handleVictory(): void {
     // Boss victory pays a flat BOSS_VICTORY_EXP (Step 22.6); normal monsters
-    // pay their baseHp. Item reward hooks in once Step 22.8 lands.
+    // pay their baseHp. After Step 22.8, bosses ALSO grant one guaranteed
+    // item on top of any level-up drops the EXP cascade produces.
     const exp = this.monsterDef?.is_boss ? BOSS_VICTORY_EXP : (this.monsterDef?.baseHp ?? 0);
     const monsterId = this.monsterDef?.id ?? null;
-    useSaveState.getState().gainExp(exp);
+    const store = useSaveState.getState();
+    store.gainExp(exp);
+    if (this.monsterDef?.is_boss) {
+      // Guaranteed drop uses the player's NEW level so the reward scales.
+      const level = useSaveState.getState().level;
+      const dropped = rollDrop({ pool: ITEM_REGISTRY, level });
+      if (dropped) {
+        const instance: InventoryItem = {
+          instanceId:
+            typeof crypto !== 'undefined' && 'randomUUID' in crypto
+              ? crypto.randomUUID()
+              : `inst_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
+          itemId: dropped.id,
+          acquiredAt: Date.now(),
+        };
+        useSaveState.getState().addInventoryItem(instance);
+        eventBus.emit('LEVEL_UP', {
+          newLevel: level,
+          grantedItemId: dropped.id,
+        });
+      }
+    }
     eventBus.emit('EXIT_COMBAT', {
       won: true,
       exp_gained: exp,
