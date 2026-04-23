@@ -1,14 +1,25 @@
 import 'fake-indexeddb/auto';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { initAppLifecycle } from './appLifecycle';
+import { initAppLifecycle, AUDIO_MUTED_FLAG } from './appLifecycle';
 import { eventBus } from '@bus/EventBus';
 import { readMetricsQueue, clearMetricsQueue } from '@/observability/metrics';
 import { __resetSentryForTests } from '@/observability/sentry';
 import { clearEventStream } from '@/events/EventStreamStore';
+import { audioManager } from '@/utils/AudioManager';
+import { useSaveState } from '@persistence/SaveStateStore';
 
 vi.mock('@sentry/react', () => ({
   init: vi.fn(),
   captureException: vi.fn(),
+}));
+
+vi.mock('howler', () => ({
+  Howl: class {
+    play = vi.fn();
+    stop = vi.fn();
+    mute = vi.fn();
+    constructor(_opts: unknown) {}
+  },
 }));
 
 beforeEach(async () => {
@@ -16,6 +27,9 @@ beforeEach(async () => {
   clearMetricsQueue();
   __resetSentryForTests();
   await clearEventStream();
+  audioManager.__reset();
+  localStorage.clear();
+  useSaveState.getState().reset();
   vi.unstubAllEnvs();
   vi.spyOn(console, 'info').mockImplementation(() => {});
   vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -61,5 +75,34 @@ describe('initAppLifecycle — shell wiring', () => {
     eventBus.emit('ENTER_COMBAT', { monster_id: 1 });
     expect(readMetricsQueue().some((e) => e.name === 'combat_started')).toBe(true);
     handle.teardown();
+  });
+
+  it('starts map BGM on init', () => {
+    const handle = initAppLifecycle();
+    expect(audioManager.getCurrentBgmKey()).toBe('map');
+    handle.teardown();
+  });
+
+  it('syncs mute flag from SaveState.flags.audio_muted on init', () => {
+    useSaveState.getState().setFlag(AUDIO_MUTED_FLAG, true);
+    const handle = initAppLifecycle();
+    expect(audioManager.getMuted()).toBe(true);
+    handle.teardown();
+  });
+
+  it('ENTER_COMBAT → combat BGM, EXIT_COMBAT → map BGM', () => {
+    const handle = initAppLifecycle();
+    eventBus.emit('ENTER_COMBAT', { monster_id: 1 });
+    expect(audioManager.getCurrentBgmKey()).toBe('combat');
+    eventBus.emit('EXIT_COMBAT', { won: true, exp_gained: 40, monster_id: 1 });
+    expect(audioManager.getCurrentBgmKey()).toBe('map');
+    handle.teardown();
+  });
+
+  it('teardown stops BGM', () => {
+    const handle = initAppLifecycle();
+    expect(audioManager.getCurrentBgmKey()).toBe('map');
+    handle.teardown();
+    expect(audioManager.getCurrentBgmKey()).toBeNull();
   });
 });

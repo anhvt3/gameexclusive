@@ -23,6 +23,7 @@
   "dependencies": {
     "@sentry/react": "^10.49.0",
     "fake-indexeddb": "^6.2.5",
+    "howler": "^2.2.4",
     "idb": "^8.0.3",
     "mitt": "^3.0.1",
     "phaser": "^3.90.0",
@@ -38,6 +39,7 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
+    "@types/howler": "^2.2.12",
     "@types/node": "^24.12.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

@@ -15,6 +15,7 @@ import { useEffect, useState } from 'react';
 import { eventBus } from '@bus/EventBus';
 import { findLOById } from '@data/supham/LearningObjectAdapter';
 import type { LearningObject } from '@data/supham/LearningObjectSchema';
+import { audioManager } from '@/utils/AudioManager';
 import { QuizFactory, type QuizResult } from './QuizFactory';
 
 export function QuizOverlay() {
@@ -37,6 +38,8 @@ export function QuizOverlay() {
   const handleSubmit = (result: QuizResult) => {
     const loId = activeLO.id;
     setActiveLO(null);
+    // ISP 22.11 — auditory feedback for right/wrong.
+    audioManager.playSfx(result.isCorrect ? 'correct' : 'wrong');
     eventBus.emit('QUIZ_RESULT', {
       correct: result.isCorrect,
       timeSpent: result.timeSpent,
