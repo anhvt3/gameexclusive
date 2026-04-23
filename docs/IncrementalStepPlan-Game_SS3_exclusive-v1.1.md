@@ -81,7 +81,26 @@
 | **22.9** | **Inventory UI + Equip/Unequip screen** | 4h | ⏳ NEW v1.1 |
 | **22.10** | **Equipment stat modifiers wired into combat** | 3h | ⏳ NEW v1.1 |
 
-**Total Phase 1 remaining:** ~83h (↑ từ 70h, ~10.5 working days).
+### Phase 1.5 — Visual Polish & Juice (Appendix I, Antigravity 23/04)
+
+Independent polish layer — unblocks after core Phase 1 ships. Each step is
+isolated enough to defer without blocking Phase 2 content work.
+
+| # | Step | Effort | Risk |
+|---|---|---|---|
+| **22.11** | **AudioManager + BGM/SFX wiring (Howler.js)** | 3h | Low — additive utility, no state |
+| **22.12** | **Base player layered rendering (body + equipment overlay)** | 4h | Med — touches PhaserGame + CombatScene sprite composition |
+| **22.13** | **Spell VFX sprite-sheet system** | 3h | Low — cosmetic overlay on executeSpell |
+| **22.14** | **Treasure-chest reward animation (LEVEL_UP overlay)** | 3h | Low — React overlay subscribing LEVEL_UP |
+| **22.15** | **Quiz whiteboard scratchpad (`<canvas>` tool)** | 4h | Med — new child in QuizOverlay, pen/eraser/palette |
+| **22.16** | **Element icons on HP bar + Victory banner animation** | 2h | Low — two small cosmetic wins |
+
+**Phase 1 + 1.5 total:** ~83h + 19h = **~102h (~13 working days)**.
+
+**Scheduling rule:** Steps 22.11 → 22.16 may run **after** 22.10 lands OR
+interleave with early Phase 2 content work. Priority = 22.11 (audio is
+felt immediately) then 22.12 (player layering enables visible equipment
+progression).
 
 ---
 
@@ -322,6 +341,141 @@ reachable from MainMenu + in-world HUD button.
 - Fire wand (+5% Fire dmg) × Fire spell vs Plant monster: damage × 1.05
 - Unequip → stats back to baseline (inverse invariant via property test)
 - E2E: victory achievable faster with equipped vs naked (deterministic RNG)
+
+---
+
+## Step 22.11 — AudioManager (Phase 1.5)
+
+**Goal:** Single audio entry point for Phaser scenes + React UI. Howler.js
+over Phaser sound for cross-layer simplicity.
+
+**Scope:**
+- `src/utils/AudioManager.ts` — singleton with `playBgm(key)` / `stopBgm()` /
+  `playSfx(key)` / `setMuted(bool)` / `getMuted()`. Persists mute flag in
+  SaveState `flags.audio_muted` (additive, no migration).
+- Asset manifest in `app/public/assets/audio/` (Antigravity's placeholders
+  at `bgm_map.wav`, `bgm_combat.wav`, `sfx_click.wav`, `sfx_correct.wav`,
+  `sfx_wrong.wav`, `sfx_spell_fire.wav`, `sfx_spell_water.wav`,
+  `sfx_hit.wav`, `sfx_chest_open.wav`, `sfx_level_up.wav`).
+- Wire: MainMenu → `playBgm('map')`; WorldScene → keep map BGM;
+  CombatScene create → `playBgm('combat')`, cleanup → restore map BGM;
+  QuizOverlay submit correct → `playSfx('correct')`, wrong → `sfx_wrong`.
+  LEVEL_UP listener → `sfx_level_up`.
+- Mute toggle: add to MainMenu settings later — wiring only this step.
+
+**Test:**
+- `playBgm('map')` stops prior BGM before starting new (no overlap)
+- `setMuted(true)` gates both BGM and SFX
+- Missing sound key logs warn + no-throw
+- SaveState `audio_muted` round-trips
+
+---
+
+## Step 22.12 — Base Player Layered Rendering (Phase 1.5)
+
+**Goal:** Visible equipment — render base player body then z-layer outfit,
+shoes, hat, wand sprites from equipped items.
+
+**Scope:**
+- PreloadScene: load `base_player_male_transparent.png` + item sprites
+  referenced by equipped `ItemDef.spriteKey`.
+- New entity `src/game/entities/PlayerAvatar.ts` that composes N Phaser
+  sprites (base + overlays) at a single logical position. Listens
+  SaveState equipment changes + re-renders overlay set.
+- CombatScene + WorldScene swap `this.add.sprite(...wizard_walk)` calls
+  for `new PlayerAvatar(this, x, y)`.
+- Z-index: base 0, outfit 1, shoes 2, hat 3, wand 4.
+
+**Test:**
+- No equipment → only base sprite rendered
+- Equip hat → hat overlay count + position match anchor (16, 2) from
+  Appendix H
+- Equip item then unequip → overlay removed + Phaser sprite destroyed
+- Change equipment during combat → layers re-sync
+
+---
+
+## Step 22.13 — Spell VFX (Phase 1.5)
+
+**Goal:** Cast-spell animation — a sprite-sheet element beam flies toward
+the monster and explodes on impact.
+
+**Scope:**
+- New event `CAST_SPELL { element, origin, target }` on EventBus (doesn't
+  change FSM; purely cosmetic). Emitted from `CombatScene.onSpellClick`
+  before `OPEN_QUIZ`.
+- `src/game/systems/SpellVfx.ts` — per-element sprite sheet lookup,
+  tweens a sprite from origin to target over ~400ms, plays explosion
+  frames, destroys.
+- Assets: 4 element VFX sheets (Phase 2 Antigravity delivery). Step ships
+  a placeholder rectangle tween if sheets absent.
+
+**Test:**
+- CAST_SPELL emits exactly once per spell click
+- VFX sprite destroyed after tween completes (no leak)
+- Missing sheet → placeholder + console.warn, no throw
+
+---
+
+## Step 22.14 — Treasure-Chest Reward Animation (Phase 1.5)
+
+**Goal:** Replace silent inventory bump with a React overlay showing
+chest wobble → open → item icon float-up, driven by LEVEL_UP event.
+
+**Scope:**
+- `src/react/overlays/RewardChestOverlay.tsx` mounted at app shell.
+  Subscribes LEVEL_UP → queues rewards so multi-level cascades animate
+  sequentially (~1.2s each).
+- Uses `treasure_chest_transparent.png` (3-state sprite — closed /
+  wobble / open) + `findItemDef(grantedItemId).iconPath`.
+- `sfx_chest_open` on open; `sfx_level_up` on queue start.
+- Skip button advances animation immediately.
+
+**Test:**
+- Single LEVEL_UP → overlay visible → auto-closes after animation
+- Multi-level LEVEL_UP × 3 → queue plays sequentially
+- grantedItemId=null → "Lên cấp!" banner only (no chest)
+- Unmount clears queue + cancels timers
+
+---
+
+## Step 22.15 — Quiz Whiteboard Scratchpad (Phase 1.5)
+
+**Goal:** A `<canvas>` pad inside QuizOverlay so kids can work out math
+problems without paper.
+
+**Scope:**
+- `src/react/quiz/WhiteboardPad.tsx` — canvas + tools (pen, eraser,
+  clear, 4-color palette). Uses `whiteboard_tools_transparent.png`
+  for tool icons.
+- Toggle button at QuizOverlay header: "🖊 Nháp". Default hidden.
+- Scratch state resets per LO submit (no persistence).
+- Pointer events only (mouse + touch); keyboard shortcuts skipped.
+
+**Test:**
+- Toggle shows/hides canvas
+- Pen draws on canvas (spy on getContext '2d' calls)
+- Clear button wipes
+- Canvas resets when next OPEN_QUIZ fires
+
+---
+
+## Step 22.16 — Element Icons on HP Bar + Victory Banner (Phase 1.5)
+
+**Goal:** Two small cosmetic wins.
+
+**Scope:**
+- HpBar (monster variant) shows a small element icon + "Yếu:" tag using
+  `element_icons_transparent.png`. Takes weakness element from
+  ElementSystem matrix (lowest-multiplier attacker).
+- `src/react/overlays/VictoryBanner.tsx` — subscribes EXIT_COMBAT{won=true},
+  drops `victory_banner_transparent.png` with spin-light behind. 1.5s
+  auto-dismiss.
+
+**Test:**
+- Fire monster → HP bar shows Water weakness icon
+- EXIT_COMBAT won=true → banner visible, auto-dismisses
+- EXIT_COMBAT won=false → banner not shown
 
 ---
 
