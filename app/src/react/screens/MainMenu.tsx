@@ -81,6 +81,13 @@ export function MainMenu() {
         >
           Bảng xếp hạng lớp
         </button>
+        <button
+          type="button"
+          onClick={() => navigate('/inventory')}
+          className="w-full rounded-xl bg-stone-100 px-6 py-3 text-base font-semibold text-amber-800 shadow transition hover:bg-stone-200"
+        >
+          Kho đồ
+        </button>
         <div className="flex gap-3">
           <button
             type="button"

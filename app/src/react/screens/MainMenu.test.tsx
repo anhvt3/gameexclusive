@@ -13,6 +13,7 @@ function renderMenu(initialPath = '/') {
         <Route path="/" element={<MainMenu />} />
         <Route path="/play" element={<div data-testid="play-screen">PLAY</div>} />
         <Route path="/guild" element={<div data-testid="guild-screen">GUILD</div>} />
+        <Route path="/inventory" element={<div data-testid="inventory-screen">INVENTORY</div>} />
       </Routes>
     </MemoryRouter>
   );
@@ -81,6 +82,12 @@ describe('MainMenu — WF1', () => {
     fireEvent.click(btn);
     expect(useSaveState.getState().flags[BOSS_PENDING_FLAG]).toBe(true);
     expect(screen.getByTestId('play-screen')).toBeInTheDocument();
+  });
+
+  it('"Kho đồ" navigates to /inventory', () => {
+    renderMenu();
+    fireEvent.click(screen.getByRole('button', { name: /^Kho đồ$/ }));
+    expect(screen.getByTestId('inventory-screen')).toBeInTheDocument();
   });
 
   it('boss button disabled + alt label when last attempt = today', () => {
