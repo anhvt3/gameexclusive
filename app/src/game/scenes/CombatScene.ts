@@ -28,6 +28,7 @@ import { computeEffectiveStats } from '@domain/EffectiveStats';
 import { ITEM_REGISTRY } from '@data/staticConfig/items';
 import type { InventoryItem } from '@/types/item';
 import { HpBar } from '../entities/HpBar';
+import { PlayerAvatar } from '../entities/PlayerAvatar';
 
 /**
  * Combat RNG seam — tests swap this via __setCombatRng so crit-chance
@@ -79,6 +80,7 @@ export class CombatScene extends Phaser.Scene {
   private monsterDef: MonsterDef | null = null;
   private monsterCurrentHp = 0;
   private monsterMaxHp = 0;
+  private playerAvatar: PlayerAvatar | null = null;
   private playerHpBar: HpBar | null = null;
   private monsterHpBar: HpBar | null = null;
   private saveStateUnsub: (() => void) | null = null;
@@ -134,7 +136,10 @@ export class CombatScene extends Phaser.Scene {
 
     const playerX = width * 0.72;
     const playerY = height * 0.55;
-    this.add.sprite(playerX, playerY, 'wizard_walk', 4).setScale(2);
+    // Step 22.12 — layered base body + equipment overlays. Replaces the
+    // old single wizard_walk sprite so equipping items in /inventory
+    // shows up on the actual character mid-combat.
+    this.playerAvatar = new PlayerAvatar(this, playerX, playerY, 2);
 
     const state = useSaveState.getState();
     // AP §11.3 / Step 22.10 — player bar reads effective max (base + equip maxHp).
@@ -340,6 +345,8 @@ export class CombatScene extends Phaser.Scene {
     this.monsterHpBar?.destroy();
     this.playerHpBar = null;
     this.monsterHpBar = null;
+    this.playerAvatar?.destroy();
+    this.playerAvatar = null;
   }
 
   /** Test-only accessors */
@@ -372,5 +379,9 @@ export class CombatScene extends Phaser.Scene {
   /** Test-only: effective max HP after boss scaling. */
   getMonsterMaxHp(): number {
     return this.monsterMaxHp;
+  }
+  /** Test-only: layered avatar handle. */
+  getPlayerAvatar(): PlayerAvatar | null {
+    return this.playerAvatar;
   }
 }

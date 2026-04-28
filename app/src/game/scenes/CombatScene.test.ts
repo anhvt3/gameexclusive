@@ -15,9 +15,12 @@ vi.mock('phaser', () => {
         setDisplaySize: vi.fn().mockReturnThis(),
         setOrigin: vi.fn().mockReturnThis(),
       }),
-      sprite: vi.fn().mockReturnValue({
+      sprite: vi.fn().mockImplementation((_x, _y, key: string) => ({
+        texture: { key },
         setScale: vi.fn().mockReturnThis(),
-      }),
+        setPosition: vi.fn().mockReturnThis(),
+        destroy: vi.fn(),
+      })),
       rectangle: vi.fn().mockImplementation(() => ({
         setOrigin: vi.fn().mockReturnThis(),
         setStrokeStyle: vi.fn().mockReturnThis(),

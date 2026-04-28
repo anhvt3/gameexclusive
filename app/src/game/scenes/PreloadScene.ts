@@ -10,6 +10,8 @@
  */
 
 import Phaser from 'phaser';
+import { ITEM_REGISTRY } from '@data/staticConfig/items';
+import { PLAYER_BASE_MALE_KEY } from '../entities/PlayerAvatar';
 
 export const PRELOAD_SCENE_KEY = 'PreloadScene';
 
@@ -85,6 +87,16 @@ export const PHASE1_ASSETS = {
     { key: 'banner_victory', path: '/assets/ui/banner_victory_800x120.png' },
     { key: 'banner_defeat', path: '/assets/ui/banner_defeat.png' },
     { key: 'banner_levelup', path: '/assets/ui/banner_levelup_800x120.png' },
+    // Step 22.12 — base player body for layered avatar
+    {
+      key: PLAYER_BASE_MALE_KEY,
+      path: '/assets/juice/base_player_male_transparent.png',
+    },
+    // Step 22.12 — equipment overlay sprites (10 keys per Appendix H §H.5)
+    ...ITEM_REGISTRY.map((item) => ({
+      key: item.spriteKey,
+      path: item.spritePath,
+    })),
   ] as Array<{ key: string; path: string }>,
   spritesheets: [
     {
