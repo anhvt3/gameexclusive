@@ -10,6 +10,8 @@ vi.mock('phaser', () => {
       resume: vi.fn(),
       stop: vi.fn(),
     };
+    textures = { exists: vi.fn().mockReturnValue(false) };
+    tweens = { add: vi.fn().mockReturnValue({}) };
     add = {
       image: vi.fn().mockReturnValue({
         setDisplaySize: vi.fn().mockReturnThis(),

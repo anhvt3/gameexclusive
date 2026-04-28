@@ -29,6 +29,7 @@ import { ITEM_REGISTRY } from '@data/staticConfig/items';
 import type { InventoryItem } from '@/types/item';
 import { HpBar } from '../entities/HpBar';
 import { PlayerAvatar } from '../entities/PlayerAvatar';
+import { wireSpellVfx } from '@game/systems/SpellVfx';
 
 /**
  * Combat RNG seam — tests swap this via __setCombatRng so crit-chance
@@ -81,6 +82,11 @@ export class CombatScene extends Phaser.Scene {
   private monsterCurrentHp = 0;
   private monsterMaxHp = 0;
   private playerAvatar: PlayerAvatar | null = null;
+  // Step 22.13 — cached actor positions so onSpellClick can emit CAST_SPELL
+  // with origin/target without re-deriving them.
+  private playerPos = { x: 0, y: 0 };
+  private monsterPos = { x: 0, y: 0 };
+  private spellVfxUnsub: Unsubscribe | null = null;
   private playerHpBar: HpBar | null = null;
   private monsterHpBar: HpBar | null = null;
   private saveStateUnsub: (() => void) | null = null;
@@ -123,6 +129,7 @@ export class CombatScene extends Phaser.Scene {
 
     const monsterX = width * 0.28;
     const monsterY = height * 0.55;
+    this.monsterPos = { x: monsterX, y: monsterY };
     this.add.image(monsterX, monsterY, `monster_${this.monsterDef.codename}_idle`);
     this.add
       .text(monsterX, monsterY - 90, this.monsterDef.displayNameVi, {
@@ -136,6 +143,7 @@ export class CombatScene extends Phaser.Scene {
 
     const playerX = width * 0.72;
     const playerY = height * 0.55;
+    this.playerPos = { x: playerX, y: playerY };
     // Step 22.12 — layered base body + equipment overlays. Replaces the
     // old single wizard_walk sprite so equipping items in /inventory
     // shows up on the actual character mid-combat.
@@ -163,6 +171,9 @@ export class CombatScene extends Phaser.Scene {
     this.quizResultUnsub = eventBus.on('QUIZ_RESULT', ({ correct }) =>
       this.handleQuizResult(correct)
     );
+    // Step 22.13 — cosmetic spell VFX listens on bus, animates a beam
+    // from player → monster on every CAST_SPELL emit.
+    this.spellVfxUnsub = wireSpellVfx(this);
   }
 
   private renderSpellButtons(): void {
@@ -209,6 +220,16 @@ export class CombatScene extends Phaser.Scene {
     this.activeLo = pool[Math.floor(Math.random() * pool.length)]!;
 
     this.combatState = nextCombatState(this.combatState, { type: 'OPEN_QUIZ' });
+    // Step 22.13 — fire cosmetic CAST_SPELL before pause so SpellVfx tween
+    // starts visibly while the quiz overlay is still spinning up.
+    const spell = SPELLS.find((s) => s.id === spellId);
+    if (spell) {
+      eventBus.emit('CAST_SPELL', {
+        element: spell.element,
+        origin: { ...this.playerPos },
+        target: { ...this.monsterPos },
+      });
+    }
     eventBus.emit('OPEN_QUIZ', {
       lo_id: this.activeLo.id,
       monster_id: this.monsterDef?.id ?? null,
@@ -347,6 +368,8 @@ export class CombatScene extends Phaser.Scene {
     this.monsterHpBar = null;
     this.playerAvatar?.destroy();
     this.playerAvatar = null;
+    this.spellVfxUnsub?.();
+    this.spellVfxUnsub = null;
   }
 
   /** Test-only accessors */

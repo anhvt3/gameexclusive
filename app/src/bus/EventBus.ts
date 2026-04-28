@@ -17,6 +17,7 @@
 
 import mitt from 'mitt';
 import type { Emitter, Handler } from 'mitt';
+import type { Element } from '@/types/element';
 
 // Discriminated union — extend in ISP Step 1
 export type GameEvent =
@@ -33,6 +34,14 @@ export type GameEvent =
   | {
       type: 'LEVEL_UP';
       payload: { newLevel: number; grantedItemId: string | null };
+    }
+  | {
+      type: 'CAST_SPELL';
+      payload: {
+        element: Element;
+        origin: { x: number; y: number };
+        target: { x: number; y: number };
+      };
     };
 
 // Strip `type` field and map to payload type
