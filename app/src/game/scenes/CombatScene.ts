@@ -17,8 +17,8 @@ import Phaser from 'phaser';
 import { findMonsterById, type MonsterDef } from '@data/staticConfig/monsters';
 import { useSaveState } from '@persistence/SaveStateStore';
 import { eventBus, type Unsubscribe } from '@bus/EventBus';
-import { nextCombatState, type CombatState } from '@game/systems/CombatStateMachine';
-import { calculateDamage, getWeaknessElement } from '@game/systems/ElementSystem';
+import { nextCombatState, isTerminal, type CombatState } from '@game/systems/CombatStateMachine';
+import { getWeaknessElement } from '@game/systems/ElementSystem';
 import { loadMockLOs } from '@data/supham/LearningObjectAdapter';
 import type { LearningObject, Grade } from '@data/supham/LearningObjectSchema';
 import type { Element } from '@/types/element';
@@ -36,6 +36,8 @@ import { buildPetEntity, type PetInstanceShape } from '@domain/PetEntityFactory'
 import { findPetDef } from '@data/staticConfig/pets';
 import { PartyHud } from '../entities/PartyHud';
 import { PetSprite } from '../entities/PetSprite';
+import { init as turnQueueInit, isFactionDead, type TurnQueueState } from '@domain/TurnQueue';
+import { resolveHeroSpell, resolvePetAttack, resolveMonsterAttack } from '@domain/CombatResolver';
 
 /**
  * Combat RNG seam — tests swap this via __setCombatRng so crit-chance
@@ -116,6 +118,9 @@ export class CombatScene extends Phaser.Scene {
   private entities: CombatEntity[] = [];
   private partyHud: PartyHud | null = null;
   private petSprite: PetSprite | null = null;
+  // Sprint A Task 13b — multi-actor turn queue + target picker
+  private turnQueue: TurnQueueState | null = null;
+  private selectedTargetId: string | null = null;
 
   constructor() {
     super(COMBAT_SCENE_KEY);
@@ -226,6 +231,8 @@ export class CombatScene extends Phaser.Scene {
     // Legacy fields (monsterCurrentHp, playerHpBar, etc.) stay for Phase 1
     // test compatibility; Task 13b wires TurnQueue against entities[].
     this.entities = this.buildEntities();
+    // Sprint A Task 13b — init TurnQueue for multi-actor loop
+    this.turnQueue = turnQueueInit(this.entities);
     const pet = this.entities.find((e): e is PetEntity => e.kind === 'pet');
     if (pet) {
       const codenameMatch = pet.spriteKey.match(/^pet_([a-z]+)_idle$/);
@@ -389,10 +396,34 @@ export class CombatScene extends Phaser.Scene {
 
     if (correct) {
       // state now RESOLVE_DAMAGE — apply player spell damage
+      // resolveHeroSpell mutates target.hp; FSM sets VICTORY if remainingHp=0
       this.applyPlayerDamage();
+
       if (this.combatState === 'VICTORY') {
         this.handleVictory();
         return;
+      }
+
+      // Sprint A Task 13b: pet auto-attack acts between hero and monster turns
+      const pet = this.entities.find((e) => e.kind === 'pet' && e.hp > 0);
+      if (pet) {
+        const petTarget = this.lowestHpFromFaction('enemy');
+        if (petTarget) {
+          resolvePetAttack({ source: pet, target: petTarget, rng: _combatRng });
+          this.partyHud?.updateHp(petTarget.id, petTarget.hp, petTarget.maxHp);
+          if (
+            petTarget.kind === 'monster' &&
+            this.monsterDef &&
+            petTarget.monsterDefId === this.monsterDef.id
+          ) {
+            this.monsterCurrentHp = petTarget.hp;
+            this.monsterHpBar?.setHp(petTarget.hp, this.monsterMaxHp);
+          }
+          // Check if pet finished the monster off
+          this.__checkEnd();
+          // Use isTerminal() to bypass TypeScript's narrowing (which excluded VICTORY above).
+          if (isTerminal(this.combatState)) return;
+        }
       }
       // else state = MONSTER_TURN — fall through to monster retaliation
     }
@@ -400,15 +431,27 @@ export class CombatScene extends Phaser.Scene {
     // QUIZ_WRONG (MONSTER_TURN) or survived RESOLVE_DAMAGE → resume + monster attacks
     this.scene.resume();
     this.runMonsterTurn();
+
+    // FSM sets DEFEAT if player hp=0 (via DAMAGE_APPLIED side:'player' remainingHp=0)
     if (this.combatState === 'DEFEAT') {
       this.handleDefeat();
+      return;
     }
+
+    // Reset target selection for next PLAYER_TURN
+    this.selectedTargetId = null;
   }
 
   private applyPlayerDamage(): void {
-    if (!this.selectedSpellId || !this.monsterDef || !this.activeLo) return;
+    if (!this.selectedSpellId || !this.activeLo) return;
     const spell = SPELLS.find((s) => s.id === this.selectedSpellId);
     if (!spell) return;
+
+    // Sprint A Task 13b: resolve against locked target or first living enemy
+    const target =
+      this.entities.find((e) => e.id === this.selectedTargetId && e.hp > 0) ??
+      this.lowestHpFromFaction('enemy');
+    if (!target) return;
 
     const difficulty = parseInt(
       this.activeLo.learning_object_difficulty.learning_object_difficulty_name,
@@ -418,42 +461,65 @@ export class CombatScene extends Phaser.Scene {
     // AP §11.3 CL7 — equipment modifiers: crit roll + per-element damage bump.
     const save = useSaveState.getState();
     const stats = computeEffectiveStats(save.equipment, save.inventory, ITEM_REGISTRY);
-    const isCrit = _combatRng() < stats.critChancePct / 100;
-    const elementBonusPct = stats.spellDamagePct[spell.element] ?? 0;
-    const base = calculateDamage(
-      spell.basePower,
-      spell.element,
-      this.monsterDef.element,
-      difficulty,
-      isCrit
-    );
-    const dmg = Math.round(base * (1 + elementBonusPct / 100));
 
-    this.monsterCurrentHp = Math.max(0, this.monsterCurrentHp - dmg);
-    this.monsterHpBar?.setHp(this.monsterCurrentHp, this.monsterMaxHp);
-    // Step 22.17 — auditory feedback. dmg=0 plays the miss whiff,
-    // dmg>0 plays the impact thump.
-    audioManager.playSfx(dmg === 0 ? 'combat_miss' : 'combat_hit_impact');
+    const result = resolveHeroSpell({
+      source: this.entities[0]!, // hero is always index 0 in TurnQueue-sorted array
+      target,
+      spellElement: spell.element,
+      spellBasePower: spell.basePower,
+      difficulty,
+      heroCritChancePct: stats.critChancePct,
+      heroSpellDamagePct: stats.spellDamagePct,
+      rng: _combatRng,
+    });
+
+    // Sync legacy fields for Phase 1 test compatibility
+    if (
+      target.kind === 'monster' &&
+      this.monsterDef &&
+      target.monsterDefId === this.monsterDef.id
+    ) {
+      this.monsterCurrentHp = target.hp;
+      this.monsterHpBar?.setHp(target.hp, this.monsterMaxHp);
+    }
+    // Update PartyHud
+    this.partyHud?.updateHp(target.id, target.hp, target.maxHp);
+
+    // Step 22.17 — auditory feedback. damage=0 plays the miss whiff,
+    // damage>0 plays the impact thump.
+    audioManager.playSfx(result.damage === 0 ? 'combat_miss' : 'combat_hit_impact');
     this.combatState = nextCombatState(this.combatState, {
       type: 'DAMAGE_APPLIED',
       side: 'monster',
-      remainingHp: this.monsterCurrentHp,
+      remainingHp: target.hp,
     });
   }
 
   private runMonsterTurn(): void {
     this.combatState = nextCombatState(this.combatState, { type: 'MONSTER_ACT' });
     this.combatState = nextCombatState(this.combatState, { type: 'HIT_RESOLVED' });
-    const save = useSaveState.getState();
-    const newHp = Math.max(0, save.hp - MONSTER_BASE_POWER);
-    save.setHp(newHp);
+
+    // Sprint A Task 13b: monster attacks lowest-HP ally via CombatResolver
+    const monster = this.entities.find((e) => e.kind === 'monster' && e.hp > 0);
+    const allyTarget = this.lowestHpFromFaction('ally');
+    if (monster && allyTarget) {
+      resolveMonsterAttack({ source: monster, target: allyTarget, rng: _combatRng });
+      // Sync legacy HP store for Phase 1 tests
+      if (allyTarget.kind === 'hero') {
+        useSaveState.getState().setHp(allyTarget.hp);
+      }
+      this.partyHud?.updateHp(allyTarget.id, allyTarget.hp, allyTarget.maxHp);
+    }
+
     // Step 22.17 — monster's hit on player. Same SFX as player→monster
     // hit (single brand thump), distinct from combat_miss.
     audioManager.playSfx('combat_hit_impact');
+
+    const allyHp = allyTarget?.hp ?? 0;
     this.combatState = nextCombatState(this.combatState, {
       type: 'DAMAGE_APPLIED',
       side: 'player',
-      remainingHp: newHp,
+      remainingHp: allyHp,
     });
   }
 
@@ -493,6 +559,13 @@ export class CombatScene extends Phaser.Scene {
     this.scene.stop();
   }
 
+  /** Sprint A Task 13b: return lowest-HP living entity in a faction (first match tiebreak). */
+  private lowestHpFromFaction(faction: 'ally' | 'enemy'): CombatEntity | null {
+    const candidates = this.entities.filter((e) => e.faction === faction && e.hp > 0);
+    if (candidates.length === 0) return null;
+    return candidates.reduce((acc, e) => (e.hp < acc.hp ? e : acc));
+  }
+
   private handleDefeat(): void {
     const monsterId = this.monsterDef?.id ?? null;
     const save = useSaveState.getState();
@@ -525,6 +598,25 @@ export class CombatScene extends Phaser.Scene {
     this.petSprite = null;
   }
 
+  /** Sprint A Task 13b: lock attack target (test + future UI use). */
+  __pickTarget(entityId: string): void {
+    this.selectedTargetId = entityId;
+  }
+
+  /** Sprint A Task 13b: check faction-death and emit victory/defeat (callable from tests).
+   *  Idempotent — if combatState is already terminal, returns without double-handling. */
+  __checkEnd(): void {
+    if (!this.turnQueue) return;
+    if (this.combatState === 'VICTORY' || this.combatState === 'DEFEAT') return;
+    if (isFactionDead(this.turnQueue, 'enemy')) {
+      this.combatState = 'VICTORY';
+      this.handleVictory();
+    } else if (isFactionDead(this.turnQueue, 'ally')) {
+      this.combatState = 'DEFEAT';
+      this.handleDefeat();
+    }
+  }
+
   /** Test-only accessors */
   getEntities(): CombatEntity[] {
     return this.entities;
@@ -552,6 +644,15 @@ export class CombatScene extends Phaser.Scene {
     this.monsterCurrentHp = hp;
     if (this.monsterDef) {
       this.monsterHpBar?.setHp(hp, this.monsterMaxHp);
+    }
+    // Sprint A Task 13b: also sync entity hp so resolveHeroSpell sees correct value
+    const monsterEntity = this.entities.find((e) => e.kind === 'monster');
+    if (monsterEntity) {
+      monsterEntity.hp = hp;
+    }
+    // Rebuild turnQueue to reflect updated hp in isFactionDead checks
+    if (this.turnQueue) {
+      this.turnQueue = turnQueueInit(this.entities);
     }
   }
 

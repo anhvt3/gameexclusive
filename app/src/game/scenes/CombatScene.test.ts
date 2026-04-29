@@ -553,3 +553,69 @@ describe('CombatScene — Sprint A Task 13a entity array', () => {
     expect(scene.getEntities().map((e) => e.kind)).toEqual(['hero', 'monster']);
   });
 });
+
+describe('CombatScene — Sprint A Task 13b TurnQueue loop', () => {
+  it('hero turn → spell click → quiz → resolveHeroSpell → pet auto-attacks → monster retaliates', async () => {
+    useSaveState.setState({
+      hp: 100,
+      maxHp: 100,
+      level: 1,
+      active_pet_instance_id: 'inst-bun',
+      inventory: [{ instanceId: 'inst-bun', petCodename: 'bunbleaf', level: 3, xp: 0 } as never],
+    });
+    const scene = new CombatScene();
+    scene.init({ monsterId: 1 });
+    scene.create();
+    const monster = scene.getEntities().find((e) => e.kind === 'monster')!;
+    const monsterMaxHp = monster.maxHp;
+    scene.__pickTarget(monster.id);
+    scene.onSpellClick('fire_blast');
+    eventBus.emit('QUIZ_RESULT', { correct: true, timeSpent: 1000, attempts: 1, lo_id: 100001 });
+    // delayedCall is 900 ms in real game; in test scenes the delayedCall mock may
+    // execute synchronously. If your scene uses time.delayedCall, ensure tests
+    // either run fully sync or wait long enough.
+    await new Promise((r) => setTimeout(r, 1100));
+    expect(monster.hp).toBeLessThan(monsterMaxHp);
+  }, 5000);
+
+  it('victory: all enemies dead emits EXIT_COMBAT(won=true)', () => {
+    useSaveState.setState({
+      hp: 100,
+      maxHp: 100,
+      level: 99,
+      active_pet_instance_id: null,
+      inventory: [],
+    });
+    const fired: unknown[] = [];
+    const off = eventBus.on('EXIT_COMBAT', (p) => fired.push(p));
+    const scene = new CombatScene();
+    scene.init({ monsterId: 1 });
+    scene.create();
+    const m = scene.getEntities().find((e) => e.kind === 'monster')!;
+    m.hp = 0;
+    scene.__checkEnd();
+    off();
+    expect(fired).toHaveLength(1);
+    expect((fired[0] as { won: boolean }).won).toBe(true);
+  });
+
+  it('defeat: all allies dead emits EXIT_COMBAT(won=false)', () => {
+    useSaveState.setState({
+      hp: 0,
+      maxHp: 100,
+      level: 1,
+      active_pet_instance_id: null,
+      inventory: [],
+    });
+    const fired: unknown[] = [];
+    const off = eventBus.on('EXIT_COMBAT', (p) => fired.push(p));
+    const scene = new CombatScene();
+    scene.init({ monsterId: 1 });
+    scene.create();
+    // Hero entity built with hp=0 since save.hp=0 → factionDead immediately on check
+    scene.__checkEnd();
+    off();
+    expect(fired).toHaveLength(1);
+    expect((fired[0] as { won: boolean }).won).toBe(false);
+  });
+});
