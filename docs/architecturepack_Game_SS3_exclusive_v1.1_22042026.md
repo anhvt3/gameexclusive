@@ -342,3 +342,24 @@ Sprint 2 schedule (parallel với ISP Step 1-5):
 ---
 
 **END AP v1.1.** Đi kèm ISP v1.1 cho Phase 1 execution plan.
+
+---
+
+## Phase 2.5 — Prodigy-Parity Roadmap (POSUP approved 29/04/2026)
+
+POSUP commissioned a parity push between current Phase 1+1.5 (shipped)
+and original Phase 2 (Pet Breeding + 15-monster roster). Driven by a
+148-frame audit of a reference edu-RPG session.
+
+Sprint sequence and per-sprint scope: see
+`docs/roadmap_phase2.5_prodigy_parity.md`.
+
+Order: **A** (multi-party combat — Type C) → **B** (world / zone /
+boss-hall scenes — Type C) ∥ **E** (polish + onboarding — Type A) →
+**C** (pet system, depends on A — Type B) → **D** (quests panel —
+Type B) → **F** (free daily rewards / loot jar UI, premium dropped per
+POSUP scope — Type B).
+
+Each sprint produces its own design spec at
+`docs/superpowers/specs/<date>-<sprint>-design.md`. Type C sprints
+also require ARCH sign-off before any code lands.

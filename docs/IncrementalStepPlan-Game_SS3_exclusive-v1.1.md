@@ -551,3 +551,27 @@ Khi Step 22.6 pass, Phase 1 COMPLETE khi tất cả:
 ---
 
 **Next:** Step 2 Element System (ready to execute).
+
+---
+
+## Phase 2.5 — Prodigy-Parity Roadmap (added 29/04/2026)
+
+After Phase 1+1.5 landed (35/35 steps, 482 unit tests), POSUP approved
+a 6-sprint Prodigy-parity push. Each sprint has its own design spec
+under `docs/superpowers/specs/`; this section is the ISP-side index.
+
+| # | Sprint | Type | Depends on | Spec |
+|---|---|---|---|---|
+| A | Multi-party Combat Refactor | C | — | `2026-04-29-multiparty-combat-design.md` (next) |
+| B | World / Zone / Boss-Hall Scenes | C | — | TBD |
+| C | Pet System | B | A | TBD |
+| D | Quests & Goals Panel | B | — | TBD |
+| E | Polish & Onboarding | A | — | TBD |
+| F | Free Daily Rewards (Loot Jar UI) | B | — | TBD |
+
+Detail roadmap: `docs/roadmap_phase2.5_prodigy_parity.md`.
+
+Asset workflow rule: every sprint spec defines exact filenames +
+Antigravity prompts (style: flat 2D vector art, flash-game finish,
+clean 2px outline). Antigravity drops PNG-32 RGBA, Claude wires.
+No placeholder art reaches dev.
