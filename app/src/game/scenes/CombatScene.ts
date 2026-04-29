@@ -261,7 +261,13 @@ export class CombatScene extends Phaser.Scene {
       hp: save.hp,
       maxHp: save.maxHp,
       spriteKey: 'base_player_male',
-      isCrittable: true,
+      // isCrittable=false intentionally: per Resolver semantics, this flag is
+      // read by attackers to decide whether they may crit THIS entity. Sprint A
+      // monsters don't crit yet, but Sprint B will add monster crits — keeping
+      // the hero non-crittable here means students can't suddenly take 1.5×
+      // hits without an explicit balance pass. Sprint B may flip this on with
+      // a new constant.
+      isCrittable: false,
     };
     const out: CombatEntity[] = [heroEntity];
     const inventoryAsPet = (save.inventory as unknown as PetInstanceShape[]).filter(

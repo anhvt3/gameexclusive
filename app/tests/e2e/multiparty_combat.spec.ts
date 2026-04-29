@@ -86,9 +86,17 @@ test('multiparty combat — hero + pet vs monster', async ({ page }) => {
   const monsterHp = await page.evaluate(() => window.__GAME__?.state.combatMonsterId() ?? null);
   expect(monsterHp).toBe(1);
 
-  // Verify HP strips render (PartyHud with 3 entities: hero + pet + monster)
-  const hpStrips = page.locator('[data-testid="hp-strip"]');
-  await expect(hpStrips).toHaveCount(3);
+  // Verify 3 entities loaded in CombatScene (hero + pet + monster)
+  // PartyHud renders on Phaser canvas (not DOM), so we use the __GAME__ bridge.
+  const entityCount = await page.evaluate(() => {
+    // Drill into Phaser scene via test bridge
+    type Scene = { scene?: { key?: string }; getEntities?: () => unknown[] };
+    type Game = { __phaser?: { scene: { scenes: Scene[] } } };
+    const g = (window as unknown as { __GAME__?: Game }).__GAME__;
+    const cs = g?.__phaser?.scene?.scenes?.find((s) => s.scene?.key === 'CombatScene');
+    return cs?.getEntities?.().length ?? 0;
+  });
+  expect(entityCount).toBe(3);
 
   // No uncaught errors
   expect(consoleErrors, `Console errors: ${consoleErrors.join('\n')}`).toHaveLength(0);
