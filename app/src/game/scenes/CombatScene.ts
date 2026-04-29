@@ -18,7 +18,7 @@ import { findMonsterById, type MonsterDef } from '@data/staticConfig/monsters';
 import { useSaveState } from '@persistence/SaveStateStore';
 import { eventBus, type Unsubscribe } from '@bus/EventBus';
 import { nextCombatState, type CombatState } from '@game/systems/CombatStateMachine';
-import { calculateDamage } from '@game/systems/ElementSystem';
+import { calculateDamage, getWeaknessElement } from '@game/systems/ElementSystem';
 import { loadMockLOs } from '@data/supham/LearningObjectAdapter';
 import type { LearningObject, Grade } from '@data/supham/LearningObjectSchema';
 import type { Element } from '@/types/element';
@@ -140,6 +140,19 @@ export class CombatScene extends Phaser.Scene {
         padding: { x: 8, y: 4 },
       })
       .setOrigin(0.5);
+    // Step 22.16 — weakness hint under HP bar so kids see which element
+    // beats the monster. Real per-element icon crops land Phase 2.
+    const weakness = getWeaknessElement(this.monsterDef.element);
+    this.add
+      .text(monsterX, monsterY + 110, `Yếu: ${weakness}`, {
+        fontSize: '13px',
+        color: '#ffe39a',
+        fontStyle: 'italic',
+        backgroundColor: '#00000060',
+        padding: { x: 6, y: 2 },
+      })
+      .setOrigin(0.5)
+      .setData('testid', 'weakness-label');
 
     const playerX = width * 0.72;
     const playerY = height * 0.55;

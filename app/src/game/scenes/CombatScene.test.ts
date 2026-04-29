@@ -35,6 +35,7 @@ vi.mock('phaser', () => {
       text: vi.fn().mockReturnValue({
         setOrigin: vi.fn().mockReturnThis(),
         setText: vi.fn(),
+        setData: vi.fn().mockReturnThis(),
         destroy: vi.fn(),
       }),
     };
@@ -425,6 +426,17 @@ describe('CombatScene — Step 17 damage resolution + victory/defeat', () => {
     expect(exits[0]!.won).toBe(false);
     expect(exits[0]!.exp_gained).toBe(0);
     expect(exits[0]!.monster_id).toBe(1);
+  });
+
+  it('Step 22.16 — renders weakness label "Yếu: <element>" near monster', () => {
+    const scene = new CombatScene();
+    scene.init({ monsterId: 1 }); // Embershed (Fire)
+    scene.create();
+    const textCalls = (scene.add.text as unknown as { mock: { calls: unknown[][] } }).mock.calls;
+    const weaknessCall = textCalls.find((c: unknown[]) => String(c[2]).startsWith('Yếu:'));
+    expect(weaknessCall).toBeDefined();
+    // Fire's weakness = Water (per matrix)
+    expect(weaknessCall![2]).toBe('Yếu: Water');
   });
 
   it('boss monster (is_boss) → 5× HP scale on init', () => {

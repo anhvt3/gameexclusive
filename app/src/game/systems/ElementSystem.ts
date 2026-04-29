@@ -126,6 +126,28 @@ export function getMultiplier(attacker: Element, defender: Element): number {
 }
 
 /**
+ * ISP Step 22.16 — find the attacker element that lands the highest
+ * multiplier against `defender` (excluding self-mirror). Used by
+ * CombatScene to render a "Yếu: X" hint on the monster HP bar.
+ *
+ * Tie-break: first element in ELEMENTS order wins. Deterministic.
+ */
+export function getWeaknessElement(defender: Element): Element {
+  assertElement(defender);
+  let best: Element = ELEMENTS[0];
+  let bestMul = -Infinity;
+  for (const attacker of ELEMENTS) {
+    if (attacker === defender) continue;
+    const m = MATRIX[attacker][defender];
+    if (m > bestMul) {
+      bestMul = m;
+      best = attacker;
+    }
+  }
+  return best;
+}
+
+/**
  * Calculate final damage.
  *   final = max(0, round(power × multiplier × (1 + difficulty/10) × (crit ? 1.5 : 1.0)))
  *

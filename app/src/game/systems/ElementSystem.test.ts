@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import fc from 'fast-check';
-import { ELEMENTS, getMultiplier, calculateDamage, type Element } from './ElementSystem';
+import {
+  ELEMENTS,
+  getMultiplier,
+  getWeaknessElement,
+  calculateDamage,
+  type Element,
+} from './ElementSystem';
 
 describe('ElementSystem — unit tests (AP CL1)', () => {
   it('Fire beats Plant (×2.0)', () => {
@@ -110,5 +116,35 @@ describe('ElementSystem — error cases', () => {
 
   it('throws on invalid defender element', () => {
     expect(() => getMultiplier('Fire', 'Invalid' as Element)).toThrow();
+  });
+});
+
+describe('ElementSystem — getWeaknessElement (Step 22.16)', () => {
+  it('Fire monster → Water (the highest-multiplier attacker)', () => {
+    expect(getWeaknessElement('Fire')).toBe('Water');
+  });
+
+  it('Plant monster → Fire (Fire×Plant=2.0)', () => {
+    expect(getWeaknessElement('Plant')).toBe('Fire');
+  });
+
+  it('Water monster → Storm (tie 2.0 with Plant; Storm wins by ELEMENTS order)', () => {
+    // Storm and Plant both hit Water for 2.0; Storm appears earlier in ELEMENTS,
+    // so the deterministic tie-break selects it.
+    expect(getWeaknessElement('Water')).toBe('Storm');
+  });
+
+  it('Storm monster → Earth (Earth×Storm=2.0)', () => {
+    expect(getWeaknessElement('Storm')).toBe('Earth');
+  });
+
+  it('weakness is never the same as the defender (no self-mirror)', () => {
+    for (const e of ELEMENTS) {
+      expect(getWeaknessElement(e)).not.toBe(e);
+    }
+  });
+
+  it('throws on invalid defender', () => {
+    expect(() => getWeaknessElement('Bogus' as Element)).toThrow();
   });
 });
