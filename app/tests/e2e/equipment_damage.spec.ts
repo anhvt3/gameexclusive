@@ -114,10 +114,6 @@ async function sumFireDamage(page: Page, samples: number): Promise<number> {
   return total;
 }
 
-// 5 iterations × seed/reload + waitForFunction polls add up; default 30s
-// is tight under parallel-worker contention on a shared dev server.
-test.setTimeout(60_000);
-
 test('wand-fire-01 equipped → more total Fire damage over 5 samples than baseline', async ({
   page,
 }) => {

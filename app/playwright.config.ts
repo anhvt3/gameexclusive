@@ -2,7 +2,10 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/e2e',
-  timeout: 30_000,
+  // 60s default — Phase 1.5 specs accumulate state setup + multi-iteration
+  // simulate cycles that breach the original 30s budget under parallel
+  // workers on a single shared dev server.
+  timeout: 60_000,
   expect: { timeout: 5_000 },
   fullyParallel: true,
   forbidOnly: !!process.env.CI,

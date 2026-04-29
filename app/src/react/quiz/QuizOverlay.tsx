@@ -17,9 +17,11 @@ import { findLOById } from '@data/supham/LearningObjectAdapter';
 import type { LearningObject } from '@data/supham/LearningObjectSchema';
 import { audioManager } from '@/utils/AudioManager';
 import { QuizFactory, type QuizResult } from './QuizFactory';
+import { WhiteboardPad } from './WhiteboardPad';
 
 export function QuizOverlay() {
   const [activeLO, setActiveLO] = useState<LearningObject | null>(null);
+  const [whiteboardOpen, setWhiteboardOpen] = useState(false);
 
   useEffect(() => {
     const offOpen = eventBus.on('OPEN_QUIZ', ({ lo_id }) => {
@@ -66,17 +68,35 @@ export function QuizOverlay() {
       className="quiz-overlay fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
     >
       <div className="quiz-panel w-full max-w-2xl rounded-xl bg-white p-6 shadow-2xl">
-        <div className="quiz-header mb-4 flex items-center justify-between border-b pb-2">
+        <div className="quiz-header mb-4 flex items-center justify-between gap-3 border-b pb-2">
           <div>
             <span className="subject-tag rounded bg-orange-100 px-2 py-1 text-xs font-semibold text-orange-700">
               {activeLO.subject_name} · {activeLO.grade_name}
             </span>
           </div>
-          <div className="text-xs text-gray-500">
-            Độ khó {activeLO.learning_object_difficulty.learning_object_difficulty_name}/5
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setWhiteboardOpen((v) => !v)}
+              aria-pressed={whiteboardOpen}
+              data-testid="whiteboard-toggle"
+              className={`rounded-md border px-3 py-1 text-xs font-semibold transition ${
+                whiteboardOpen
+                  ? 'border-amber-500 bg-amber-100 text-amber-800'
+                  : 'border-stone-300 bg-white text-stone-700 hover:bg-stone-50'
+              }`}
+            >
+              🖊 Nháp
+            </button>
+            <span className="text-xs text-gray-500">
+              Độ khó {activeLO.learning_object_difficulty.learning_object_difficulty_name}/5
+            </span>
           </div>
         </div>
         <QuizFactory lo={activeLO} onSubmit={handleSubmit} />
+        {whiteboardOpen && (
+          <WhiteboardPad resetKey={activeLO.id} onClose={() => setWhiteboardOpen(false)} />
+        )}
       </div>
     </div>
   );

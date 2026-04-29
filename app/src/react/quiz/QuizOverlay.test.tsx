@@ -1,8 +1,17 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QuizOverlay } from './QuizOverlay';
 import { eventBus } from '@bus/EventBus';
+
+vi.mock('howler', () => ({
+  Howl: class {
+    play = vi.fn();
+    stop = vi.fn();
+    mute = vi.fn();
+    constructor(_opts: unknown) {}
+  },
+}));
 
 beforeEach(() => {
   eventBus.clear();
@@ -82,5 +91,32 @@ describe('QuizOverlay — event-driven container', () => {
     unmount();
     // Emit after unmount — no throw, no state leak
     expect(() => eventBus.emit('OPEN_QUIZ', { lo_id: 100001, monster_id: null })).not.toThrow();
+  });
+
+  it('Step 22.15 — whiteboard hidden by default; toggle shows + hides it', async () => {
+    render(<QuizOverlay />);
+    eventBus.emit('OPEN_QUIZ', { lo_id: 100001, monster_id: null });
+    await waitFor(() => screen.getByRole('dialog'));
+    expect(screen.queryByTestId('whiteboard-pad')).not.toBeInTheDocument();
+    const toggle = screen.getByTestId('whiteboard-toggle');
+    fireEvent.click(toggle);
+    expect(screen.getByTestId('whiteboard-pad')).toBeInTheDocument();
+    fireEvent.click(toggle);
+    expect(screen.queryByTestId('whiteboard-pad')).not.toBeInTheDocument();
+  });
+
+  it('Step 22.15 — QUIZ_RESULT auto-closes dialog (covers bridge path)', async () => {
+    render(<QuizOverlay />);
+    eventBus.emit('OPEN_QUIZ', { lo_id: 100001, monster_id: null });
+    await waitFor(() => screen.getByRole('dialog'));
+    eventBus.emit('QUIZ_RESULT', {
+      correct: true,
+      timeSpent: 1,
+      attempts: 1,
+      lo_id: 100001,
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
   });
 });
