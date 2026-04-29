@@ -16,6 +16,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSaveState } from '@persistence/SaveStateStore';
 import { ITEM_SLOTS, type EquipmentSlot, type ItemRarity } from '@/types/item';
 import { findItemDef, type ItemDef } from '@data/staticConfig/items';
+import { useGameAudio } from '@react/shell/useGameAudio';
 
 const SLOT_LABELS: Record<EquipmentSlot, string> = {
   hat: 'Mũ',
@@ -58,6 +59,15 @@ export function InventoryScreen() {
   const equipItem = useSaveState((s) => s.equipItem);
   const unequipItem = useSaveState((s) => s.unequipItem);
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
+  const { playSfx } = useGameAudio();
+  // Step 22.17 — only primary actions get audio. Bag-tile selection skips
+  // hover SFX (would spam) but still fires click on selection so kids
+  // get feedback when they pick an item.
+  const onHover = () => playSfx('ui_btn_hover');
+  const click = (action: () => void) => () => {
+    playSfx('ui_btn_click');
+    action();
+  };
 
   const equippedInstanceIds = new Set(
     Object.values(equipment).filter((id): id is string => id !== null)
@@ -91,7 +101,8 @@ export function InventoryScreen() {
         </div>
         <button
           type="button"
-          onClick={() => navigate('/')}
+          onMouseEnter={onHover}
+          onClick={click(() => navigate('/'))}
           className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-amber-600"
         >
           Về menu
@@ -133,7 +144,8 @@ export function InventoryScreen() {
                   </span>
                   <button
                     type="button"
-                    onClick={() => unequipItem(slot)}
+                    onMouseEnter={onHover}
+                    onClick={click(() => unequipItem(slot))}
                     className="rounded-md bg-stone-200 px-3 py-1 text-xs font-semibold text-stone-700 hover:bg-stone-300"
                   >
                     Tháo
@@ -237,10 +249,11 @@ export function InventoryScreen() {
               {equippedInstanceIds.has(selectedEntry.inst.instanceId) ? (
                 <button
                   type="button"
-                  onClick={() => {
+                  onMouseEnter={onHover}
+                  onClick={click(() => {
                     unequipItem(selectedEntry.def.slot);
                     setSelectedInstanceId(null);
-                  }}
+                  })}
                   className="w-full rounded-lg bg-stone-200 px-4 py-2 font-semibold text-stone-700 hover:bg-stone-300"
                 >
                   Tháo vật phẩm
@@ -248,7 +261,8 @@ export function InventoryScreen() {
               ) : (
                 <button
                   type="button"
-                  onClick={handleEquip}
+                  onMouseEnter={onHover}
+                  onClick={click(handleEquip)}
                   className="w-full rounded-lg bg-orange-600 px-4 py-2 font-semibold text-white shadow hover:bg-orange-700"
                 >
                   Trang bị

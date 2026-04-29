@@ -119,4 +119,24 @@ describe('QuizOverlay — event-driven container', () => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
   });
+
+  it('Step 22.17 — OPEN_QUIZ fires ui_popup_open + QUIZ_RESULT fires ui_popup_close', async () => {
+    const { audioManager } = await import('@/utils/AudioManager');
+    const sfx = vi.spyOn(audioManager, 'playSfx');
+    render(<QuizOverlay />);
+    eventBus.emit('OPEN_QUIZ', { lo_id: 100001, monster_id: null });
+    await waitFor(() => screen.getByRole('dialog'));
+    expect(sfx).toHaveBeenCalledWith('ui_popup_open');
+    eventBus.emit('QUIZ_RESULT', {
+      correct: true,
+      timeSpent: 1,
+      attempts: 1,
+      lo_id: 100001,
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+    expect(sfx).toHaveBeenCalledWith('ui_popup_close');
+    sfx.mockRestore();
+  });
 });

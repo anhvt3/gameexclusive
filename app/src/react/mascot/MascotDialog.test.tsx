@@ -1,6 +1,16 @@
 import { describe, it, expect, vi } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MascotDialog } from './MascotDialog';
+import { audioManager } from '@/utils/AudioManager';
+
+vi.mock('howler', () => ({
+  Howl: class {
+    play = vi.fn();
+    stop = vi.fn();
+    mute = vi.fn();
+    constructor(_opts: unknown) {}
+  },
+}));
 
 describe('MascotDialog — presentational', () => {
   it('renders portrait image from given file', () => {
@@ -111,5 +121,43 @@ describe('MascotDialog — presentational', () => {
     );
     fireEvent.click(screen.getByRole('button'));
     expect(onContinue).toHaveBeenCalledTimes(1);
+  });
+
+  it('Step 22.17 — mounting with non-empty text fires world_npc_talk', () => {
+    const sfx = vi.spyOn(audioManager, 'playSfx');
+    render(
+      <MascotDialog
+        portraitFile="soc_guide_greet.png"
+        text="Chào bạn!"
+        onContinue={() => {}}
+        typingSpeedMs={0}
+      />
+    );
+    expect(sfx).toHaveBeenCalledWith('world_npc_talk');
+    sfx.mockRestore();
+  });
+
+  it('Step 22.17 — text change re-fires world_npc_talk', () => {
+    const sfx = vi.spyOn(audioManager, 'playSfx');
+    const { rerender } = render(
+      <MascotDialog
+        portraitFile="soc_guide_greet.png"
+        text="A"
+        onContinue={() => {}}
+        typingSpeedMs={0}
+      />
+    );
+    const initialCalls = sfx.mock.calls.filter((c) => c[0] === 'world_npc_talk').length;
+    rerender(
+      <MascotDialog
+        portraitFile="soc_guide_greet.png"
+        text="B"
+        onContinue={() => {}}
+        typingSpeedMs={0}
+      />
+    );
+    const after = sfx.mock.calls.filter((c) => c[0] === 'world_npc_talk').length;
+    expect(after).toBeGreaterThan(initialCalls);
+    sfx.mockRestore();
   });
 });

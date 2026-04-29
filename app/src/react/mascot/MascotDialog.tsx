@@ -10,6 +10,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { audioManager } from '@/utils/AudioManager';
 
 interface MascotDialogProps {
   /** Filename in /assets/mascot/ — e.g. "soc_guide_greet.png" */
@@ -29,6 +30,14 @@ export function MascotDialog({
   typingSpeedMs = 25,
 }: MascotDialogProps) {
   const [revealed, setRevealed] = useState(() => (typingSpeedMs === 0 ? text.length : 0));
+
+  // Step 22.17 — fire NPC-talk SFX once when a non-empty dialog mounts.
+  // Re-fires when the text content changes (next tutorial step / new
+  // mascot beat). Empty text = silent (defensive guard).
+  useEffect(() => {
+    if (text.length === 0) return;
+    audioManager.playSfx('world_npc_talk');
+  }, [text]);
 
   useEffect(() => {
     // Typewriter pacing legitimately requires effect-driven setState on

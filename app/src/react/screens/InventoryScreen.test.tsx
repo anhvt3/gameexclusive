@@ -1,9 +1,19 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { InventoryScreen } from './InventoryScreen';
 import { useSaveState } from '@persistence/SaveStateStore';
 import type { InventoryItem } from '@/types/item';
+import { audioManager } from '@/utils/AudioManager';
+
+vi.mock('howler', () => ({
+  Howl: class {
+    play = vi.fn();
+    stop = vi.fn();
+    mute = vi.fn();
+    constructor(_opts: unknown) {}
+  },
+}));
 
 function seed(items: InventoryItem[]): void {
   for (const item of items) useSaveState.getState().addInventoryItem(item);
@@ -133,5 +143,26 @@ describe('InventoryScreen — Step 22.9', () => {
     renderInventory();
     fireEvent.click(screen.getByRole('button', { name: /Về menu/ }));
     expect(screen.getByTestId('menu')).toBeInTheDocument();
+  });
+
+  it('Step 22.17 — primary "Trang bị" button fires ui_btn_click', () => {
+    seed([fireWand]);
+    renderInventory();
+    const sfx = vi.spyOn(audioManager, 'playSfx');
+    fireEvent.click(screen.getByLabelText(/Đũa Hỏa Tinh/));
+    fireEvent.click(screen.getByRole('button', { name: /^Trang bị$/ }));
+    expect(sfx).toHaveBeenCalledWith('ui_btn_click');
+    sfx.mockRestore();
+  });
+
+  it('Step 22.17 — slot "Tháo" button fires ui_btn_click', () => {
+    seed([fireWand]);
+    useSaveState.getState().equipItem('wand', fireWand.instanceId);
+    renderInventory();
+    const wandSlot = document.querySelector('[data-slot="wand"]') as HTMLElement;
+    const sfx = vi.spyOn(audioManager, 'playSfx');
+    fireEvent.click(within(wandSlot).getByRole('button', { name: /Tháo/ }));
+    expect(sfx).toHaveBeenCalledWith('ui_btn_click');
+    sfx.mockRestore();
   });
 });

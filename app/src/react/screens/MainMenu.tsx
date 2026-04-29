@@ -13,6 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSaveState } from '@persistence/SaveStateStore';
 import { TUTORIAL_FLAG } from '@react/mascot/tutorialSteps';
 import { BOSS_PENDING_FLAG, canAttemptBoss } from '@domain/BossQuest';
+import { useGameAudio } from '@react/shell/useGameAudio';
 
 export function MainMenu() {
   const navigate = useNavigate();
@@ -22,11 +23,21 @@ export function MainMenu() {
   const lastBossAttempt = useSaveState((s) => s.last_boss_attempt_date);
   const setFlag = useSaveState((s) => s.setFlag);
   const canFightBoss = canAttemptBoss(lastBossAttempt);
+  const { playSfx } = useGameAudio();
 
-  const handleBossClick = () => {
+  // Step 22.17 — primary-button audio handlers. Hover→ui_btn_hover,
+  // click→ui_btn_click. Wrap navigation/handler to chain the SFX before
+  // triggering the route change.
+  const onHover = () => playSfx('ui_btn_hover');
+  const click = (action: () => void) => () => {
+    playSfx('ui_btn_click');
+    action();
+  };
+
+  const handleBossClick = click(() => {
     setFlag(BOSS_PENDING_FLAG, true);
     navigate('/play');
-  };
+  });
 
   return (
     <main
@@ -52,7 +63,8 @@ export function MainMenu() {
       <section className="flex w-full max-w-sm flex-col gap-3">
         <button
           type="button"
-          onClick={() => navigate('/play')}
+          onMouseEnter={onHover}
+          onClick={click(() => navigate('/play'))}
           className="w-full rounded-xl bg-orange-600 px-6 py-3 text-lg font-bold text-white shadow-md transition hover:bg-orange-700"
         >
           Bắt đầu cuộc phiêu lưu
@@ -60,13 +72,15 @@ export function MainMenu() {
         <button
           type="button"
           disabled={!hasProgress}
-          onClick={() => navigate('/play')}
+          onMouseEnter={onHover}
+          onClick={click(() => navigate('/play'))}
           className="w-full rounded-xl bg-amber-500 px-6 py-3 text-lg font-semibold text-white shadow transition enabled:hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-amber-300"
         >
           Tiếp tục
         </button>
         <button
           type="button"
+          onMouseEnter={onHover}
           onClick={handleBossClick}
           disabled={!canFightBoss}
           aria-label={canFightBoss ? 'Boss hôm nay' : 'Boss hôm nay — đã thử, quay lại ngày mai'}
@@ -76,14 +90,16 @@ export function MainMenu() {
         </button>
         <button
           type="button"
-          onClick={() => navigate('/guild')}
+          onMouseEnter={onHover}
+          onClick={click(() => navigate('/guild'))}
           className="w-full rounded-xl bg-stone-100 px-6 py-3 text-base font-semibold text-amber-800 shadow transition hover:bg-stone-200"
         >
           Bảng xếp hạng lớp
         </button>
         <button
           type="button"
-          onClick={() => navigate('/inventory')}
+          onMouseEnter={onHover}
+          onClick={click(() => navigate('/inventory'))}
           className="w-full rounded-xl bg-stone-100 px-6 py-3 text-base font-semibold text-amber-800 shadow transition hover:bg-stone-200"
         >
           Kho đồ

@@ -1,7 +1,17 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { GuildLeaderboard } from './GuildLeaderboard';
+import { audioManager } from '@/utils/AudioManager';
+
+vi.mock('howler', () => ({
+  Howl: class {
+    play = vi.fn();
+    stop = vi.fn();
+    mute = vi.fn();
+    constructor(_opts: unknown) {}
+  },
+}));
 
 function renderAt(path: string) {
   return render(
@@ -55,6 +65,17 @@ describe('GuildLeaderboard — WF static single-player', () => {
     renderAt('/guild');
     fireEvent.click(screen.getByRole('button', { name: /Về menu/i }));
     expect(screen.getByTestId('menu')).toBeInTheDocument();
+  });
+
+  it('Step 22.17 — Về menu hover/click fire ui audio', () => {
+    const sfx = vi.spyOn(audioManager, 'playSfx');
+    renderAt('/guild');
+    const btn = screen.getByRole('button', { name: /Về menu/i });
+    fireEvent.mouseEnter(btn);
+    fireEvent.click(btn);
+    expect(sfx).toHaveBeenCalledWith('ui_btn_hover');
+    expect(sfx).toHaveBeenCalledWith('ui_btn_click');
+    sfx.mockRestore();
   });
 
   it('top 3 rank badges use distinctive styling class', () => {

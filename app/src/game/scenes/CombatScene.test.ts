@@ -428,6 +428,41 @@ describe('CombatScene — Step 17 damage resolution + victory/defeat', () => {
     expect(exits[0]!.monster_id).toBe(1);
   });
 
+  it('Step 22.17 — create() fires combat_monster_cry once', async () => {
+    const { audioManager } = await import('@/utils/AudioManager');
+    const sfx = vi.spyOn(audioManager, 'playSfx');
+    const scene = new CombatScene();
+    scene.init({ monsterId: 1 });
+    scene.create();
+    expect(sfx).toHaveBeenCalledWith('combat_monster_cry');
+    sfx.mockRestore();
+  });
+
+  it('Step 22.17 — applyPlayerDamage with hit fires combat_hit_impact', async () => {
+    const { audioManager } = await import('@/utils/AudioManager');
+    const scene = new CombatScene();
+    scene.init({ monsterId: 1 });
+    scene.create();
+    const sfx = vi.spyOn(audioManager, 'playSfx');
+    scene.onSpellClick('fire_blast');
+    eventBus.emit('QUIZ_RESULT', { correct: true, timeSpent: 1, attempts: 1, lo_id: 100001 });
+    expect(sfx).toHaveBeenCalledWith('combat_hit_impact');
+    sfx.mockRestore();
+  });
+
+  it('Step 22.17 — runMonsterTurn fires combat_hit_impact for player damage', async () => {
+    const { audioManager } = await import('@/utils/AudioManager');
+    const scene = new CombatScene();
+    scene.init({ monsterId: 1 });
+    scene.create();
+    const sfx = vi.spyOn(audioManager, 'playSfx');
+    scene.onSpellClick('fire_blast');
+    eventBus.emit('QUIZ_RESULT', { correct: false, timeSpent: 1, attempts: 1, lo_id: 100001 });
+    // QUIZ_WRONG path: monster retaliates → combat_hit_impact for player hit
+    expect(sfx).toHaveBeenCalledWith('combat_hit_impact');
+    sfx.mockRestore();
+  });
+
   it('Step 22.16 — renders weakness label "Yếu: <element>" near monster', () => {
     const scene = new CombatScene();
     scene.init({ monsterId: 1 }); // Embershed (Fire)

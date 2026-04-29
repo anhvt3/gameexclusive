@@ -1,10 +1,21 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { vi } from 'vitest';
 import { MainMenu } from './MainMenu';
 import { useSaveState } from '@persistence/SaveStateStore';
 import { TUTORIAL_FLAG } from '@react/mascot/tutorialSteps';
 import { BOSS_PENDING_FLAG, todayIso } from '@domain/BossQuest';
+import { audioManager } from '@/utils/AudioManager';
+
+vi.mock('howler', () => ({
+  Howl: class {
+    play = vi.fn();
+    stop = vi.fn();
+    mute = vi.fn();
+    constructor(_opts: unknown) {}
+  },
+}));
 
 function renderMenu(initialPath = '/') {
   return render(
@@ -88,6 +99,22 @@ describe('MainMenu — WF1', () => {
     renderMenu();
     fireEvent.click(screen.getByRole('button', { name: /^Kho đồ$/ }));
     expect(screen.getByTestId('inventory-screen')).toBeInTheDocument();
+  });
+
+  it('Step 22.17 — primary buttons fire ui_btn_hover on mouseenter', () => {
+    const sfx = vi.spyOn(audioManager, 'playSfx');
+    renderMenu();
+    fireEvent.mouseEnter(screen.getByRole('button', { name: /Bắt đầu cuộc phiêu lưu/i }));
+    expect(sfx).toHaveBeenCalledWith('ui_btn_hover');
+    sfx.mockRestore();
+  });
+
+  it('Step 22.17 — primary buttons fire ui_btn_click on click', () => {
+    const sfx = vi.spyOn(audioManager, 'playSfx');
+    renderMenu();
+    fireEvent.click(screen.getByRole('button', { name: /Bảng xếp hạng lớp/i }));
+    expect(sfx).toHaveBeenCalledWith('ui_btn_click');
+    sfx.mockRestore();
   });
 
   it('boss button disabled + alt label when last attempt = today', () => {

@@ -30,6 +30,7 @@ import type { InventoryItem } from '@/types/item';
 import { HpBar } from '../entities/HpBar';
 import { PlayerAvatar } from '../entities/PlayerAvatar';
 import { wireSpellVfx } from '@game/systems/SpellVfx';
+import { audioManager } from '@/utils/AudioManager';
 
 /**
  * Combat RNG seam — tests swap this via __setCombatRng so crit-chance
@@ -187,6 +188,10 @@ export class CombatScene extends Phaser.Scene {
     // Step 22.13 — cosmetic spell VFX listens on bus, animates a beam
     // from player → monster on every CAST_SPELL emit.
     this.spellVfxUnsub = wireSpellVfx(this);
+    // Step 22.17 — monster appearance cry once on scene mount. Sits
+    // alongside combat_encounter (fired by appLifecycle on ENTER_COMBAT)
+    // — different beat: encounter is the bus event, cry is the visual.
+    audioManager.playSfx('combat_monster_cry');
   }
 
   private renderSpellButtons(): void {
@@ -301,6 +306,9 @@ export class CombatScene extends Phaser.Scene {
 
     this.monsterCurrentHp = Math.max(0, this.monsterCurrentHp - dmg);
     this.monsterHpBar?.setHp(this.monsterCurrentHp, this.monsterMaxHp);
+    // Step 22.17 — auditory feedback. dmg=0 plays the miss whiff,
+    // dmg>0 plays the impact thump.
+    audioManager.playSfx(dmg === 0 ? 'combat_miss' : 'combat_hit_impact');
     this.combatState = nextCombatState(this.combatState, {
       type: 'DAMAGE_APPLIED',
       side: 'monster',
@@ -314,6 +322,9 @@ export class CombatScene extends Phaser.Scene {
     const save = useSaveState.getState();
     const newHp = Math.max(0, save.hp - MONSTER_BASE_POWER);
     save.setHp(newHp);
+    // Step 22.17 — monster's hit on player. Same SFX as player→monster
+    // hit (single brand thump), distinct from combat_miss.
+    audioManager.playSfx('combat_hit_impact');
     this.combatState = nextCombatState(this.combatState, {
       type: 'DAMAGE_APPLIED',
       side: 'player',

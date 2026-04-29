@@ -9,6 +9,7 @@
 
 import { useNavigate } from 'react-router-dom';
 import { loadGuildClass, sortByWeeklyExp } from '@data/guild/GuildClassmatesAdapter';
+import { useGameAudio } from '@react/shell/useGameAudio';
 
 // TODO Step 24+: read grade from student profile / auth.
 const STUB_GRADE = 'G5';
@@ -16,6 +17,13 @@ const STUB_GRADE = 'G5';
 export function GuildLeaderboard() {
   const navigate = useNavigate();
   const classData = loadGuildClass(STUB_GRADE);
+  const { playSfx } = useGameAudio();
+  // Step 22.17 — primary back-button audio (skip row hover, would spam).
+  const onHover = () => playSfx('ui_btn_hover');
+  const onBack = () => {
+    playSfx('ui_btn_click');
+    navigate('/');
+  };
 
   if (!classData) {
     return (
@@ -24,7 +32,8 @@ export function GuildLeaderboard() {
           <p className="mb-4">Chưa có dữ liệu lớp cho khối {STUB_GRADE}.</p>
           <button
             type="button"
-            onClick={() => navigate('/')}
+            onMouseEnter={onHover}
+            onClick={onBack}
             className="rounded-lg bg-amber-500 px-4 py-2 font-semibold text-white"
           >
             Về menu
@@ -53,7 +62,8 @@ export function GuildLeaderboard() {
         </div>
         <button
           type="button"
-          onClick={() => navigate('/')}
+          onMouseEnter={onHover}
+          onClick={onBack}
           className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-amber-600"
         >
           Về menu

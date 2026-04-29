@@ -31,6 +31,8 @@ export function QuizOverlay() {
         return;
       }
       setActiveLO(lo);
+      // Step 22.17 — popup-open SFX paired with the dialog reveal.
+      audioManager.playSfx('ui_popup_open');
     });
     // Step 22.14 fix — auto-close when QUIZ_RESULT lands. Covers the path
     // where a non-UI caller (test bridge, future server-validation) emits
@@ -38,6 +40,7 @@ export function QuizOverlay() {
     // mounted forever because handleSubmit is the only other close path.
     const offResult = eventBus.on('QUIZ_RESULT', () => {
       setActiveLO(null);
+      audioManager.playSfx('ui_popup_close');
     });
     return () => {
       offOpen();
@@ -77,7 +80,11 @@ export function QuizOverlay() {
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => setWhiteboardOpen((v) => !v)}
+              onClick={() => {
+                audioManager.playSfx('ui_btn_click');
+                setWhiteboardOpen((v) => !v);
+              }}
+              onMouseEnter={() => audioManager.playSfx('ui_btn_hover')}
               aria-pressed={whiteboardOpen}
               data-testid="whiteboard-toggle"
               className={`rounded-md border px-3 py-1 text-xs font-semibold transition ${
