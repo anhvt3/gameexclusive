@@ -105,21 +105,24 @@ class AudioManager {
     }
     if (this.currentBgm?.key === key) return;
 
-    this.stopBgm();
-
-    let howl = this.bgmInstances.get(key);
-    if (!howl) {
-      howl = new Howl({
-        src: [path],
-        loop: true,
-        volume: BGM_VOLUME,
-        mute: this.muted,
-      });
-      this.bgmInstances.set(key, howl);
+    try {
+      this.stopBgm();
+      let howl = this.bgmInstances.get(key);
+      if (!howl) {
+        howl = new Howl({
+          src: [path],
+          loop: true,
+          volume: BGM_VOLUME,
+          mute: this.muted,
+        });
+        this.bgmInstances.set(key, howl);
+      }
+      howl.mute(this.muted);
+      howl.play();
+      this.currentBgm = { key, howl };
+    } catch (err) {
+      console.warn(`[AudioManager] playBgm(${key}) failed:`, err);
     }
-    howl.mute(this.muted);
-    howl.play();
-    this.currentBgm = { key, howl };
   }
 
   stopBgm(): void {
@@ -136,12 +139,19 @@ class AudioManager {
       console.warn(`[AudioManager] Unknown SFX key: ${key}`);
       return;
     }
-    let howl = this.sfxInstances.get(key);
-    if (!howl) {
-      howl = new Howl({ src: [path], volume: SFX_VOLUME });
-      this.sfxInstances.set(key, howl);
+    // Defensive: a missing asset / decoder error in Howler must NEVER bubble
+    // up to UI handlers — a tutorial Continue button that throws here would
+    // freeze the dialog. Log and swallow.
+    try {
+      let howl = this.sfxInstances.get(key);
+      if (!howl) {
+        howl = new Howl({ src: [path], volume: SFX_VOLUME });
+        this.sfxInstances.set(key, howl);
+      }
+      howl.play();
+    } catch (err) {
+      console.warn(`[AudioManager] playSfx(${key}) failed:`, err);
     }
-    howl.play();
   }
 
   setMuted(value: boolean): void {
