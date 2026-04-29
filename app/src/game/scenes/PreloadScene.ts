@@ -97,6 +97,16 @@ export const PHASE1_ASSETS = {
       key: item.spriteKey,
       path: item.spritePath,
     })),
+    // Sprint A Task 12 — pet sprites (24 entries: 6 codenames × 4 states)
+    ...['bunbleaf', 'pyropup', 'aquakit', 'frostfae', 'voltchick', 'terraowl'].flatMap((codename) =>
+      ['idle', 'attack', 'hurt', 'death'].map((state) => ({
+        key: `pet_${codename}_${state}`,
+        path: `/assets/pets/${codename}_${state}_256.png`,
+      }))
+    ),
+    // Sprint A Task 12 — evolution VFX strip + party HP strip BG
+    { key: 'evolution_burst_8frames', path: '/assets/juice/evolution_burst_8frames.png' },
+    { key: 'party_hp_strip_bg', path: '/assets/ui/party_hp_strip_bg.png' },
   ] as Array<{ key: string; path: string }>,
   spritesheets: [
     {

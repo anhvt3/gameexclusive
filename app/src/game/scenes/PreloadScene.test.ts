@@ -64,4 +64,22 @@ describe('PreloadScene', () => {
     expect(PHASE1_ASSETS).toHaveProperty('spritesheets');
     expect(PHASE1_ASSETS).toHaveProperty('tilemaps');
   });
+
+  it('registers 24 pet textures (6 codenames × 4 states)', () => {
+    const petPaths = PHASE1_ASSETS.images
+      .filter((i) => i.key.startsWith('pet_'))
+      .map((i) => i.key);
+    expect(petPaths).toHaveLength(24);
+    for (const codename of ['bunbleaf', 'pyropup', 'aquakit', 'frostfae', 'voltchick', 'terraowl']) {
+      for (const state of ['idle', 'attack', 'hurt', 'death']) {
+        expect(petPaths).toContain(`pet_${codename}_${state}`);
+      }
+    }
+  });
+
+  it('registers evolution VFX strip + party HP strip BG', () => {
+    const keys = PHASE1_ASSETS.images.map((i) => i.key);
+    expect(keys).toContain('evolution_burst_8frames');
+    expect(keys).toContain('party_hp_strip_bg');
+  });
 });
