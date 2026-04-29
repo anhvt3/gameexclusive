@@ -31,6 +31,15 @@ export function MascotDialog({
 }: MascotDialogProps) {
   const [revealed, setRevealed] = useState(() => (typingSpeedMs === 0 ? text.length : 0));
 
+  // Step 22.17 — popup_open on mount, popup_close on unmount. The dialog
+  // IS the modal, so its lifecycle drives the open/close SFX.
+  useEffect(() => {
+    audioManager.playSfx('ui_popup_open');
+    return () => {
+      audioManager.playSfx('ui_popup_close');
+    };
+  }, []);
+
   // Step 22.17 — fire NPC-talk SFX once when a non-empty dialog mounts.
   // Re-fires when the text content changes (next tutorial step / new
   // mascot beat). Empty text = silent (defensive guard).
@@ -94,7 +103,11 @@ export function MascotDialog({
           <div className="mt-2 flex justify-end">
             <button
               type="button"
-              onClick={handleClick}
+              onClick={() => {
+                audioManager.playSfx('ui_btn_click');
+                handleClick();
+              }}
+              onMouseEnter={() => audioManager.playSfx('ui_btn_hover')}
               className="rounded-lg bg-amber-500 px-4 py-2 font-semibold text-white shadow hover:bg-amber-600"
             >
               {isFull ? continueLabel : 'Bỏ qua'}

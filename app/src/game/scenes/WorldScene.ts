@@ -53,11 +53,30 @@ export class WorldScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor('#2a5a3a');
     this.physics.world.setBounds(0, 0, worldWidth, worldHeight);
 
-    this.drawPlaceholderGrid(worldWidth, worldHeight);
+    this.drawBackground(worldWidth, worldHeight);
     this.spawnEnemies();
 
     this.player = new Player(this, worldWidth / 2, worldHeight / 2);
     this.registerPlayerEnemyOverlap();
+
+    // Step 13.5 — camera follows the player and clamps to world bounds so the
+    // 1280×720 canvas (Scale.FIT) doesn't show black gutters when the world
+    // is smaller than the viewport.
+    const cam = this.cameras.main;
+    if (cam && typeof cam.setBounds === 'function') {
+      cam.setBounds(0, 0, worldWidth, worldHeight);
+      if (typeof cam.startFollow === 'function') {
+        cam.startFollow(
+          this.player.sprite as unknown as Phaser.GameObjects.GameObject,
+          true,
+          0.1,
+          0.1
+        );
+      }
+      if (typeof cam.setZoom === 'function') {
+        cam.setZoom(1.5);
+      }
+    }
 
     // Step 17: listen for combat exit — remove defeated enemy, resume scene
     this.exitCombatUnsub = eventBus.on('EXIT_COMBAT', ({ won, monster_id }) => {
@@ -111,18 +130,35 @@ export class WorldScene extends Phaser.Scene {
   private registerPlayerEnemyOverlap(): void {
     if (!this.player) return;
     const enemySprites = this.enemies.map((e) => e.sprite);
-    this.physics.add.overlap(this.player.sprite, enemySprites, (_player, enemySprite) => {
-      if (this.combatTriggered) return;
-      const enemy = (enemySprite as Phaser.GameObjects.Rectangle).getData('enemy') as Enemy;
-      if (!enemy) return;
-      this.combatTriggered = true;
-      eventBus.emit('ENTER_COMBAT', { monster_id: enemy.monsterId });
-      this.scene.pause();
-      this.scene.launch('CombatScene', { monsterId: enemy.monsterId });
-    });
+    this.physics.add.overlap(
+      this.player.sprite as unknown as Phaser.GameObjects.GameObject,
+      enemySprites as unknown as Phaser.GameObjects.GameObject[],
+      (_player, enemySprite) => {
+        if (this.combatTriggered) return;
+        const enemy = (enemySprite as unknown as { getData: (k: string) => unknown }).getData(
+          'enemy'
+        ) as Enemy;
+        if (!enemy) return;
+        this.combatTriggered = true;
+        eventBus.emit('ENTER_COMBAT', { monster_id: enemy.monsterId });
+        this.scene.pause();
+        this.scene.launch('CombatScene', { monsterId: enemy.monsterId });
+      }
+    );
   }
 
-  private drawPlaceholderGrid(worldWidth: number, worldHeight: number): void {
+  private drawBackground(worldWidth: number, worldHeight: number): void {
+    // Use the loaded forest tileset as a tiled background. When the texture
+    // isn't available (unit test or 404), fall back to the original
+    // checkerboard so visual layouts still snapshot reproducibly.
+    const hasTileset =
+      this.textures && typeof this.textures.exists === 'function'
+        ? this.textures.exists('forest_tileset')
+        : false;
+    if (hasTileset && typeof this.add.tileSprite === 'function') {
+      this.add.tileSprite(0, 0, worldWidth, worldHeight, 'forest_tileset').setOrigin(0, 0);
+      return;
+    }
     for (let y = 0; y < MAP_ROWS; y++) {
       for (let x = 0; x < MAP_COLS; x++) {
         const color = (x + y) % 2 === 0 ? 0x558b2f : 0x7cb342;
@@ -135,12 +171,6 @@ export class WorldScene extends Phaser.Scene {
         );
       }
     }
-    this.add
-      .text(worldWidth - 8, worldHeight - 8, `${MAP_COLS}×${MAP_ROWS} placeholder`, {
-        fontSize: '10px',
-        color: '#ffffff88',
-      })
-      .setOrigin(1, 1);
   }
 
   getPlayer(): Player | null {

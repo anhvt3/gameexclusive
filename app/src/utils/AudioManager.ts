@@ -6,42 +6,86 @@
  * without caring about asset preloads, Phaser sound contexts, or
  * browser-autoplay quirks.
  *
- * Asset paths point at Antigravity's placeholders under
- * `app/public/assets/audio/` (real audio will overwrite these in
- * place without code changes).
+ * Asset paths point at OGG Vorbis files under
+ * `app/public/assets/audio/{sfx,bgm}/`. Keys follow the convention
+ * `[category]_[action/object]` (snake_case), matching the manifest in
+ * `tasks/audio_manifest.md`.
  *
  * Mute state is held in-memory here and synced to
  * `SaveState.flags.audio_muted` by appLifecycle — keeps this module
  * pure (no store imports).
+ *
+ * AP DELTA NOTE (2026-04-29): keys renamed from short codes
+ * (`map`, `combat`, `click`, `correct`, ...) to the prompt-mandated
+ * `[category]_[action]` convention. Type B change — reviewer must
+ * update Appendix I §2 with the full key registry.
  */
 
 import { Howl } from 'howler';
 
-export type BgmKey = 'map' | 'combat';
+/**
+ * Background music keys — 4 tracks, looped.
+ */
+export type BgmKey = 'main_menu' | 'world_explore' | 'combat_active' | 'math_thinking';
+
+/**
+ * Sound effect keys — 22 short clips, one-shot.
+ * Naming: [category]_[action/object]. Categories: ui, math, combat, world.
+ */
 export type SfxKey =
-  | 'click'
-  | 'correct'
-  | 'wrong'
-  | 'spell_fire'
-  | 'spell_water'
-  | 'hit'
-  | 'chest_open'
-  | 'level_up';
+  | 'ui_btn_hover'
+  | 'ui_btn_click'
+  | 'ui_popup_open'
+  | 'ui_popup_close'
+  | 'ui_error_beep'
+  | 'math_keyboard_tap'
+  | 'math_correct'
+  | 'math_wrong'
+  | 'math_whiteboard_draw'
+  | 'combat_encounter'
+  | 'combat_cast_fire'
+  | 'combat_cast_ice'
+  | 'combat_hit_impact'
+  | 'combat_miss'
+  | 'combat_heal'
+  | 'combat_monster_cry'
+  | 'combat_victory'
+  | 'world_step_grass'
+  | 'world_collect_item'
+  | 'world_chest_open'
+  | 'world_npc_talk'
+  | 'world_level_up';
 
 export const BGM_PATHS: Record<BgmKey, string> = {
-  map: '/assets/audio/bgm_map.wav',
-  combat: '/assets/audio/bgm_combat.wav',
+  main_menu: '/assets/audio/bgm/bgm_main_menu.ogg',
+  world_explore: '/assets/audio/bgm/bgm_world_explore.ogg',
+  combat_active: '/assets/audio/bgm/bgm_combat_active.ogg',
+  math_thinking: '/assets/audio/bgm/bgm_math_thinking.ogg',
 };
 
 export const SFX_PATHS: Record<SfxKey, string> = {
-  click: '/assets/audio/sfx_click.wav',
-  correct: '/assets/audio/sfx_correct.wav',
-  wrong: '/assets/audio/sfx_wrong.wav',
-  spell_fire: '/assets/audio/sfx_spell_fire.wav',
-  spell_water: '/assets/audio/sfx_spell_water.wav',
-  hit: '/assets/audio/sfx_hit.wav',
-  chest_open: '/assets/audio/sfx_chest_open.wav',
-  level_up: '/assets/audio/sfx_level_up.wav',
+  ui_btn_hover: '/assets/audio/sfx/ui_btn_hover.ogg',
+  ui_btn_click: '/assets/audio/sfx/ui_btn_click.ogg',
+  ui_popup_open: '/assets/audio/sfx/ui_popup_open.ogg',
+  ui_popup_close: '/assets/audio/sfx/ui_popup_close.ogg',
+  ui_error_beep: '/assets/audio/sfx/ui_error_beep.ogg',
+  math_keyboard_tap: '/assets/audio/sfx/math_keyboard_tap.ogg',
+  math_correct: '/assets/audio/sfx/math_correct.ogg',
+  math_wrong: '/assets/audio/sfx/math_wrong.ogg',
+  math_whiteboard_draw: '/assets/audio/sfx/math_whiteboard_draw.ogg',
+  combat_encounter: '/assets/audio/sfx/combat_encounter.ogg',
+  combat_cast_fire: '/assets/audio/sfx/combat_cast_fire.ogg',
+  combat_cast_ice: '/assets/audio/sfx/combat_cast_ice.ogg',
+  combat_hit_impact: '/assets/audio/sfx/combat_hit_impact.ogg',
+  combat_miss: '/assets/audio/sfx/combat_miss.ogg',
+  combat_heal: '/assets/audio/sfx/combat_heal.ogg',
+  combat_monster_cry: '/assets/audio/sfx/combat_monster_cry.ogg',
+  combat_victory: '/assets/audio/sfx/combat_victory.ogg',
+  world_step_grass: '/assets/audio/sfx/world_step_grass.ogg',
+  world_collect_item: '/assets/audio/sfx/world_collect_item.ogg',
+  world_chest_open: '/assets/audio/sfx/world_chest_open.ogg',
+  world_npc_talk: '/assets/audio/sfx/world_npc_talk.ogg',
+  world_level_up: '/assets/audio/sfx/world_level_up.ogg',
 };
 
 const BGM_VOLUME = 0.4;
@@ -59,7 +103,7 @@ class AudioManager {
       console.warn(`[AudioManager] Unknown BGM key: ${key}`);
       return;
     }
-    if (this.currentBgm?.key === key) return; // already playing — idempotent
+    if (this.currentBgm?.key === key) return;
 
     this.stopBgm();
 
@@ -105,7 +149,6 @@ class AudioManager {
     for (const howl of this.bgmInstances.values()) {
       howl.mute(value);
     }
-    // SFX are gated at play() time — no in-flight mute needed.
   }
 
   getMuted(): boolean {

@@ -70,16 +70,16 @@ describe('initAppLifecycle — shell wiring', () => {
     expect(eventBus.getListenerCount()).toBe(before);
   });
 
-  it('metrics bridge is live after init (ENTER_COMBAT → combat_started)', () => {
+  it('metrics bridge is live after init (ENTER_COMBAT triggers combat_started)', () => {
     const handle = initAppLifecycle();
     eventBus.emit('ENTER_COMBAT', { monster_id: 1 });
     expect(readMetricsQueue().some((e) => e.name === 'combat_started')).toBe(true);
     handle.teardown();
   });
 
-  it('starts map BGM on init', () => {
+  it('starts world_explore BGM on init', () => {
     const handle = initAppLifecycle();
-    expect(audioManager.getCurrentBgmKey()).toBe('map');
+    expect(audioManager.getCurrentBgmKey()).toBe('world_explore');
     handle.teardown();
   });
 
@@ -90,18 +90,37 @@ describe('initAppLifecycle — shell wiring', () => {
     handle.teardown();
   });
 
-  it('ENTER_COMBAT → combat BGM, EXIT_COMBAT → map BGM', () => {
+  it('ENTER_COMBAT to combat_active BGM, EXIT_COMBAT to world_explore BGM', () => {
     const handle = initAppLifecycle();
     eventBus.emit('ENTER_COMBAT', { monster_id: 1 });
-    expect(audioManager.getCurrentBgmKey()).toBe('combat');
+    expect(audioManager.getCurrentBgmKey()).toBe('combat_active');
     eventBus.emit('EXIT_COMBAT', { won: true, exp_gained: 40, monster_id: 1 });
-    expect(audioManager.getCurrentBgmKey()).toBe('map');
+    expect(audioManager.getCurrentBgmKey()).toBe('world_explore');
+    handle.teardown();
+  });
+
+  it('CAST_SPELL Ice or Fire does not throw', () => {
+    const handle = initAppLifecycle();
+    expect(() =>
+      eventBus.emit('CAST_SPELL', {
+        element: 'Ice',
+        origin: { x: 0, y: 0 },
+        target: { x: 100, y: 0 },
+      })
+    ).not.toThrow();
+    expect(() =>
+      eventBus.emit('CAST_SPELL', {
+        element: 'Fire',
+        origin: { x: 0, y: 0 },
+        target: { x: 100, y: 0 },
+      })
+    ).not.toThrow();
     handle.teardown();
   });
 
   it('teardown stops BGM', () => {
     const handle = initAppLifecycle();
-    expect(audioManager.getCurrentBgmKey()).toBe('map');
+    expect(audioManager.getCurrentBgmKey()).toBe('world_explore');
     handle.teardown();
     expect(audioManager.getCurrentBgmKey()).toBeNull();
   });

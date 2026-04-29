@@ -102,8 +102,8 @@ export const PHASE1_ASSETS = {
     {
       key: 'wizard_walk',
       path: '/assets/player/wizard_male_walk_spritesheet_128x128.png',
-      frameWidth: 32,
-      frameHeight: 32,
+      frameWidth: 128,
+      frameHeight: 128,
     },
   ] as Array<{
     key: string;
