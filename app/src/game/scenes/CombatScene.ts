@@ -131,7 +131,12 @@ export class CombatScene extends Phaser.Scene {
     const monsterX = width * 0.28;
     const monsterY = height * 0.55;
     this.monsterPos = { x: monsterX, y: monsterY };
-    this.add.image(monsterX, monsterY, `monster_${this.monsterDef.codename}_idle`);
+    // Antigravity delivered monster textures at wildly different native
+    // sizes (180-1024 px). Normalize to a ~200 px combat display so a
+    // 1024-px Voltee doesn't dwarf a 180-px Embershed.
+    this.add
+      .image(monsterX, monsterY, `monster_${this.monsterDef.codename}_idle`)
+      .setDisplaySize(220, 200);
     this.add
       .text(monsterX, monsterY - 90, this.monsterDef.displayNameVi, {
         fontSize: '20px',
@@ -161,7 +166,11 @@ export class CombatScene extends Phaser.Scene {
     // Step 22.12 — layered base body + equipment overlays. Replaces the
     // old single wizard_walk sprite so equipping items in /inventory
     // shows up on the actual character mid-combat.
-    this.playerAvatar = new PlayerAvatar(this, playerX, playerY, 2);
+    // Antigravity delivered 1024×1024 base + equipment textures (Appendix
+    // I §1.1 originally specced 32-base, but real assets shipped 32× larger
+    // for Retina). Use 0.18 so the rendered avatar is ~184 px tall — fits
+    // alongside the monster on the 648-wide combat viewport.
+    this.playerAvatar = new PlayerAvatar(this, playerX, playerY, 0.18);
 
     const state = useSaveState.getState();
     // AP §11.3 / Step 22.10 — player bar reads effective max (base + equip maxHp).

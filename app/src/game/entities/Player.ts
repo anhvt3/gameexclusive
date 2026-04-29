@@ -76,9 +76,10 @@ export class Player {
     scene.physics.add.existing(this.sprite);
     this.body = this.sprite.body as Phaser.Physics.Arcade.Body;
     this.body.setCollideWorldBounds(true);
-    if (typeof this.body.setSize === 'function') {
-      this.body.setSize(PLAYER_WIDTH, PLAYER_HEIGHT);
-    }
+    // NOTE: deliberately do NOT call body.setSize — Phaser's arcade body
+    // setSize takes TEXTURE-space pixels, so on a 1024-px source displayed
+    // at 64 px the body would shrink to ~4 px and break overlap detection.
+    // Default body size equals the display size, which is what we want.
 
     const kb = scene.input.keyboard;
     if (!kb) {

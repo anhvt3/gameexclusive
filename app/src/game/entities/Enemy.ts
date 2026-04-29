@@ -49,9 +49,9 @@ export class Enemy {
     scene.physics.add.existing(this.sprite);
     this.body = this.sprite.body as Phaser.Physics.Arcade.Body;
     this.body.setImmovable(true);
-    if (typeof this.body.setSize === 'function') {
-      this.body.setSize(ENEMY_SIZE, ENEMY_SIZE);
-    }
+    // See Player.ts — body.setSize uses texture-space pixels and would
+    // shrink the collision box on a high-res source. Skip it; the default
+    // body size already matches display size.
     // Store back-ref on sprite.data for easy retrieval from overlap callbacks
     this.sprite.setData('enemy', this);
   }
