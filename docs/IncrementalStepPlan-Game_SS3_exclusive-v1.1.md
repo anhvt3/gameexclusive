@@ -91,11 +91,12 @@ isolated enough to defer without blocking Phase 2 content work.
 | **22.11** | **AudioManager + BGM/SFX wiring (Howler.js)** | 3h | Low — additive utility, no state |
 | **22.12** | **Base player layered rendering (body + equipment overlay)** | 4h | Med — touches PhaserGame + CombatScene sprite composition |
 | **22.13** | **Spell VFX sprite-sheet system** | 3h | Low — cosmetic overlay on executeSpell |
-| **22.14** | **Treasure-chest reward animation (LEVEL_UP overlay)** | 3h | Low — React overlay subscribing LEVEL_UP |
-| **22.15** | **Quiz whiteboard scratchpad (`<canvas>` tool)** | 4h | Med — new child in QuizOverlay, pen/eraser/palette |
-| **22.16** | **Element icons on HP bar + Victory banner animation** | 2h | Low — two small cosmetic wins |
+| **22.14** | **Treasure-chest reward animation (LEVEL_UP overlay)** | 3h | Low — React overlay subscribing LEVEL_UP. Inline-wires `world_chest_open` SFX |
+| **22.15** | **Quiz whiteboard scratchpad (`<canvas>` tool)** | 4h | Med — new child in QuizOverlay, pen/eraser/palette. Inline-wires `math_whiteboard_draw` SFX |
+| **22.16** | **Element icons on HP bar + Victory banner animation** | 2h | Low — two small cosmetic wins. Inline-binds `combat_victory` to banner reveal |
+| **22.17** | **Audio call-site wiring (Type A, post-feature pass)** | 3h | Low — wires the 7 non-co-located SFX into now-existing call-sites |
 
-**Phase 1 + 1.5 total:** ~83h + 19h = **~102h (~13 working days)**.
+**Phase 1 + 1.5 total:** ~83h + 22h = **~105h (~13 working days)**.
 
 **Scheduling rule:** Steps 22.11 → 22.16 may run **after** 22.10 lands OR
 interleave with early Phase 2 content work. Priority = 22.11 (audio is
@@ -476,6 +477,60 @@ problems without paper.
 - Fire monster → HP bar shows Water weakness icon
 - EXIT_COMBAT won=true → banner visible, auto-dismisses
 - EXIT_COMBAT won=false → banner not shown
+
+---
+
+## Step 22.17 — Audio Call-Site Wiring (Phase 1.5, Type A)
+
+**Goal:** Wire the 7 SFX that aren't co-located with feature work
+(22.14/22.15/22.16 each handle their own). One consolidated pass over
+the screens + scenes that already exist; pure additive — no schema or
+event-layer change.
+
+**Scope:**
+- UI category (5 SFX × multiple screens):
+  - `ui_btn_hover` on primary buttons of MainMenu, InventoryScreen,
+    GuildLeaderboard (skip list rows — would spam)
+  - `ui_btn_click` on the same primary buttons
+  - `ui_popup_open` on QuizOverlay setActiveLO transition (null → lo)
+  - `ui_popup_close` on QuizOverlay handleSubmit before closing
+  - `ui_error_beep` on InventoryScreen invalid-equip path + CombatScene
+    spell-with-no-MP path (when CL adds MP cost)
+- Combat category (3 SFX in CombatScene):
+  - `combat_hit_impact` × 2 — applyPlayerDamage on monster, runMonsterTurn
+    on player
+  - `combat_miss` — when calculated damage rounds to 0 OR crit-fail path
+  - `combat_monster_cry` — once on CombatScene.create after monster
+    sprite mounts (avoid overlap with `combat_encounter` already on
+    ENTER_COMBAT bus event)
+- World category (2 SFX in WorldScene + MascotDialog):
+  - `world_collect_item` — when collision callback grants an inventory
+    drop on the map (Phase 2 feature; defer note if not yet wired)
+  - `world_npc_talk` — when MascotDialog mounts with a non-null text
+    prop (covers tutorial + future NPC interactions)
+
+**Patterns to reuse:**
+- Phaser scenes: `import { audioManager } from '@/utils/AudioManager'`
+  (matches Player.ts footstep pattern)
+- React components: `useGameAudio()` hook (refs stable, bind directly
+  to `onMouseEnter` / `onClick` without `useCallback`)
+- Throttle ≥80ms for any pointer/move-driven SFX (reuse
+  `PLAYER_STEP_INTERVAL_MS=350` shape)
+
+**Test:**
+- Each touched file gets `vi.mock('howler', ...)` per the
+  `appLifecycle.test.ts` pattern
+- Hover + click handler tests assert `audioManager.playSfx` called once
+  per interaction with the exact key
+- Combat hit/miss tests gate on damage value (0 → miss, >0 → impact)
+
+**Defers (note in PR if features absent):**
+- `combat_miss` MP-fail path waits on Step 22.10b MP-cost CL (not in
+  current scope — log a TODO instead of force-fitting)
+- `world_collect_item` waits on Phase 2 world drop mechanic
+
+**Exit criteria:** verify gates green; new tests cover every newly
+wired call-site; mute flag still honoured (no bypass code added).
 
 ---
 
