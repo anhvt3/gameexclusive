@@ -132,8 +132,8 @@ describe('SaveStateStore — persistence', () => {
     expect(parsed.version).toBeDefined();
   });
 
-  it('SCHEMA_VERSION is at v2 (Step 22.7 inventory bump)', () => {
-    expect(SCHEMA_VERSION).toBe(2);
+  it('SCHEMA_VERSION is at v3 (Sprint A Task 9 pet field)', () => {
+    expect(SCHEMA_VERSION).toBe(3);
   });
 });
 
@@ -365,5 +365,42 @@ describe('SaveStateStore — v1 → v2 migration', () => {
     expect(s.inventory).toEqual([]);
     expect(s.equipment).toEqual(EMPTY_EQUIPMENT);
     expect(s.lastLevelUpAt).toBeNull();
+  });
+});
+
+describe('SaveStateStore — v2 → v3 migration (Sprint A Task 9)', () => {
+  it('migrates v2 save to v3 with active_pet_instance_id=null', async () => {
+    const v2Save = {
+      state: {
+        hp: 100,
+        maxHp: 100,
+        mp: 50,
+        maxMp: 50,
+        exp: 0,
+        level: 1,
+        flags: {},
+        inventory: [],
+        equipment: { hat: null, outfit: null, wand: null, shoes: null },
+        lastLevelUpAt: null,
+        audio_muted: false,
+        position: { x: 480, y: 320 },
+        last_boss_attempt_date: null,
+      },
+      version: 2,
+    };
+    localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v2Save));
+    await useSaveState.persist.rehydrate();
+    const s = useSaveState.getState();
+    // SCHEMA_VERSION is now 3; after migration active_pet_instance_id defaults to null
+    expect(SCHEMA_VERSION).toBe(3);
+    expect(s.active_pet_instance_id).toBeNull();
+  });
+
+  it('saves with v3 schema — active_pet_instance_id is persisted', () => {
+    useSaveState.getState().setActivePetInstanceId('inst_abc');
+    const stored = localStorage.getItem(SAVE_STATE_KEY);
+    expect(stored).not.toBeNull();
+    const parsed = JSON.parse(stored!);
+    expect(parsed.state.active_pet_instance_id).toBe('inst_abc');
   });
 });

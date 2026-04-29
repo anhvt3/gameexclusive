@@ -11,6 +11,7 @@
  * Schema version timeline:
  *   v1 → base player state (hp/mp/exp/level/position/flags/last_boss_attempt_date)
  *   v2 → +inventory, +equipment, +lastLevelUpAt (AP §11, additive migrate)
+ *   v3 → +active_pet_instance_id (Sprint A Task 9 / PetEntityFactory)
  *
  * The migration injects empty defaults for missing fields so existing
  * Phase 1 saves survive the bump. HmacStorage re-signs on the next
@@ -32,7 +33,7 @@ import { computeEffectiveStats } from '@domain/EffectiveStats';
 import { eventBus } from '@bus/EventBus';
 
 export const SAVE_STATE_KEY = 'game_ss3_save_v1';
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export function thresholdForLevel(level: number): number {
   return Math.floor(100 * Math.pow(level, 1.5));
@@ -78,6 +79,8 @@ export interface SaveStateData {
   inventory: InventoryItem[];
   equipment: EquipmentMap;
   lastLevelUpAt: number | null;
+  // v3 additions (Sprint A Task 9 / PetEntityFactory)
+  active_pet_instance_id: string | null;
 }
 
 export interface SaveStateActions {
@@ -91,6 +94,8 @@ export interface SaveStateActions {
   addInventoryItem: (item: InventoryItem) => void;
   equipItem: (slot: EquipmentSlot, instanceId: string) => void;
   unequipItem: (slot: EquipmentSlot) => void;
+  // v3 actions
+  setActivePetInstanceId: (id: string | null) => void;
   reset: () => void;
 }
 
@@ -109,6 +114,7 @@ const INITIAL_STATE: SaveStateData = {
   inventory: [],
   equipment: { ...EMPTY_EQUIPMENT },
   lastLevelUpAt: null,
+  active_pet_instance_id: null,
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -127,15 +133,15 @@ export function effectiveMaxHp(state: SaveStateData): number {
   return state.maxHp + stats.maxHpDelta;
 }
 
-/** Additive migration v1 → v2 — inject inventory/equipment/lastLevelUpAt when absent. */
+/** Additive migration v1 → v2 → v3 — inject missing fields when absent. */
 function migrate(persisted: unknown, version: number): SaveStateData {
   const base = (
     persisted && typeof persisted === 'object' ? persisted : {}
   ) as Partial<SaveStateData>;
+  let s: SaveStateData = { ...INITIAL_STATE, ...base };
   if (version < 2) {
-    return {
-      ...INITIAL_STATE,
-      ...base,
+    s = {
+      ...s,
       inventory: Array.isArray(base.inventory) ? base.inventory : [],
       equipment:
         base.equipment && typeof base.equipment === 'object'
@@ -144,7 +150,10 @@ function migrate(persisted: unknown, version: number): SaveStateData {
       lastLevelUpAt: typeof base.lastLevelUpAt === 'number' ? base.lastLevelUpAt : null,
     };
   }
-  return { ...INITIAL_STATE, ...base };
+  if (version < 3) {
+    s = { ...s, active_pet_instance_id: null };
+  }
+  return s;
 }
 
 export const useSaveState = create<SaveStateStore>()(
@@ -221,6 +230,8 @@ export const useSaveState = create<SaveStateStore>()(
       setLastBossAttemptDate: (iso) => set({ last_boss_attempt_date: iso }),
 
       addInventoryItem: (item) => set((state) => ({ inventory: [...state.inventory, item] })),
+
+      setActivePetInstanceId: (id) => set({ active_pet_instance_id: id }),
 
       equipItem: (slot, instanceId) => {
         const state = get();
