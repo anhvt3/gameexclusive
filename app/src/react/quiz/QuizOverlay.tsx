@@ -22,7 +22,7 @@ export function QuizOverlay() {
   const [activeLO, setActiveLO] = useState<LearningObject | null>(null);
 
   useEffect(() => {
-    const off = eventBus.on('OPEN_QUIZ', ({ lo_id }) => {
+    const offOpen = eventBus.on('OPEN_QUIZ', ({ lo_id }) => {
       const lo = findLOById(lo_id);
       if (!lo) {
         console.warn(`[QuizOverlay] OPEN_QUIZ received unknown lo_id=${lo_id}`);
@@ -30,7 +30,17 @@ export function QuizOverlay() {
       }
       setActiveLO(lo);
     });
-    return off;
+    // Step 22.14 fix — auto-close when QUIZ_RESULT lands. Covers the path
+    // where a non-UI caller (test bridge, future server-validation) emits
+    // QUIZ_RESULT directly: without this listener the dialog would stay
+    // mounted forever because handleSubmit is the only other close path.
+    const offResult = eventBus.on('QUIZ_RESULT', () => {
+      setActiveLO(null);
+    });
+    return () => {
+      offOpen();
+      offResult();
+    };
   }, []);
 
   if (!activeLO) return null;
@@ -39,7 +49,7 @@ export function QuizOverlay() {
     const loId = activeLO.id;
     setActiveLO(null);
     // ISP 22.11 — auditory feedback for right/wrong.
-    audioManager.playSfx(result.isCorrect ? 'correct' : 'wrong');
+    audioManager.playSfx(result.isCorrect ? 'math_correct' : 'math_wrong');
     eventBus.emit('QUIZ_RESULT', {
       correct: result.isCorrect,
       timeSpent: result.timeSpent,

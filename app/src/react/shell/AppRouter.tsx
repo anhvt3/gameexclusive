@@ -15,6 +15,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { MainMenu } from '@react/screens/MainMenu';
 import { GuildLeaderboard } from '@react/screens/GuildLeaderboard';
 import { InventoryScreen } from '@react/screens/InventoryScreen';
+import { RewardChestOverlay } from '@react/overlays/RewardChestOverlay';
 import { PlayScreen } from './PlayScreen';
 import { initAppLifecycle } from './appLifecycle';
 
@@ -33,6 +34,9 @@ export function AppRouter() {
         <Route path="/inventory" element={<InventoryScreen />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      {/* Step 22.14 — global LEVEL_UP reward overlay; subscribes the bus */}
+      {/* and renders nothing while idle, so it's safe across every route. */}
+      <RewardChestOverlay />
     </BrowserRouter>
   );
 }
