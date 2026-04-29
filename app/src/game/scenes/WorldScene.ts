@@ -164,11 +164,62 @@ export class WorldScene extends Phaser.Scene {
         ) as Enemy;
         if (!enemy) return;
         this.combatTriggered = true;
-        eventBus.emit('ENTER_COMBAT', { monster_id: enemy.monsterId });
-        this.scene.pause();
-        this.scene.launch('CombatScene', { monsterId: enemy.monsterId });
+        this.startEncounter(enemy);
       }
     );
+  }
+
+  /**
+   * Prodigy-style encounter transition before CombatScene launch.
+   *
+   * Player overlap fires this:
+   *   1. Emit ENTER_COMBAT immediately so audio + analytics react in sync
+   *   2. Pin the player physics body so it can't slide further during the
+   *      camera move
+   *   3. Pan + zoom the camera onto the midpoint between player and enemy
+   *      over 350 ms (Cubic ease) — feels like the world dramatically
+   *      narrows in on the duel
+   *   4. White flash + small camera shake at the 350 ms mark for the
+   *      classic Prodigy "WHAM, you're in combat now" beat
+   *   5. Launch CombatScene at 700 ms total so the flash peaks just before
+   *      the side-view battle layout fades in
+   *
+   * If anything in the camera API isn't available (test mocks, very old
+   * Phaser version), we fall through to the immediate launch path so the
+   * gameplay loop never stalls — the transition is polish, not contract.
+   */
+  private startEncounter(enemy: Enemy): void {
+    eventBus.emit('ENTER_COMBAT', { monster_id: enemy.monsterId });
+    const cam = this.cameras?.main;
+    const player = this.player;
+    if (!cam || !player || typeof cam.pan !== 'function') {
+      this.scene.pause();
+      this.scene.launch('CombatScene', { monsterId: enemy.monsterId });
+      return;
+    }
+
+    if (typeof player.body?.setVelocity === 'function') {
+      player.body.setVelocity(0, 0);
+    }
+
+    const midX = (player.sprite.x + enemy.sprite.x) / 2;
+    const midY = (player.sprite.y + enemy.sprite.y) / 2;
+    const startZoom = cam.zoom;
+    const targetZoom = Math.min(startZoom * 2.2, 3);
+
+    cam.pan(midX, midY, 350, 'Cubic.easeInOut');
+    cam.zoomTo?.(targetZoom, 350, 'Cubic.easeInOut');
+
+    this.time?.delayedCall?.(350, () => {
+      cam.flash?.(250, 255, 255, 255);
+      cam.shake?.(220, 0.005);
+    });
+
+    this.time?.delayedCall?.(700, () => {
+      this.scene.pause();
+      this.scene.launch('CombatScene', { monsterId: enemy.monsterId });
+      cam.zoomTo?.(startZoom, 1);
+    });
   }
 
   private drawBackground(worldWidth: number, worldHeight: number): void {
