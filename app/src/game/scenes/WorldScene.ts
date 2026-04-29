@@ -66,21 +66,20 @@ export class WorldScene extends Phaser.Scene {
     useSaveState.getState().setPosition(spawnX, spawnY);
     this.registerPlayerEnemyOverlap();
 
-    // Camera shows the entire world centered in the viewport. With
-    // Scale.RESIZE the canvas matches the container, so we compute zoom
-    // from the smaller axis ratio and re-center on resize.
+    // Camera shows the entire world centered in the viewport. We compute
+    // zoom once at create() based on current canvas size — Scale.RESIZE
+    // redraws the canvas itself when the window resizes so the world will
+    // re-fit naturally without us needing a 'resize' listener (and without
+    // risking a layout-event feedback loop with cam.setZoom).
     const cam = this.cameras.main;
-    const fitCamera = (): void => {
-      if (!cam) return;
+    if (cam) {
       const vw = this.scale.width;
       const vh = this.scale.height;
       const zoom = Math.min(vw / worldWidth, vh / worldHeight, 1.5);
       cam.setBounds?.(0, 0, worldWidth, worldHeight);
       cam.setZoom?.(zoom);
       cam.centerOn?.(spawnX, spawnY);
-    };
-    fitCamera();
-    this.scale.on?.('resize', fitCamera);
+    }
 
     // Step 17: listen for combat exit — remove defeated enemy, resume scene
     this.exitCombatUnsub = eventBus.on('EXIT_COMBAT', ({ won, monster_id }) => {

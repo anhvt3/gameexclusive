@@ -58,11 +58,20 @@ interface SpellDef {
   basePower: number;
 }
 
+// All 8 elements available so any monster's weakness has a counter spell.
+// Without this, kids who walked into Storm-element Voltee got stuck — only
+// Earth defeats Storm, and Earth wasn't in the spell list. Now every
+// starter monster (Fire/Water/Plant/Ice/Storm) has a clear pick from
+// the "Yếu: …" hint shown on the HP strip.
 const SPELLS: readonly SpellDef[] = [
   { id: 'fire_blast', label: 'Fire', color: 0xff6633, element: 'Fire', basePower: 12 },
   { id: 'water_jet', label: 'Water', color: 0x3399ff, element: 'Water', basePower: 12 },
   { id: 'plant_whip', label: 'Plant', color: 0x66cc66, element: 'Plant', basePower: 12 },
   { id: 'ice_shard', label: 'Ice', color: 0x99ddff, element: 'Ice', basePower: 12 },
+  { id: 'earth_smash', label: 'Earth', color: 0x8b6f3a, element: 'Earth', basePower: 12 },
+  { id: 'storm_bolt', label: 'Storm', color: 0xc77dff, element: 'Storm', basePower: 12 },
+  { id: 'astral_ray', label: 'Astral', color: 0xfff099, element: 'Astral', basePower: 12 },
+  { id: 'shadow_pulse', label: 'Shadow', color: 0x6b4f8a, element: 'Shadow', basePower: 12 },
 ] as const;
 
 // Phase 1 simplification: flat monster attack power. Phase 2 will use a
@@ -205,27 +214,61 @@ export class CombatScene extends Phaser.Scene {
 
   private renderSpellButtons(): void {
     const { width, height } = this.scale;
-    const buttonWidth = 140;
-    const buttonHeight = 56;
-    const gap = 16;
-    const totalWidth = SPELLS.length * buttonWidth + (SPELLS.length - 1) * gap;
+    const cols = 4;
+    const rows = Math.ceil(SPELLS.length / cols);
+    const gap = 10;
+    const buttonWidth = Math.min(120, (width - gap * (cols + 1)) / cols);
+    const buttonHeight = 44;
+    const totalWidth = cols * buttonWidth + (cols - 1) * gap;
     const startX = (width - totalWidth) / 2 + buttonWidth / 2;
-    const y = height - 80;
+    const baseY = height - rows * (buttonHeight + gap) - 40;
 
     SPELLS.forEach((spell, i) => {
-      const x = startX + i * (buttonWidth + gap);
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const x = startX + col * (buttonWidth + gap);
+      const y = baseY + row * (buttonHeight + gap);
       const rect = this.add.rectangle(x, y, buttonWidth, buttonHeight, spell.color);
       rect.setStrokeStyle(2, 0xffffff);
       rect.setInteractive({ useHandCursor: true });
       rect.on('pointerdown', () => this.onSpellClick(spell.id));
       this.add
         .text(x, y, spell.label, {
-          fontSize: '18px',
+          fontSize: '15px',
           color: '#ffffff',
           fontStyle: 'bold',
         })
         .setOrigin(0.5);
     });
+
+    // Escape hatch — kids who walked into a fight they can't win can bail
+    // out and lose 5 HP instead of getting stuck in the loop. Same physics
+    // as a defeat exit (respawn at world centre) but keeps current HP.
+    const escY = baseY + rows * (buttonHeight + gap) + 6;
+    const escRect = this.add.rectangle(width / 2, escY, 160, 32, 0x4a4a4a);
+    escRect.setStrokeStyle(2, 0xffffff);
+    escRect.setInteractive({ useHandCursor: true });
+    escRect.on('pointerdown', () => this.onFleeClick());
+    this.add
+      .text(width / 2, escY, 'Bỏ chạy (-5 HP)', {
+        fontSize: '13px',
+        color: '#ffffff',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5);
+  }
+
+  /** Flee handler — drops 5 HP, exits combat without victory/defeat. */
+  private onFleeClick(): void {
+    if (this.combatState !== 'PLAYER_TURN') return;
+    const save = useSaveState.getState();
+    save.setHp(Math.max(1, save.hp - 5));
+    eventBus.emit('EXIT_COMBAT', {
+      won: false,
+      exp_gained: 0,
+      monster_id: this.monsterDef?.id ?? null,
+    });
+    this.scene.stop();
   }
 
   /** Public entry point for spell pointerdown (also test-callable). */

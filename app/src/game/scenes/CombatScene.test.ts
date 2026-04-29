@@ -133,7 +133,7 @@ describe('CombatScene — Step 16 FSM + Quiz integration', () => {
     expect(scene.getCombatState()).toBe('PLAYER_TURN');
   });
 
-  it('create() renders 4 spell buttons (one per element)', () => {
+  it('create() renders 8 spell buttons + 1 flee button', () => {
     const scene = new CombatScene();
     scene.init({ monsterId: 1 });
     scene.create();
@@ -147,7 +147,8 @@ describe('CombatScene — Step 16 FSM + Quiz integration', () => {
     const interactiveCount = rectCalls.filter(
       (r) => (r.value.setInteractive as ReturnType<typeof vi.fn>).mock.calls.length > 0
     ).length;
-    expect(interactiveCount).toBe(4);
+    // 8 spell buttons (one per element) + 1 flee button.
+    expect(interactiveCount).toBe(9);
   });
 
   it('onSpellClick emits OPEN_QUIZ with valid lo_id + monster_id', () => {
