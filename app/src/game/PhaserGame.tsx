@@ -24,7 +24,7 @@ interface Props {
   height?: number;
 }
 
-export function PhaserGame({ width = 1280, height = 720 }: Props) {
+export function PhaserGame({ width = 960, height = 640 }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
 
@@ -37,9 +37,9 @@ export function PhaserGame({ width = 1280, height = 720 }: Props) {
       width,
       height,
       parent: containerRef.current,
-      backgroundColor: '#1a1a2e',
+      backgroundColor: '#2a5a3a',
       scale: {
-        mode: Phaser.Scale.FIT,
+        mode: Phaser.Scale.RESIZE,
         autoCenter: Phaser.Scale.CENTER_BOTH,
       },
       physics: {

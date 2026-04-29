@@ -19,9 +19,9 @@
 import type Phaser from 'phaser';
 import { audioManager } from '@/utils/AudioManager';
 
-export const PLAYER_SPEED = 160;
-export const PLAYER_WIDTH = 32;
-export const PLAYER_HEIGHT = 48;
+export const PLAYER_SPEED = 200;
+export const PLAYER_WIDTH = 64;
+export const PLAYER_HEIGHT = 80;
 export const PLAYER_COLOR_PLACEHOLDER = 0xd4691e;
 /** Preferred world-sprite key — falls through to wizard_walk then placeholder. */
 export const PLAYER_SPRITE_KEY = 'base_player_male';

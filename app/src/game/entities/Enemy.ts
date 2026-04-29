@@ -10,7 +10,7 @@
 import type Phaser from 'phaser';
 import type { MonsterDef } from '@data/staticConfig/monsters';
 
-export const ENEMY_SIZE = 48;
+export const ENEMY_SIZE = 72;
 
 export class Enemy {
   public sprite: Phaser.GameObjects.GameObject & {

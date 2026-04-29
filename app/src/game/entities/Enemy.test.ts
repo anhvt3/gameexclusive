@@ -40,7 +40,7 @@ describe('Enemy entity — Step 13', () => {
   });
 
   it('constructor creates rectangle with placeholder color', () => {
-    expect(scene.add.rectangle).toHaveBeenCalledWith(150, 250, 48, 48, 0xff6b35);
+    expect(scene.add.rectangle).toHaveBeenCalledWith(150, 250, 72, 72, 0xff6b35);
   });
 
   it('stores MonsterDef reference', () => {

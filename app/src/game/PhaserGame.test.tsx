@@ -42,8 +42,8 @@ describe('PhaserGame — React wrapper', () => {
     render(<PhaserGame />);
     expect(mockGameCtor).toHaveBeenCalledTimes(1);
     const cfg = mockGameCtor.mock.calls[0]?.[0] as { width: number; height: number };
-    expect(cfg.width).toBe(1280);
-    expect(cfg.height).toBe(720);
+    expect(cfg.width).toBe(960);
+    expect(cfg.height).toBe(640);
   });
 
   it('renders container div with data-testid', () => {
