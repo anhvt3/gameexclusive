@@ -47,8 +47,29 @@ export function PhaserGame({ width = 960, height = 640 }: Props) {
         arcade: { gravity: { x: 0, y: 0 }, debug: false },
       },
       scene: [BootScene, PreloadScene, WorldScene, CombatScene],
+      input: {
+        keyboard: {
+          // Capture WASD + arrow keys so the browser doesn't scroll on
+          // arrow-down and so the game receives input even when a non-form
+          // DOM element holds focus. Numeric keycodes (87/65/83/68 = WASD,
+          // 38-40 + 37 = arrows) — using literals avoids reaching into
+          // Phaser.Input.Keyboard.KeyCodes which our test mocks don't stub.
+          capture: [87, 65, 83, 68, 38, 40, 37, 39],
+        },
+      },
     });
     gameRef.current = game;
+    // Make the canvas focusable so keystrokes route to it even when a
+    // React UI element above the canvas (eg the closed Tutorial dialog)
+    // had stolen focus a moment earlier. We focus once on mount; clicks
+    // on the canvas keep it focused thereafter via tabindex=0.
+    requestAnimationFrame(() => {
+      const canvas = containerRef.current?.querySelector('canvas');
+      if (canvas) {
+        canvas.setAttribute('tabindex', '0');
+        canvas.focus();
+      }
+    });
 
     // DEV/test bridge: expose window.__GAME__ so Playwright (Step 22) can drive
     // the game without pixel-matching the canvas. Stripped in prod by Vite.

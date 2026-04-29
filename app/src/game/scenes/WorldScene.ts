@@ -66,6 +66,27 @@ export class WorldScene extends Phaser.Scene {
     useSaveState.getState().setPosition(spawnX, spawnY);
     this.registerPlayerEnemyOverlap();
 
+    // On-screen control hint — kids who can't find WASD on a Vietnamese
+    // keyboard layout (or who try to use arrow keys first) get an obvious
+    // affordance. Placed in screen space via setScrollFactor(0) so it
+    // doesn't drift when the camera scrolls.
+    this.add
+      .text(
+        worldWidth / 2,
+        20,
+        'Dùng WASD hoặc ← ↑ → ↓ để đi · chạm vào quái để đánh',
+        {
+          fontSize: '14px',
+          color: '#ffffff',
+          fontStyle: 'bold',
+          backgroundColor: '#00000099',
+          padding: { x: 10, y: 4 },
+        }
+      )
+      .setOrigin(0.5, 0)
+      .setScrollFactor?.(0)
+      .setDepth?.(1000);
+
     // Camera shows the entire world centered in the viewport. We compute
     // zoom once at create() based on current canvas size — Scale.RESIZE
     // redraws the canvas itself when the window resizes so the world will

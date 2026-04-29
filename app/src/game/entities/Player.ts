@@ -34,6 +34,12 @@ export interface PlayerKeys {
   A: Phaser.Input.Keyboard.Key;
   S: Phaser.Input.Keyboard.Key;
   D: Phaser.Input.Keyboard.Key;
+  /** Arrow-key fallbacks — Vietnamese keyboard layouts / IME modes can
+   * intercept WASD letter keys. Arrow keys are layout-independent. */
+  UP: Phaser.Input.Keyboard.Key;
+  DOWN: Phaser.Input.Keyboard.Key;
+  LEFT: Phaser.Input.Keyboard.Key;
+  RIGHT: Phaser.Input.Keyboard.Key;
 }
 
 export class Player {
@@ -85,20 +91,26 @@ export class Player {
     if (!kb) {
       throw new Error('[Player] scene.input.keyboard is null — enable keyboard input');
     }
-    this.keys = kb.addKeys('W,A,S,D') as unknown as PlayerKeys;
+    this.keys = kb.addKeys(
+      'W,A,S,D,UP,DOWN,LEFT,RIGHT'
+    ) as unknown as PlayerKeys;
   }
 
   update(): void {
     this.body.setVelocity(0, 0);
 
-    const movingX = this.keys.A.isDown || this.keys.D.isDown;
-    const movingY = this.keys.W.isDown || this.keys.S.isDown;
+    const left = this.keys.A.isDown || this.keys.LEFT.isDown;
+    const right = this.keys.D.isDown || this.keys.RIGHT.isDown;
+    const up = this.keys.W.isDown || this.keys.UP.isDown;
+    const down = this.keys.S.isDown || this.keys.DOWN.isDown;
+    const movingX = left || right;
+    const movingY = up || down;
 
-    if (this.keys.A.isDown) this.body.setVelocityX(-this.speed);
-    else if (this.keys.D.isDown) this.body.setVelocityX(this.speed);
+    if (left) this.body.setVelocityX(-this.speed);
+    else if (right) this.body.setVelocityX(this.speed);
 
-    if (this.keys.W.isDown) this.body.setVelocityY(-this.speed);
-    else if (this.keys.S.isDown) this.body.setVelocityY(this.speed);
+    if (up) this.body.setVelocityY(-this.speed);
+    else if (down) this.body.setVelocityY(this.speed);
 
     if (movingX || movingY) {
       const now = Date.now();

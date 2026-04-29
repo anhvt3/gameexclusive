@@ -20,7 +20,11 @@ function makeMockScene() {
     A: { isDown: false },
     S: { isDown: false },
     D: { isDown: false },
-  } as Record<'W' | 'A' | 'S' | 'D', MockKey>;
+    UP: { isDown: false },
+    DOWN: { isDown: false },
+    LEFT: { isDown: false },
+    RIGHT: { isDown: false },
+  } as Record<'W' | 'A' | 'S' | 'D' | 'UP' | 'DOWN' | 'LEFT' | 'RIGHT', MockKey>;
 
   return {
     add: { rectangle: vi.fn().mockReturnValue(rectangle) },
@@ -53,7 +57,9 @@ describe('Player entity — Step 12', () => {
   });
 
   it('constructor registers WASD keys', () => {
-    expect(scene.input.keyboard.addKeys).toHaveBeenCalledWith('W,A,S,D');
+    expect(scene.input.keyboard.addKeys).toHaveBeenCalledWith(
+      'W,A,S,D,UP,DOWN,LEFT,RIGHT'
+    );
   });
 
   it('update with no keys down → velocity reset to 0,0', () => {
