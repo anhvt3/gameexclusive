@@ -194,6 +194,7 @@ release: handlers receive `TURN_RESOLVED` with side derived from
 | persistence | `src/persistence/SaveStateStore.ts` | EDIT | v3 migration |
 | bus | `src/bus/EventBus.ts` | EDIT | Add TURN_RESOLVED type |
 | data | `src/data/staticConfig/pets.ts` | NEW | 6 starter pet defs |
+| data | `src/data/staticConfig/combatConstants.ts` | NEW | Tunable balance numbers (POSUP requirement) |
 
 ## 7. Element matrix (AP §11.5 NEW)
 
@@ -325,11 +326,23 @@ Formulas:
 
 - **Pet auto-attack (per POSUP α-ε ε):**
   ```
-  base = pet.level * 8
+  base = pet.level * PET_DAMAGE_BASE_MULTIPLIER
   multiplier = getMultiplier(pet.element, target.element)
-  jitter = 0.9 + rng() * 0.2     // ±10%
+  jitter = 1 + (rng() * 2 - 1) * PET_DAMAGE_JITTER_PCT   // ±10% default
   damage = round(base * multiplier * jitter)
   ```
+
+  **Tuning constants live in `src/data/staticConfig/combatConstants.ts`
+  (NEW)** — POSUP requirement so balance numbers can be tweaked at
+  Phase test without touching core logic. Defaults:
+  ```ts
+  export const PET_DAMAGE_BASE_MULTIPLIER = 8;
+  export const PET_DAMAGE_JITTER_PCT = 0.1;
+  export const HERO_SPELL_DIFFICULTY_BONUS = 0.1;   // per difficulty point
+  export const CRIT_DAMAGE_MULTIPLIER = 1.5;
+  ```
+  Resolver imports from this file; tests stub via `vi.mock` if a fixed
+  value is needed.
 
 - **Monster attack:**
   ```
