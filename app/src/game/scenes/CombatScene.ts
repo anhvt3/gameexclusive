@@ -31,6 +31,11 @@ import { HpBar } from '../entities/HpBar';
 import { PlayerAvatar } from '../entities/PlayerAvatar';
 import { wireSpellVfx } from '@game/systems/SpellVfx';
 import { audioManager } from '@/utils/AudioManager';
+import type { CombatEntity, HeroEntity, MonsterEntity, PetEntity } from '@/types/combat';
+import { buildPetEntity, type PetInstanceShape } from '@domain/PetEntityFactory';
+import { findPetDef } from '@data/staticConfig/pets';
+import { PartyHud } from '../entities/PartyHud';
+import { PetSprite } from '../entities/PetSprite';
 
 /**
  * Combat RNG seam — tests swap this via __setCombatRng so crit-chance
@@ -105,6 +110,12 @@ export class CombatScene extends Phaser.Scene {
   private selectedSpellId: string | null = null;
   private activeLo: LearningObject | null = null;
   private quizResultUnsub: Unsubscribe | null = null;
+
+  // Sprint A Task 13a — entity array data model (legacy fields stay for Phase 1
+  // test compatibility; Task 13b wires TurnQueue + Resolver against entities[])
+  private entities: CombatEntity[] = [];
+  private partyHud: PartyHud | null = null;
+  private petSprite: PetSprite | null = null;
 
   constructor() {
     super(COMBAT_SCENE_KEY);
@@ -210,6 +221,68 @@ export class CombatScene extends Phaser.Scene {
     // alongside combat_encounter (fired by appLifecycle on ENTER_COMBAT)
     // — different beat: encounter is the bus event, cry is the visual.
     audioManager.playSfx('combat_monster_cry');
+
+    // Sprint A Task 13a — build entity array + party HUD + pet sprite.
+    // Legacy fields (monsterCurrentHp, playerHpBar, etc.) stay for Phase 1
+    // test compatibility; Task 13b wires TurnQueue against entities[].
+    this.entities = this.buildEntities();
+    const pet = this.entities.find((e): e is PetEntity => e.kind === 'pet');
+    if (pet) {
+      const codenameMatch = pet.spriteKey.match(/^pet_([a-z]+)_idle$/);
+      const codename = codenameMatch?.[1];
+      if (codename && findPetDef(codename as never)) {
+        this.petSprite = new PetSprite(
+          this,
+          this.playerPos.x - 80,
+          this.playerPos.y + 60,
+          codename as never
+        );
+      }
+    }
+    this.partyHud = new PartyHud(this, this.entities);
+  }
+
+  private buildEntities(): CombatEntity[] {
+    const save = useSaveState.getState();
+    const heroEntity: HeroEntity = {
+      id: 'hero',
+      kind: 'hero',
+      faction: 'ally',
+      name: 'Phù thủy',
+      element: 'Fire',
+      level: save.level,
+      hp: save.hp,
+      maxHp: save.maxHp,
+      spriteKey: 'base_player_male',
+      isCrittable: true,
+    };
+    const out: CombatEntity[] = [heroEntity];
+    const inventoryAsPet = (save.inventory as unknown as PetInstanceShape[]).filter(
+      (i) => 'petCodename' in i
+    );
+    const pet = buildPetEntity(save.active_pet_instance_id, inventoryAsPet);
+    if (pet) out.push(pet);
+    if (this.monsterDef) {
+      const scale = this.monsterDef.is_boss ? BOSS_HP_SCALE : 1;
+      const maxHp = this.monsterDef.baseHp * scale;
+      const monsterEntity: MonsterEntity = {
+        id: `monster-${this.monsterDef.id}`,
+        kind: 'monster',
+        faction: 'enemy',
+        name: this.monsterDef.displayNameVi,
+        element: this.monsterDef.element,
+        level: 1,
+        hp: maxHp,
+        maxHp,
+        spriteKey: `monster_${this.monsterDef.codename}_idle`,
+        isCrittable: !this.monsterDef.is_boss,
+        monsterDefId: this.monsterDef.id,
+        attackPower: MONSTER_BASE_POWER,
+        isBoss: !!this.monsterDef.is_boss,
+      };
+      out.push(monsterEntity);
+    }
+    return out;
   }
 
   private renderSpellButtons(): void {
@@ -446,9 +519,16 @@ export class CombatScene extends Phaser.Scene {
     this.playerAvatar = null;
     this.spellVfxUnsub?.();
     this.spellVfxUnsub = null;
+    this.partyHud?.destroy();
+    this.partyHud = null;
+    this.petSprite?.destroy();
+    this.petSprite = null;
   }
 
   /** Test-only accessors */
+  getEntities(): CombatEntity[] {
+    return this.entities;
+  }
   getMonsterDef(): MonsterDef | null {
     return this.monsterDef;
   }

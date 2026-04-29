@@ -528,3 +528,28 @@ describe('CombatScene — Step 17 damage resolution + victory/defeat', () => {
     expect(scene.scene.stop).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('CombatScene — Sprint A Task 13a entity array', () => {
+  it('create() with active pet builds 3-entity array (hero + pet + monster)', () => {
+    // beforeEach already reset(); patch only the pet-related fields.
+    useSaveState.setState({
+      active_pet_instance_id: 'inst-bun',
+      inventory: [{ instanceId: 'inst-bun', petCodename: 'bunbleaf', level: 3, xp: 0 } as never],
+    });
+    const scene = new CombatScene();
+    scene.init({ monsterId: 1 });
+    scene.create();
+    expect(scene.getEntities()).toHaveLength(3);
+    expect(scene.getEntities().map((e) => e.kind)).toEqual(['hero', 'pet', 'monster']);
+  });
+
+  it('create() without active pet builds 2-entity array (hero + monster)', () => {
+    // beforeEach reset() sets active_pet_instance_id=null, inventory=[] — confirm no-pet path.
+    useSaveState.setState({ active_pet_instance_id: null, inventory: [] });
+    const scene = new CombatScene();
+    scene.init({ monsterId: 1 });
+    scene.create();
+    expect(scene.getEntities()).toHaveLength(2);
+    expect(scene.getEntities().map((e) => e.kind)).toEqual(['hero', 'monster']);
+  });
+});
