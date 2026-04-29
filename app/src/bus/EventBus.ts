@@ -36,6 +36,17 @@ export type GameEvent =
       payload: { newLevel: number; grantedItemId: string | null };
     }
   | {
+      type: 'TURN_RESOLVED';
+      payload: {
+        sourceId: string;
+        targetIds: string[];
+        action: 'spell' | 'pet-attack' | 'monster-attack';
+        damage: number;
+        isCrit: boolean;
+        remainingHp: number;
+      };
+    }
+  | {
       type: 'CAST_SPELL';
       payload: {
         element: Element;
