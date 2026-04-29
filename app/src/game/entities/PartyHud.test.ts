@@ -4,22 +4,26 @@ import type { CombatEntity } from '@/types/combat';
 
 function mockScene() {
   const text = { setOrigin: vi.fn().mockReturnThis(), setText: vi.fn() };
-  const rect = {
+  const makeRect = () => ({
     setStrokeStyle: vi.fn().mockReturnThis(),
     setOrigin: vi.fn().mockReturnThis(),
     width: 0,
+    fillColor: 0,
     setData: vi.fn(),
-  };
+    destroy: vi.fn(),
+  });
   return {
     add: {
       text: vi.fn().mockReturnValue(text),
-      rectangle: vi.fn().mockReturnValue(rect),
-      image: vi
-        .fn()
-        .mockReturnValue({
-          setOrigin: vi.fn().mockReturnThis(),
-          setDisplaySize: vi.fn().mockReturnThis(),
-        }),
+      rectangle: vi.fn().mockImplementation((_x: number, _y: number, w: number) => {
+        const r = makeRect();
+        r.width = w;
+        return r;
+      }),
+      image: vi.fn().mockReturnValue({
+        setOrigin: vi.fn().mockReturnThis(),
+        setDisplaySize: vi.fn().mockReturnThis(),
+      }),
     },
     scale: { width: 960, height: 640 },
   };
@@ -58,9 +62,22 @@ describe('PartyHud — Sprint A', () => {
     const scene = mockScene();
     const e = entity({ hp: 40, maxHp: 40 });
     const hud = new PartyHud(scene as never, [e]);
+    // Find the hpFill rectangle returned by add.rectangle (second .mockReturnValue
+    // call per slot — bg first, hpFill second, highlightRing third).
+    // We just track that the hpFill width was mutated by updateHp.
+    const rectangles = (scene.add.rectangle as ReturnType<typeof vi.fn>).mock.results.map(
+      (r) => r.value
+    );
+    // 3 rectangles per slot: bg, hpFill, highlightRing. Find the hpFill — it's the
+    // one whose width starts at HP_BAR_W (200) per the buildSlot order.
+    const hpFill = rectangles.find((r) => r.width === 200);
+    expect(hpFill).toBeDefined();
     e.hp = 20;
     hud.updateHp(e.id, e.hp, e.maxHp);
-    expect(true).toBe(true);
+    // After updating hp from 40 → 20 (50%), width should drop to 100
+    expect(hpFill!.width).toBe(100);
+    // And fillColor should switch to yellow (0xfbc02d) since 0.5 is in (0.3, 0.6]
+    expect(hpFill!.fillColor).toBe(0xfbc02d);
   });
 
   it('highlight(entityId) marks the active actor', () => {

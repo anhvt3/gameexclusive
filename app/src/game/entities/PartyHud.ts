@@ -77,8 +77,7 @@ export class PartyHud {
       0x000000,
       0
     );
-    highlightRing.setStrokeStyle(3, 0xffd700);
-    highlightRing.setData('visible', false);
+    highlightRing.setStrokeStyle(0, 0xffd700);
     highlightRing.setOrigin(0.5, 0.5);
     return { bg, hpFill, nameText, hpText, highlightRing };
   }
