@@ -22,15 +22,18 @@ import { WhiteboardPad } from './WhiteboardPad';
 export function QuizOverlay() {
   const [activeLO, setActiveLO] = useState<LearningObject | null>(null);
   const [whiteboardOpen, setWhiteboardOpen] = useState(false);
+  const [targetName, setTargetName] = useState<string>('');
 
   useEffect(() => {
-    const offOpen = eventBus.on('OPEN_QUIZ', ({ lo_id }) => {
+    const offOpen = eventBus.on('OPEN_QUIZ', ({ lo_id, monster_id }) => {
       const lo = findLOById(lo_id);
       if (!lo) {
         console.warn(`[QuizOverlay] OPEN_QUIZ received unknown lo_id=${lo_id}`);
         return;
       }
       setActiveLO(lo);
+      const monsterIdStr = monster_id != null ? String(monster_id) : '';
+      setTargetName(monsterIdStr);
       // Step 22.17 — popup-open SFX paired with the dialog reveal.
       audioManager.playSfx('ui_popup_open');
     });
@@ -40,6 +43,7 @@ export function QuizOverlay() {
     // mounted forever because handleSubmit is the only other close path.
     const offResult = eventBus.on('QUIZ_RESULT', () => {
       setActiveLO(null);
+      setTargetName('');
       audioManager.playSfx('ui_popup_close');
     });
     return () => {
@@ -72,10 +76,15 @@ export function QuizOverlay() {
     >
       <div className="quiz-panel w-full max-w-2xl rounded-xl bg-white p-6 shadow-2xl">
         <div className="quiz-header mb-4 flex items-center justify-between gap-3 border-b pb-2">
-          <div>
+          <div className="flex items-center gap-2">
             <span className="subject-tag rounded bg-orange-100 px-2 py-1 text-xs font-semibold text-orange-700">
               {activeLO.subject_name} · {activeLO.grade_name}
             </span>
+            {targetName ? (
+              <span className="rounded bg-rose-100 px-2 py-1 text-xs font-semibold text-rose-700">
+                Đánh: {targetName}
+              </span>
+            ) : null}
           </div>
           <div className="flex items-center gap-3">
             <button

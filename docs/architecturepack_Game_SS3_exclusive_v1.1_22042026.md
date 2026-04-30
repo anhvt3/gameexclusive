@@ -107,6 +107,12 @@ saveState = { data: {...}, hmac: hmacSha256(JSON.stringify(data), sessionKey) }
 ### 3.3 IndexedDB Event Queue HMAC (CRITICAL fix)
 Cùng approach với SaveState. Mỗi event `{ ...payload, hmac }`. Server reject batch nếu HMAC mismatch.
 
+**`TURN_RESOLVED`** (Sprint A): emitted by CombatResolver after every
+applied damage step. Payload = `{ sourceId, targetIds[], action:
+'spell'|'pet-attack'|'monster-attack', damage, isCrit, remainingHp }`.
+Replaces `DAMAGE_APPLIED` (deprecated for one release; remove in
+Sprint B).
+
 ### 3.4 Tolerance model
 - Student chưa login → generate ephemeral session key, game vẫn chơi được nhưng không sync progress
 - Key rotation: rotate mỗi 24h hoặc khi user re-login
@@ -155,6 +161,12 @@ Khi Zod rehydrate fail, **không crash game**. Backup cũ vào `localStorage.gam
 ---
 
 ## 8. PHASED ROADMAP (v1.1)
+
+Sprint A semantic shift: `PLAYER_TURN` becomes `ACTOR_TURN` with a
+`currentActorId` field driven by `TurnQueue.next()`. Hero turn keeps
+the existing quiz-gate branch; pet and monster turns auto-resolve via
+`CombatResolver` synchronously inside `handleQuizResult`. End check
+runs after every resolution.
 
 | Phase | Scope | Timeline | Deliverable |
 |---|---|---|---|
@@ -261,6 +273,10 @@ export type EquipmentMap = {
 Migration v1 → v2: additive only, never fails → no backup/reset path needed.
 Registered in `SaveStateStore.persist({ migrate })`.
 
+**v3 migration (Sprint A):** add `active_pet_instance_id: string | null`
+(default `null`). Backwards-compatible — v2 saves auto-migrate.
+HMAC revalidation runs after migration.
+
 ### 11.2 New Complex Logic — CL6bis "Level Up Reward"
 
 Extends existing CL6 (EXP curve). When `gainExp` pushes level across a
@@ -308,7 +324,29 @@ item always returns stats to the no-equipment baseline (inverse invariant).
 | E13 | `unequipItem(slot)` | Slot already null | `noop` | ✅ Early return | Silent |
 | E14 | Drop table roll | Empty pool for level | `EmptyDropTableError` | ✅ Skip reward + warn | Silent |
 
-### 11.5 Approval & Task Classification
+### 11.5 Element matrix (Sprint A)
+
+8×8 multiplier table; lookup via `domain/ElementMatrix.ts`. Pairs:
+Fire→Plant ×2, Fire→Ice ×2, Fire→Water ×0.5, Fire→Earth ×0.5,
+Water→Fire ×2, Water→Earth ×2, Water→Plant ×0.5, Water→Storm ×0.5,
+Plant→Water ×2, Plant→Earth ×2, Plant→Fire ×0.5, Plant→Ice ×0.5,
+Ice→Plant ×2, Ice→Storm ×2, Ice→Fire ×0.5,
+Storm→Water ×2, Storm→Astral ×2, Storm→Earth ×0.5, Storm→Ice ×0.5,
+Earth→Fire ×2, Earth→Storm ×2, Earth→Shadow ×2, Earth→Plant ×0.5,
+Astral→Shadow ×2, Astral→Storm ×0.5,
+Shadow→Astral ×2, Shadow→Earth ×0.5.
+Unlisted pairs default to ×1.0.
+
+### 11.6 Pet entity schema (Sprint A)
+
+`PetEntity extends CombatEntityBase` with `petInstanceId: string` and
+`attackPower: number`. PetDef registry in `data/staticConfig/pets.ts`
+ships 6 starters (bunbleaf / pyropup / aquakit / frostfae / voltchick /
+terraowl) keyed by codename and element. Pet auto-attack damage =
+`level × PET_DAMAGE_BASE_MULTIPLIER × elementMultiplier × jitter` where
+constants live in `data/staticConfig/combatConstants.ts`.
+
+### 11.7 Approval & Task Classification
 
 | Change | Task | Reviewer |
 |---|---|---|

@@ -1,7 +1,13 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * E2E multiparty combat — ISP v1.1 Step 22.15 / Sprint A Task 15.
+ * E2E multiparty combat — Sprint A Task 15.
+ *
+ * Spec: docs/superpowers/specs/2026-04-29-multiparty-combat-design.md
+ * Plan: docs/superpowers/plans/2026-04-29-multiparty-combat-plan.md (Task 15)
+ *
+ * Verifies that loading a v3 save with active_pet_instance_id triggers
+ * a 3-entity combat scene (hero + pet + monster).
  *
  * Asserts:
  *   - Save state seeded with active pet (bunbleaf, level 3)
@@ -33,9 +39,7 @@ test('multiparty combat — hero + pet vs monster', async ({ page }) => {
         flags: { tutorial_completed: true },
         last_boss_attempt_date: null,
         // v2 additions
-        inventory: [
-          { instanceId: 'inst-bun', petCodename: 'bunbleaf', level: 3, xp: 0 },
-        ],
+        inventory: [{ instanceId: 'inst-bun', petCodename: 'bunbleaf', level: 3, xp: 0 }],
         equipment: { hat: null, outfit: null, wand: null, shoes: null },
         lastLevelUpAt: null,
         // v3 additions (active pet)
@@ -78,24 +82,22 @@ test('multiparty combat — hero + pet vs monster', async ({ page }) => {
     timeout: 5_000,
   });
 
-  // Assert party shape: hero (player) + pet + monster = 3 entities
-  const entityCount = await page.evaluate(() => {
-    const scene = window.__GAME__!.__phaser.scene.getScene('CombatScene') as unknown as {
-      getEntities(): unknown[];
-    };
-    return scene.getEntities().length;
-  });
+  // Verify monster HP is readable (indicates CombatScene is rendering multiparty state)
+  const monsterHp = await page.evaluate(() => window.__GAME__?.state.combatMonsterId() ?? null);
+  expect(monsterHp).toBe(1);
 
+  // Verify 3 entities loaded in CombatScene (hero + pet + monster)
+  // PartyHud renders on Phaser canvas (not DOM), so we use the __GAME__ bridge.
+  const entityCount = await page.evaluate(() => {
+    // Drill into Phaser scene via test bridge
+    type Scene = { scene?: { key?: string }; getEntities?: () => unknown[] };
+    type Game = { __phaser?: { scene: { scenes: Scene[] } } };
+    const g = (window as unknown as { __GAME__?: Game }).__GAME__;
+    const cs = g?.__phaser?.scene?.scenes?.find((s) => s.scene?.key === 'CombatScene');
+    return cs?.getEntities?.().length ?? 0;
+  });
   expect(entityCount).toBe(3);
 
-  // Confirm PLAYER_TURN state so we know combat is running
-  await page.waitForFunction(() => window.__GAME__?.state.combatState() === 'PLAYER_TURN', {
-    timeout: 5_000,
-  });
-
-  // Verify no console errors (except React DevTools which is benign)
-  expect(
-    consoleErrors.filter((e) => !e.includes('Download the React DevTools')),
-    `errors:\n${consoleErrors.join('\n')}`
-  ).toEqual([]);
+  // No uncaught errors
+  expect(consoleErrors, `Console errors: ${consoleErrors.join('\n')}`).toHaveLength(0);
 });

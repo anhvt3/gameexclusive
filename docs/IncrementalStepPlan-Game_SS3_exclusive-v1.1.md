@@ -562,7 +562,7 @@ under `docs/superpowers/specs/`; this section is the ISP-side index.
 
 | # | Sprint | Type | Depends on | Spec |
 |---|---|---|---|---|
-| A | Multi-party Combat Refactor | C | — | `2026-04-29-multiparty-combat-design.md` (next) |
+| A | Multi-party Combat Refactor | C | — | `2026-04-29-multiparty-combat-design.md` ✅ shipped |
 | B | World / Zone / Boss-Hall Scenes | C | — | TBD |
 | C | Pet System | B | A | TBD |
 | D | Quests & Goals Panel | B | — | TBD |

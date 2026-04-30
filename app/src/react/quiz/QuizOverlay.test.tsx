@@ -139,4 +139,10 @@ describe('QuizOverlay — event-driven container', () => {
     expect(sfx).toHaveBeenCalledWith('ui_popup_close');
     sfx.mockRestore();
   });
+
+  it('shows "Đánh:" subtitle when monster_id provided', async () => {
+    const { findByText } = render(<QuizOverlay />);
+    eventBus.emit('OPEN_QUIZ', { lo_id: 100001, monster_id: 1 });
+    expect(await findByText(/Đánh:/)).toBeInTheDocument();
+  });
 });
