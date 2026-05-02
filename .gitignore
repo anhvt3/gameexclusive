@@ -50,3 +50,6 @@ Desktop.ini
 # Temp
 tmp/
 temp/
+
+# Claude Code agent worktrees (isolated workspaces, not for commit)
+.claude/worktrees/
