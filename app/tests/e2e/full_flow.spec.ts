@@ -54,8 +54,21 @@ test('full flow: Menu → Play → Combat → Victory → Return', async ({ page
     .first()
     .waitFor({ timeout: 15_000 });
 
-  // 4. Wait for WorldScene active and test bridge attached
+  // 4. Wait for the test bridge, then flip the Sprint B legacy-scene flag
+  //    so this Phase 1 spec stays on WorldScene. The flag is transient
+  //    (not persisted) — PreloadScene has already booted by now, so we
+  //    also force-stop the macro scenes and start WorldScene.
   await page.waitForFunction(() => Boolean(window.__GAME__), { timeout: 15_000 });
+  await page.evaluate(() => {
+    window.__GAME__!.simulate.setLegacyWorldFlag(true);
+    const sm = window.__GAME__!.__phaser.scene;
+    for (const key of ['WorldMapScene', 'ZoneScene', 'BossHallScene']) {
+      if (sm.getScene(key)) sm.stop(key);
+    }
+    if (!sm.getScene('WorldScene')?.scene.isActive()) {
+      sm.start('WorldScene');
+    }
+  });
   await page.waitForFunction(() => window.__GAME__?.state.activeScene() === 'WorldScene', {
     timeout: 15_000,
   });

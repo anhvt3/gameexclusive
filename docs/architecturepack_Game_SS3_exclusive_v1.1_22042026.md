@@ -401,3 +401,58 @@ POSUP scope — Type B).
 Each sprint produces its own design spec at
 `docs/superpowers/specs/<date>-<sprint>-design.md`. Type C sprints
 also require ARCH sign-off before any code lands.
+
+---
+
+## Sprint B — Delta (02/05/2026)
+
+Sprint B adds the World Map → Zone → Boss Hall scene chain. Type C
+(Event Layer + Scene chain delta + Entity Schema delta).
+
+### §3.1 — Folder structure additions
+- `domain/pathfinding/` — pure-TS WalkableMask + AStar + waypoint smoothing
+- `data/staticConfig/islands.ts` — 8 islands (3 active + 5 locked)
+- `react/overlays/LockedIslandTooltip.tsx`
+- `types/zone.ts`
+
+### §6 — Navigation flow (post-Sprint-B default)
+WorldMapScene → ZoneScene(entrance) → ZoneScene(path) → BossHallScene
+→ RewardChestOverlay → WorldMapScene.
+
+Phase 1 WorldScene retained behind `useLegacyWorldScene` flag (transient,
+test-only).
+
+### §7 — Scene lifecycle
+WorldScene marked legacy. Three new Phaser scenes:
+- `WorldMapScene` — 8 island markers, locked-island silhouette + tooltip
+- `ZoneScene` — entrance + path branches, A* point-and-click on a
+  walkable mask, monster overlap → CombatScene
+- `BossHallScene` — fresh / defeated-not-claimed / conquered branches;
+  EXIT_COMBAT(won, bossId) → spawn chest; chest click → CHEST_OPENED
+  → React overlay; "Quay lại" → retreat to WorldMapScene
+
+### §13 — SaveState v4 (additive over v3)
++ `defeatedBossIds: string[]` (deduped on append)
++ `claimedChestIds: string[]` (deduped on append)
++ `currentZoneId: string | null` (resume hint)
++ `useLegacyWorldScene: boolean` (transient, NOT persisted)
+
+Migration: v3 → v4 initialises the three persisted fields to defaults;
+v2 → v3 → v4 chain validated.
+
+### §14 — EventBus catalog additions
++ `ENTER_ZONE { zoneId }`
++ `EXIT_ZONE { zoneId, reason: 'retreat' | 'completed' }`
++ `BOSS_DEFEATED { bossId, zoneId }`
++ `CHEST_OPENED { chestId, zoneId, items: { itemId, qty }[] }`
++ `LOCKED_ISLAND_HINT { islandId }`
+
+### Pathfinding details
+A* on a 16-px-block downsampled grid (1280x720 -> 80x45 cells). Octile
+heuristic. No diagonal corner-cutting through walls. Iteration cap 5000.
+Waypoints smoothed via Bresenham line-of-sight collinear merge.
+
+### Asset delivery (parallel — Antigravity)
+27 new PNGs declared in PHASE1_ASSETS: 1 world map + 8 island icons +
+9 zone backgrounds + 9 walkable masks. Delivery is asynchronous; missing
+PNGs log 404s in dev but do not block unit tests or the wiring contract.

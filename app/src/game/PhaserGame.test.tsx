@@ -81,6 +81,8 @@ describe('PhaserGame — React wrapper', () => {
     render(<PhaserGame />);
     const cfg = mockGameCtor.mock.calls[0]?.[0] as { scene: unknown[] };
     expect(cfg.scene).toBeInstanceOf(Array);
-    expect(cfg.scene).toHaveLength(4); // Boot + Preload + World + Combat (Step 14)
+    // Sprint B Task 12 — scene array now contains: Boot + Preload +
+    // World + WorldMap + Zone + BossHall + Combat = 7 scenes.
+    expect(cfg.scene).toHaveLength(7);
   });
 });

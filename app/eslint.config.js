@@ -12,7 +12,7 @@ import globals from 'globals';
  * Uses eslint-plugin-import `no-restricted-paths` — simpler + widely supported.
  */
 export default tseslint.config(
-  { ignores: ['dist', 'build', 'coverage', 'playwright-report', '.vite', 'node_modules'] },
+  { ignores: ['dist', 'build', 'coverage', 'playwright-report', '.vite', 'node_modules', 'copy_artifacts.cjs'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

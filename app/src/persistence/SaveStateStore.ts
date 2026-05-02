@@ -12,6 +12,7 @@
  *   v1 → base player state (hp/mp/exp/level/position/flags/last_boss_attempt_date)
  *   v2 → +inventory, +equipment, +lastLevelUpAt (AP §11, additive migrate)
  *   v3 → +active_pet_instance_id (Sprint A Task 9 / PetEntityFactory)
+ *   v4 → +defeatedBossIds, +claimedChestIds, +currentZoneId (Sprint B Task 5)
  *
  * The migration injects empty defaults for missing fields so existing
  * Phase 1 saves survive the bump. HmacStorage re-signs on the next
@@ -33,7 +34,7 @@ import { computeEffectiveStats } from '@domain/EffectiveStats';
 import { eventBus } from '@bus/EventBus';
 
 export const SAVE_STATE_KEY = 'game_ss3_save_v1';
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 export function thresholdForLevel(level: number): number {
   return Math.floor(100 * Math.pow(level, 1.5));
@@ -81,6 +82,14 @@ export interface SaveStateData {
   lastLevelUpAt: number | null;
   // v3 additions (Sprint A Task 9 / PetEntityFactory)
   active_pet_instance_id: string | null;
+  // v4 additions (Sprint B Task 5 — boss-defeat persistence + zone resume)
+  defeatedBossIds: string[];
+  claimedChestIds: string[];
+  currentZoneId: string | null;
+  // Sprint B Task 12 — transient debug flag (NOT persisted). When true,
+  // PreloadScene hands off to the legacy WorldScene; used by Phase 1 E2E
+  // specs during the WorldMap/Zone migration.
+  useLegacyWorldScene: boolean;
 }
 
 export interface SaveStateActions {
@@ -96,6 +105,14 @@ export interface SaveStateActions {
   unequipItem: (slot: EquipmentSlot) => void;
   // v3 actions
   setActivePetInstanceId: (id: string | null) => void;
+  // v4 actions
+  addDefeatedBoss: (id: string) => void;
+  addClaimedChest: (id: string) => void;
+  setCurrentZoneId: (id: string | null) => void;
+  hasDefeatedBoss: (id: string) => boolean;
+  hasClaimedChest: (id: string) => boolean;
+  // Sprint B Task 12 — transient debug flag setter
+  setLegacyWorldFlag: (v: boolean) => void;
   reset: () => void;
 }
 
@@ -115,6 +132,10 @@ const INITIAL_STATE: SaveStateData = {
   equipment: { ...EMPTY_EQUIPMENT },
   lastLevelUpAt: null,
   active_pet_instance_id: null,
+  defeatedBossIds: [],
+  claimedChestIds: [],
+  currentZoneId: null,
+  useLegacyWorldScene: false,
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -133,7 +154,7 @@ export function effectiveMaxHp(state: SaveStateData): number {
   return state.maxHp + stats.maxHpDelta;
 }
 
-/** Additive migration v1 → v2 → v3 — inject missing fields when absent. */
+/** Additive migration v1 → v2 → v3 → v4 — inject missing fields when absent. */
 function migrate(persisted: unknown, version: number): SaveStateData {
   const base = (
     persisted && typeof persisted === 'object' ? persisted : {}
@@ -152,6 +173,14 @@ function migrate(persisted: unknown, version: number): SaveStateData {
   }
   if (version < 3) {
     s = { ...s, active_pet_instance_id: null };
+  }
+  if (version < 4) {
+    s = {
+      ...s,
+      defeatedBossIds: [],
+      claimedChestIds: [],
+      currentZoneId: null,
+    };
   }
   return s;
 }
@@ -233,6 +262,24 @@ export const useSaveState = create<SaveStateStore>()(
 
       setActivePetInstanceId: (id) => set({ active_pet_instance_id: id }),
 
+      addDefeatedBoss: (id) =>
+        set((s) =>
+          s.defeatedBossIds.includes(id) ? s : { defeatedBossIds: [...s.defeatedBossIds, id] }
+        ),
+
+      addClaimedChest: (id) =>
+        set((s) =>
+          s.claimedChestIds.includes(id) ? s : { claimedChestIds: [...s.claimedChestIds, id] }
+        ),
+
+      setCurrentZoneId: (id) => set({ currentZoneId: id }),
+
+      hasDefeatedBoss: (id) => get().defeatedBossIds.includes(id),
+
+      hasClaimedChest: (id) => get().claimedChestIds.includes(id),
+
+      setLegacyWorldFlag: (v) => set({ useLegacyWorldScene: v }),
+
       equipItem: (slot, instanceId) => {
         const state = get();
         const owned = state.inventory.find((i) => i.instanceId === instanceId);
@@ -263,7 +310,12 @@ export const useSaveState = create<SaveStateStore>()(
         set({ equipment: nextEquipment, hp: Math.min(state.hp, maxAfter) });
       },
 
-      reset: () => set({ ...INITIAL_STATE, equipment: { ...EMPTY_EQUIPMENT } }),
+      reset: () =>
+        set({
+          ...INITIAL_STATE,
+          equipment: { ...EMPTY_EQUIPMENT },
+          useLegacyWorldScene: false,
+        }),
     }),
     {
       name: SAVE_STATE_KEY,
@@ -272,6 +324,15 @@ export const useSaveState = create<SaveStateStore>()(
       storage: createJSONStorage(() => createHmacStorage(localStorage)),
       version: SCHEMA_VERSION,
       migrate,
+      // Sprint B Task 12 — exclude the transient legacy-scene debug flag
+      // from persistence so a page reload always falls back to the new
+      // WorldMap/Zone chain. Everything else continues to persist as
+      // before (empty exclusion list keeps v1–v4 fields intact).
+      partialize: (state) => {
+        const { useLegacyWorldScene: _omit, ...rest } = state;
+        void _omit;
+        return rest;
+      },
     }
   )
 );

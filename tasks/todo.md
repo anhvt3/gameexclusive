@@ -25,6 +25,13 @@
 
 ---
 
+## 🚀 Phase 2.5 — Prodigy-Parity Sprints
+
+- **Sprint A (multi-party combat refactor)** — ✅ shipped on `main` (`ed6dbee`). 17 tasks, 543 tests. Spec: `docs/superpowers/specs/2026-04-29-multiparty-combat-design.md`.
+- **Sprint B (Phase 2.5 — World Map / Zone / Boss Hall scenes)** — ✅ shipped on `claude/zealous-dewdney-0c63aa`. 13 tasks (+ 1 referential integrity follow-up), ~107 new unit tests (542 → 649), 1 new E2E spec (unblocked and passing after Antigravity asset delivery), 27 PNGs declared in PHASE1_ASSETS. Spec: `docs/superpowers/specs/2026-05-02-sprint-b-maps-design.md`. Plan: `docs/superpowers/plans/2026-05-02-sprint-b-maps-plan.md`.
+
+---
+
 ## ✅ Done — Phase 1 Steps 0-22.7
 
 | # | Step | Commit | Tests added |

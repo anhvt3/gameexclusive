@@ -132,8 +132,8 @@ describe('SaveStateStore — persistence', () => {
     expect(parsed.version).toBeDefined();
   });
 
-  it('SCHEMA_VERSION is at v3 (Sprint A Task 9 pet field)', () => {
-    expect(SCHEMA_VERSION).toBe(3);
+  it('SCHEMA_VERSION is at v4 (Sprint B Task 5 boss/chest/zone fields)', () => {
+    expect(SCHEMA_VERSION).toBe(4);
   });
 });
 
@@ -391,8 +391,7 @@ describe('SaveStateStore — v2 → v3 migration (Sprint A Task 9)', () => {
     localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v2Save));
     await useSaveState.persist.rehydrate();
     const s = useSaveState.getState();
-    // SCHEMA_VERSION is now 3; after migration active_pet_instance_id defaults to null
-    expect(SCHEMA_VERSION).toBe(3);
+    // After migration active_pet_instance_id defaults to null (chain stops at current version)
     expect(s.active_pet_instance_id).toBeNull();
   });
 
@@ -402,5 +401,178 @@ describe('SaveStateStore — v2 → v3 migration (Sprint A Task 9)', () => {
     expect(stored).not.toBeNull();
     const parsed = JSON.parse(stored!);
     expect(parsed.state.active_pet_instance_id).toBe('inst_abc');
+  });
+});
+
+describe('SaveState v4 migration', () => {
+  it('migrates a v3 snapshot to v4 with empty defeated/claimed lists and null currentZoneId', async () => {
+    const v3Save = {
+      state: {
+        hp: 80,
+        maxHp: 100,
+        mp: 30,
+        maxMp: 50,
+        exp: 42,
+        level: 2,
+        flags: { tutorial_completed: true },
+        inventory: [],
+        equipment: { hat: null, outfit: null, wand: null, shoes: null },
+        lastLevelUpAt: 1_700_000_000_000,
+        position: { x: 480, y: 320 },
+        last_boss_attempt_date: '2026-04-20',
+        active_pet_instance_id: 'inst_pet_xyz',
+      },
+      version: 3,
+    };
+    localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v3Save));
+    await useSaveState.persist.rehydrate();
+    const s = useSaveState.getState();
+    expect(SCHEMA_VERSION).toBe(4);
+    expect(s.defeatedBossIds).toEqual([]);
+    expect(s.claimedChestIds).toEqual([]);
+    expect(s.currentZoneId).toBeNull();
+    // existing v3 fields preserved
+    expect(s.hp).toBe(80);
+    expect(s.exp).toBe(42);
+    expect(s.level).toBe(2);
+    expect(s.active_pet_instance_id).toBe('inst_pet_xyz');
+    expect(s.last_boss_attempt_date).toBe('2026-04-20');
+  });
+
+  it('is idempotent on a v4 snapshot (re-running v3→v4 leaves data intact)', async () => {
+    const v4Save = {
+      state: {
+        hp: 100,
+        maxHp: 100,
+        mp: 50,
+        maxMp: 50,
+        exp: 0,
+        level: 1,
+        flags: {},
+        inventory: [],
+        equipment: { hat: null, outfit: null, wand: null, shoes: null },
+        lastLevelUpAt: null,
+        position: { x: 0, y: 0 },
+        last_boss_attempt_date: null,
+        active_pet_instance_id: null,
+        defeatedBossIds: ['forest-boss'],
+        claimedChestIds: ['forest-boss-chest'],
+        currentZoneId: 'forest-island',
+      },
+      version: 4,
+    };
+    localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v4Save));
+    await useSaveState.persist.rehydrate();
+    const s = useSaveState.getState();
+    expect(s.defeatedBossIds).toEqual(['forest-boss']);
+    expect(s.claimedChestIds).toEqual(['forest-boss-chest']);
+    expect(s.currentZoneId).toBe('forest-island');
+  });
+
+  it('chains v2 → v3 → v4 from a fresh v2 snapshot', async () => {
+    const v2Save = {
+      state: {
+        hp: 100,
+        maxHp: 100,
+        mp: 50,
+        maxMp: 50,
+        exp: 0,
+        level: 1,
+        flags: {},
+        inventory: [],
+        equipment: { hat: null, outfit: null, wand: null, shoes: null },
+        lastLevelUpAt: null,
+        position: { x: 480, y: 320 },
+        last_boss_attempt_date: null,
+      },
+      version: 2,
+    };
+    localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v2Save));
+    await useSaveState.persist.rehydrate();
+    const s = useSaveState.getState();
+    expect(SCHEMA_VERSION).toBe(4);
+    expect(s.active_pet_instance_id).toBeNull();
+    expect(s.defeatedBossIds).toEqual([]);
+    expect(s.claimedChestIds).toEqual([]);
+    expect(s.currentZoneId).toBeNull();
+  });
+});
+
+describe('SaveState v4 actions', () => {
+  beforeEach(() => useSaveState.getState().reset());
+
+  it('addDefeatedBoss appends and dedupes', () => {
+    useSaveState.getState().addDefeatedBoss('forest-boss');
+    useSaveState.getState().addDefeatedBoss('forest-boss');
+    useSaveState.getState().addDefeatedBoss('volcanic-boss');
+    expect(useSaveState.getState().defeatedBossIds).toEqual(['forest-boss', 'volcanic-boss']);
+  });
+
+  it('addClaimedChest appends and dedupes', () => {
+    useSaveState.getState().addClaimedChest('forest-boss-chest');
+    useSaveState.getState().addClaimedChest('forest-boss-chest');
+    expect(useSaveState.getState().claimedChestIds).toEqual(['forest-boss-chest']);
+  });
+
+  it('setCurrentZoneId stores and clears the zone id', () => {
+    useSaveState.getState().setCurrentZoneId('forest-island');
+    expect(useSaveState.getState().currentZoneId).toBe('forest-island');
+    useSaveState.getState().setCurrentZoneId(null);
+    expect(useSaveState.getState().currentZoneId).toBeNull();
+  });
+
+  it('hasDefeatedBoss reflects current state', () => {
+    expect(useSaveState.getState().hasDefeatedBoss('forest-boss')).toBe(false);
+    useSaveState.getState().addDefeatedBoss('forest-boss');
+    expect(useSaveState.getState().hasDefeatedBoss('forest-boss')).toBe(true);
+  });
+
+  it('hasClaimedChest reflects current state', () => {
+    expect(useSaveState.getState().hasClaimedChest('forest-boss-chest')).toBe(false);
+    useSaveState.getState().addClaimedChest('forest-boss-chest');
+    expect(useSaveState.getState().hasClaimedChest('forest-boss-chest')).toBe(true);
+  });
+
+  it('reset() zeroes defeatedBossIds/claimedChestIds/currentZoneId', () => {
+    const s = useSaveState.getState();
+    s.addDefeatedBoss('forest-boss');
+    s.addClaimedChest('forest-boss-chest');
+    s.setCurrentZoneId('forest-island');
+    s.reset();
+    const after = useSaveState.getState();
+    expect(after.defeatedBossIds).toEqual([]);
+    expect(after.claimedChestIds).toEqual([]);
+    expect(after.currentZoneId).toBeNull();
+  });
+});
+
+describe('useLegacyWorldScene flag (transient — Sprint B Task 12)', () => {
+  beforeEach(() => useSaveState.getState().reset());
+
+  it('defaults to false', () => {
+    expect(useSaveState.getState().useLegacyWorldScene).toBe(false);
+  });
+
+  it('setLegacyWorldFlag toggles the value', () => {
+    useSaveState.getState().setLegacyWorldFlag(true);
+    expect(useSaveState.getState().useLegacyWorldScene).toBe(true);
+    useSaveState.getState().setLegacyWorldFlag(false);
+    expect(useSaveState.getState().useLegacyWorldScene).toBe(false);
+  });
+
+  it('is NOT persisted (excluded by partialize)', () => {
+    useSaveState.getState().setLegacyWorldFlag(true);
+    const raw = localStorage.getItem(SAVE_STATE_KEY);
+    if (raw) {
+      // HmacStorage may wrap the JSON — assert the flag does not appear
+      // in the persisted blob regardless of envelope.
+      expect(raw).not.toContain('useLegacyWorldScene');
+    }
+  });
+
+  it('reset() returns the legacy flag to false', () => {
+    useSaveState.getState().setLegacyWorldFlag(true);
+    useSaveState.getState().reset();
+    expect(useSaveState.getState().useLegacyWorldScene).toBe(false);
   });
 });

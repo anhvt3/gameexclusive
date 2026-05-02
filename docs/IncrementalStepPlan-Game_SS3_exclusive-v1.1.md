@@ -575,3 +575,24 @@ Asset workflow rule: every sprint spec defines exact filenames +
 Antigravity prompts (style: flat 2D vector art, flash-game finish,
 clean 2px outline). Antigravity drops PNG-32 RGBA, Claude wires.
 No placeholder art reaches dev.
+
+### Phase 2.5 — Sprint B (02/05/2026) — World Map + Zone + Boss Hall
+
+| # | Step | Status |
+|---|---|---|
+| S-B.1 | Types + ISLANDS static config (3 active + 5 locked) | ✅ |
+| S-B.2 | WalkableMask reader (alpha+luminance threshold) | ✅ |
+| S-B.3 | A* pathfinding (8-direction, octile, deterministic) | ✅ |
+| S-B.4 | Waypoint smoothing (Bresenham LOS merge) | ✅ |
+| S-B.5 | SaveState v3→v4 migration + 5 actions | ✅ |
+| S-B.6 | EventBus +ENTER_ZONE/EXIT_ZONE/BOSS_DEFEATED/CHEST_OPENED/LOCKED_ISLAND_HINT | ✅ |
+| S-B.7 | PreloadScene Sprint B asset wiring (27 entries) | ✅ |
+| S-B.8 | WorldMapScene + LockedIslandTooltip + test bridge | ✅ |
+| — | Referential integrity test (pathMonsters/bossId/itemId resolve) | ✅ |
+| S-B.9 | ZoneScene (entrance + path branches) + A* walk | ✅ |
+| S-B.10 | BossHallScene (3 branches: fresh / defeated / conquered) | ✅ |
+| S-B.11 | RewardChestOverlay listens to CHEST_OPENED + Về Bản Đồ button | ✅ |
+| S-B.12 | PhaserGame wiring + useLegacyWorldScene flag | ✅ |
+| S-B.13 | E2E + AP/ISP delta + roll-up | ✅ |
+
+**Sprint B closed.** Pending: Antigravity 27-PNG delivery.

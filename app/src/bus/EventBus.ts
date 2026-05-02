@@ -53,7 +53,19 @@ export type GameEvent =
         origin: { x: number; y: number };
         target: { x: number; y: number };
       };
-    };
+    }
+  | { type: 'ENTER_ZONE'; payload: { zoneId: string } }
+  | { type: 'EXIT_ZONE'; payload: { zoneId: string; reason: 'retreat' | 'completed' } }
+  | { type: 'BOSS_DEFEATED'; payload: { bossId: string; zoneId: string } }
+  | {
+      type: 'CHEST_OPENED';
+      payload: {
+        chestId: string;
+        zoneId: string;
+        items: ReadonlyArray<{ itemId: string; qty: number }>;
+      };
+    }
+  | { type: 'LOCKED_ISLAND_HINT'; payload: { islandId: string } };
 
 // Strip `type` field and map to payload type
 type EventMap = {

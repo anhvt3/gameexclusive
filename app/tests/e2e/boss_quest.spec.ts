@@ -54,6 +54,20 @@ test('boss quest: enabled → victory → 500 EXP + daily lock', async ({ page }
     .waitFor({ timeout: 15_000 });
   await page.waitForFunction(() => Boolean(window.__GAME__), { timeout: 15_000 });
 
+  // Sprint B Task 12 — pin this Phase 1 spec to legacy WorldScene so the
+  // boss-pending flag handler still fires. Flag is transient; force the
+  // scene swap directly because PreloadScene already booted.
+  await page.evaluate(() => {
+    window.__GAME__!.simulate.setLegacyWorldFlag(true);
+    const sm = window.__GAME__!.__phaser.scene;
+    for (const key of ['WorldMapScene', 'ZoneScene', 'BossHallScene']) {
+      if (sm.getScene(key)) sm.stop(key);
+    }
+    if (!sm.getScene('WorldScene')?.scene.isActive()) {
+      sm.start('WorldScene');
+    }
+  });
+
   // WorldScene should auto-launch boss combat
   await page.waitForFunction(() => window.__GAME__?.state.activeScene() === 'CombatScene', {
     timeout: 15_000,

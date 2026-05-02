@@ -64,6 +64,20 @@ test('multiparty combat — hero + pet vs monster', async ({ page }) => {
     .waitFor({ timeout: 15_000 });
   await page.waitForFunction(() => Boolean(window.__GAME__), { timeout: 15_000 });
 
+  // Sprint B Task 12 — pin this Phase 1 spec to legacy WorldScene; Sprint B
+  // default is WorldMapScene which this multiparty-combat spec does not drive.
+  await page.evaluate(() => {
+    window.__GAME__!.simulate.setLegacyWorldFlag(true);
+    const sm = window.__GAME__!.__phaser.scene;
+    if (!sm.getScene('WorldScene')?.scene.isActive()) {
+      const active = sm.getScenes(true) ?? [];
+      for (const s of active) {
+        if (s.scene.key !== 'WorldScene') sm.stop(s.scene.key);
+      }
+      sm.start('WorldScene');
+    }
+  });
+
   // Confirm WorldScene is active
   await page.waitForFunction(() => window.__GAME__?.state.activeScene() === 'WorldScene', {
     timeout: 15_000,

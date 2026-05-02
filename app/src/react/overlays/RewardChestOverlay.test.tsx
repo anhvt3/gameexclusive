@@ -121,3 +121,68 @@ describe('RewardChestOverlay — Step 22.14', () => {
     expect(sfxSpy.mock.calls.filter((c) => c[0] === 'world_chest_open')).toHaveLength(1);
   });
 });
+
+describe('RewardChestOverlay — Sprint B CHEST_OPENED handler', () => {
+  it('opens with the items list when CHEST_OPENED fires', async () => {
+    const { eventBus } = await import('@/bus/EventBus');
+    render(<RewardChestOverlay />);
+    act(() => {
+      eventBus.emit('CHEST_OPENED', {
+        chestId: 'forest-boss-chest',
+        zoneId: 'forest-island',
+        items: [{ itemId: 'wand-fire-01', qty: 1 }],
+      });
+    });
+    expect(screen.getByTestId('chest-overlay-back-to-world-map')).toBeInTheDocument();
+  });
+
+  it('clicking "Về Bản Đồ" emits EXIT_ZONE(reason=completed) and closes the overlay', async () => {
+    const { eventBus } = await import('@/bus/EventBus');
+    const events: Array<{ zoneId: string; reason: 'retreat' | 'completed' }> = [];
+    const off = eventBus.on('EXIT_ZONE', (p) => events.push(p));
+    render(<RewardChestOverlay />);
+    act(() => {
+      eventBus.emit('CHEST_OPENED', {
+        chestId: 'forest-boss-chest',
+        zoneId: 'forest-island',
+        items: [{ itemId: 'wand-fire-01', qty: 1 }],
+      });
+    });
+    const btn = screen.getByTestId('chest-overlay-back-to-world-map');
+    act(() => {
+      fireEvent.click(btn);
+    });
+    off();
+    expect(events).toEqual([{ zoneId: 'forest-island', reason: 'completed' }]);
+    expect(screen.queryByTestId('chest-overlay-back-to-world-map')).toBeNull();
+  });
+
+  it('clicking "Về Bản Đồ" clears currentZoneId in SaveState', async () => {
+    const { eventBus } = await import('@/bus/EventBus');
+    const { useSaveState } = await import('@/persistence/SaveStateStore');
+    useSaveState.getState().setCurrentZoneId('forest-island');
+    render(<RewardChestOverlay />);
+    act(() => {
+      eventBus.emit('CHEST_OPENED', {
+        chestId: 'forest-boss-chest',
+        zoneId: 'forest-island',
+        items: [{ itemId: 'wand-fire-01', qty: 1 }],
+      });
+    });
+    const btn = screen.getByTestId('chest-overlay-back-to-world-map');
+    act(() => {
+      fireEvent.click(btn);
+    });
+    expect(useSaveState.getState().currentZoneId).toBeNull();
+  });
+
+  it('does not break the existing LEVEL_UP path', async () => {
+    const { eventBus } = await import('@/bus/EventBus');
+    render(<RewardChestOverlay />);
+    act(() => {
+      eventBus.emit('LEVEL_UP', { newLevel: 5, grantedItemId: 'wand-fire-01' });
+    });
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByText(/Lên cấp 5/)).toBeInTheDocument();
+  });
+});

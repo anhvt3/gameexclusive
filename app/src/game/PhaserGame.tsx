@@ -16,6 +16,9 @@ import Phaser from 'phaser';
 import { BootScene } from './scenes/BootScene';
 import { PreloadScene } from './scenes/PreloadScene';
 import { WorldScene } from './scenes/WorldScene';
+import { WorldMapScene } from './scenes/WorldMapScene';
+import { ZoneScene } from './scenes/ZoneScene';
+import { BossHallScene } from './scenes/BossHallScene';
 import { CombatScene } from './scenes/CombatScene';
 import { attachGameTestBridge, detachGameTestBridge } from '@/testing/gameTestBridge';
 
@@ -46,7 +49,15 @@ export function PhaserGame({ width = 960, height = 640 }: Props) {
         default: 'arcade',
         arcade: { gravity: { x: 0, y: 0 }, debug: false },
       },
-      scene: [BootScene, PreloadScene, WorldScene, CombatScene],
+      scene: [
+        BootScene,
+        PreloadScene,
+        WorldScene,
+        WorldMapScene,
+        ZoneScene,
+        BossHallScene,
+        CombatScene,
+      ],
       input: {
         keyboard: {
           // Capture WASD + arrow keys so the browser doesn't scroll on

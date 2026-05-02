@@ -20,6 +20,13 @@ import { useEffect, useState } from 'react';
 import { eventBus } from '@bus/EventBus';
 import { findItemDef } from '@data/staticConfig/items';
 import { useGameAudio } from '@react/shell/useGameAudio';
+import { useSaveState } from '@/persistence/SaveStateStore';
+
+interface ChestCtx {
+  chestId: string;
+  zoneId: string;
+  items: ReadonlyArray<{ itemId: string; qty: number }>;
+}
 
 type Phase = 'idle' | 'closed' | 'wobble' | 'open';
 
@@ -41,6 +48,8 @@ export function RewardChestOverlay() {
   const [queue, setQueue] = useState<Grant[]>([]);
   const [active, setActive] = useState<Grant | null>(null);
   const [phase, setPhase] = useState<Phase>('idle');
+  // Sprint B Task 11 — independent open path for boss-chest rewards.
+  const [zoneCtx, setZoneCtx] = useState<ChestCtx | null>(null);
 
   // Subscribe to LEVEL_UP — push to queue.
   useEffect(() => {
@@ -49,6 +58,25 @@ export function RewardChestOverlay() {
     });
     return off;
   }, []);
+
+  // Sprint B Task 11 — Subscribe to CHEST_OPENED.
+  useEffect(() => {
+    const off = eventBus.on('CHEST_OPENED', (p) => {
+      setZoneCtx({ chestId: p.chestId, zoneId: p.zoneId, items: p.items });
+      // TODO Sprint B follow-up: persist chest items to inventory.
+      // SaveStateStore.addInventoryItem expects an InventoryItem with
+      // instanceId; chest payload only carries {itemId, qty}. A proper
+      // mint helper will be added in a follow-up task.
+    });
+    return off;
+  }, []);
+
+  const handleBackToWorldMap = () => {
+    if (!zoneCtx) return;
+    eventBus.emit('EXIT_ZONE', { zoneId: zoneCtx.zoneId, reason: 'completed' });
+    useSaveState.getState().setCurrentZoneId(null);
+    setZoneCtx(null);
+  };
 
   // Drain the queue when idle. Effect-driven setState is required here:
   // the queue grows asynchronously via the bus listener, and we react by
@@ -97,6 +125,52 @@ export function RewardChestOverlay() {
     setPhase('idle');
     setActive(null);
   };
+
+  // Sprint B chest reward — distinct branch, takes precedence when active.
+  if (zoneCtx) {
+    return (
+      <div
+        role="dialog"
+        aria-label="Phần thưởng rương"
+        data-testid="chest-overlay-zone"
+        className="reward-chest-overlay fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      >
+        <div className="flex w-full max-w-md flex-col items-center gap-4 rounded-3xl border-4 border-amber-300 bg-amber-50 p-8 shadow-2xl">
+          <h2 className="text-2xl font-extrabold text-amber-900">🎁 Phần thưởng rương</h2>
+          <ul
+            data-testid="chest-overlay-items"
+            className="flex w-full flex-col gap-2 text-base font-semibold text-amber-800"
+          >
+            {zoneCtx.items.map((it) => {
+              const def = findItemDef(it.itemId);
+              const label = def?.displayNameVi ?? it.itemId;
+              return (
+                <li
+                  key={it.itemId}
+                  data-testid={`chest-overlay-item-${it.itemId}`}
+                  className="rounded-md border border-amber-200 bg-white px-3 py-2"
+                >
+                  <span className="font-mono text-xs text-amber-600">{it.itemId}</span>
+                  {' — '}
+                  <span className="font-bold text-orange-700">{label}</span>
+                  {' × '}
+                  <span>{it.qty}</span>
+                </li>
+              );
+            })}
+          </ul>
+          <button
+            type="button"
+            data-testid="chest-overlay-back-to-world-map"
+            onClick={handleBackToWorldMap}
+            className="rounded-lg bg-amber-500 px-6 py-2 font-bold text-white shadow hover:bg-amber-600"
+          >
+            Về Bản Đồ
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (phase === 'idle' || !active) return null;
 

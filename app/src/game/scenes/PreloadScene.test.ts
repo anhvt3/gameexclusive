@@ -53,10 +53,35 @@ describe('PreloadScene', () => {
     expect(scene.load.tilemapTiledJSON).toHaveBeenCalledTimes(PHASE1_ASSETS.tilemaps.length);
   });
 
-  it('create() transitions to WorldScene', () => {
+  it('create() defaults to WorldMapScene on a fresh save (Sprint B)', async () => {
+    const { useSaveState } = await import('@persistence/SaveStateStore');
+    useSaveState.getState().reset();
+    const scene = new PreloadScene();
+    scene.create();
+    expect(scene.scene.start).toHaveBeenCalledWith('WorldMapScene');
+  });
+
+  it('create() resumes ZoneScene when currentZoneId is set', async () => {
+    const { useSaveState } = await import('@persistence/SaveStateStore');
+    useSaveState.getState().reset();
+    useSaveState.getState().setCurrentZoneId('forest-island');
+    const scene = new PreloadScene();
+    scene.create();
+    expect(scene.scene.start).toHaveBeenCalledWith('ZoneScene', {
+      zoneId: 'forest-island',
+      screen: 'entrance',
+    });
+    useSaveState.getState().reset();
+  });
+
+  it('create() falls back to legacy WorldScene when useLegacyWorldScene=true', async () => {
+    const { useSaveState } = await import('@persistence/SaveStateStore');
+    useSaveState.getState().reset();
+    useSaveState.getState().setLegacyWorldFlag(true);
     const scene = new PreloadScene();
     scene.create();
     expect(scene.scene.start).toHaveBeenCalledWith('WorldScene');
+    useSaveState.getState().reset();
   });
 
   it('PHASE1_ASSETS shape has 3 categories', () => {
@@ -66,11 +91,16 @@ describe('PreloadScene', () => {
   });
 
   it('registers 24 pet textures (6 codenames × 4 states)', () => {
-    const petPaths = PHASE1_ASSETS.images
-      .filter((i) => i.key.startsWith('pet_'))
-      .map((i) => i.key);
+    const petPaths = PHASE1_ASSETS.images.filter((i) => i.key.startsWith('pet_')).map((i) => i.key);
     expect(petPaths).toHaveLength(24);
-    for (const codename of ['bunbleaf', 'pyropup', 'aquakit', 'frostfae', 'voltchick', 'terraowl']) {
+    for (const codename of [
+      'bunbleaf',
+      'pyropup',
+      'aquakit',
+      'frostfae',
+      'voltchick',
+      'terraowl',
+    ]) {
       for (const state of ['idle', 'attack', 'hurt', 'death']) {
         expect(petPaths).toContain(`pet_${codename}_${state}`);
       }
@@ -81,5 +111,44 @@ describe('PreloadScene', () => {
     const keys = PHASE1_ASSETS.images.map((i) => i.key);
     expect(keys).toContain('evolution_burst_8frames');
     expect(keys).toContain('party_hp_strip_bg');
+  });
+});
+
+describe('PreloadScene Sprint B assets', () => {
+  function runPreloadAndCaptureLoadCalls(): Array<{ key: string; url: string }> {
+    const scene = new PreloadScene();
+    scene.preload();
+    const mockCalls = (scene.load.image as unknown as { mock: { calls: [string, string][] } }).mock
+      .calls;
+    return mockCalls.map(([key, url]) => ({ key, url }));
+  }
+
+  it('loads the world map illustration and 8 island icons', () => {
+    const calls = runPreloadAndCaptureLoadCalls();
+    const keys = calls.map((c) => c.key);
+    expect(keys).toContain('world-map-bg');
+    for (const id of [
+      'forest',
+      'volcanic',
+      'frozen',
+      'storm',
+      'ocean',
+      'earth',
+      'astral',
+      'shadow',
+    ]) {
+      expect(keys).toContain(`island-icon-${id}`);
+    }
+  });
+
+  it('loads 9 zone backgrounds and 9 walkable masks for active islands', () => {
+    const calls = runPreloadAndCaptureLoadCalls();
+    const keys = calls.map((c) => c.key);
+    for (const island of ['forest', 'volcanic', 'frozen']) {
+      for (const screen of ['entrance', 'path', 'boss-hall']) {
+        expect(keys).toContain(`${island}-${screen}-bg-1280x720`);
+        expect(keys).toContain(`${island}-${screen}-walkable-1280x720`);
+      }
+    }
   });
 });

@@ -12,6 +12,7 @@
 import Phaser from 'phaser';
 import { ITEM_REGISTRY } from '@data/staticConfig/items';
 import { PLAYER_BASE_MALE_KEY } from '../entities/PlayerAvatar';
+import { useSaveState } from '@persistence/SaveStateStore';
 
 export const PRELOAD_SCENE_KEY = 'PreloadScene';
 
@@ -107,6 +108,28 @@ export const PHASE1_ASSETS = {
     // Sprint A Task 12 — evolution VFX strip + party HP strip BG
     { key: 'evolution_burst_8frames', path: '/assets/juice/evolution_burst_8frames.png' },
     { key: 'party_hp_strip_bg', path: '/assets/ui/party_hp_strip_bg.png' },
+    // Sprint B Task 10 — chest sprite shown in BossHallScene after the boss falls
+    { key: 'chest-zone', path: '/assets/juice/treasure_chest_transparent.png' },
+    // Sprint B Task 7 — World Map + Zone + Boss Hall assets
+    { key: 'world-map-bg', path: '/assets/zones/world_map_bg_1920x1080.png' },
+    ...['forest', 'volcanic', 'frozen', 'storm', 'ocean', 'earth', 'astral', 'shadow'].map(
+      (id) => ({
+        key: `island-icon-${id}`,
+        path: `/assets/zones/island-icon_${id}_192x192.png`,
+      })
+    ),
+    ...['forest', 'volcanic', 'frozen'].flatMap((id) =>
+      ['entrance', 'path', 'boss-hall'].flatMap((screen) => [
+        {
+          key: `${id}-${screen}-bg-1280x720`,
+          path: `/assets/zones/${id}-${screen}_bg_1280x720.png`,
+        },
+        {
+          key: `${id}-${screen}-walkable-1280x720`,
+          path: `/assets/zones/${id}-${screen}_walkable_1280x720.png`,
+        },
+      ])
+    ),
   ] as Array<{ key: string; path: string }>,
   spritesheets: [
     {
@@ -171,6 +194,19 @@ export class PreloadScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.scene.start('WorldScene');
+    // Sprint B Task 12 — three-way scene handoff:
+    //   1. useLegacyWorldScene flag → keep Phase 1 WorldScene (E2E specs)
+    //   2. currentZoneId !== null   → resume into ZoneScene at entrance
+    //   3. otherwise                 → fresh WorldMapScene
+    const save = useSaveState.getState();
+    if (save.useLegacyWorldScene) {
+      this.scene.start('WorldScene');
+      return;
+    }
+    if (save.currentZoneId !== null) {
+      this.scene.start('ZoneScene', { zoneId: save.currentZoneId, screen: 'entrance' });
+      return;
+    }
+    this.scene.start('WorldMapScene');
   }
 }

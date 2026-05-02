@@ -24,6 +24,14 @@ import { eventBus, type Unsubscribe } from '@bus/EventBus';
 import { useSaveState } from '@persistence/SaveStateStore';
 import { TUTORIAL_FLAG } from '@react/mascot/tutorialSteps';
 import type { CombatScene } from '@game/scenes/CombatScene';
+import type { WorldMapScene } from '@game/scenes/WorldMapScene';
+
+// Inline the scene key as a string literal so the bridge does NOT pull
+// WorldMapScene.ts (which extends Phaser.Scene at module-eval) into the test
+// import graph. WorldScene is referenced the same way (string key only).
+const WORLD_MAP_SCENE_KEY = 'WorldMapScene';
+const ZONE_SCENE_KEY = 'ZoneScene';
+const BOSS_HALL_SCENE_KEY = 'BossHallScene';
 
 export interface GameTestBridge {
   state: {
@@ -37,6 +45,11 @@ export interface GameTestBridge {
     activeLoId: () => number | null;
     tutorialCompleted: () => boolean;
   };
+  /**
+   * Sprint B Task 13 — read full SaveState snapshot for E2E persistence
+   * checks (defeatedBossIds / claimedChestIds / currentZoneId).
+   */
+  getSaveState: () => ReturnType<typeof useSaveState.getState>;
   simulate: {
     completeTutorial: () => void;
     enterCombat: (monsterId: number) => void;
@@ -44,6 +57,15 @@ export interface GameTestBridge {
     submitQuiz: (correct: boolean) => void;
     setMonsterHp: (hp: number) => void;
     resetSaveState: () => void;
+    setLegacyWorldFlag: (v: boolean) => void;
+    startWorldMap: () => void;
+    clickIsland: (islandId: string) => void;
+    advanceZoneScreen: () => void;
+    startZonePath: (zoneId: string) => void;
+    startBossHall: (zoneId: string) => void;
+    walkPathSafe: () => Promise<void>;
+    engageBoss: () => void;
+    clickChest: () => void;
   };
   __phaser: Phaser.Game;
 }
@@ -147,7 +169,99 @@ export function attachGameTestBridge(game: Phaser.Game): void {
         scene.__setMonsterHp(hp);
       },
       resetSaveState: () => useSaveState.getState().reset(),
+      setLegacyWorldFlag: (v) => useSaveState.getState().setLegacyWorldFlag(v),
+      startWorldMap: () => {
+        // Stop every other active scene then start WorldMapScene fresh so the
+        // bridge always lands on a clean macro-map state.
+        const sm = game.scene;
+        const active = sm.getScenes(true) ?? [];
+        for (const s of active) {
+          const key = s.scene.key;
+          if (key !== WORLD_MAP_SCENE_KEY) sm.stop(key);
+        }
+        sm.start(WORLD_MAP_SCENE_KEY);
+      },
+      clickIsland: (islandId: string) => {
+        const scene = game.scene.getScene(WORLD_MAP_SCENE_KEY) as WorldMapScene | null;
+        if (!scene) throw new Error('[gameTestBridge] WorldMapScene not active');
+        scene.simulateClickIsland(islandId as never);
+      },
+      advanceZoneScreen: () => {
+        const scene = game.scene.getScene(ZONE_SCENE_KEY) as {
+          clickAdvanceButton?: () => void;
+        } | null;
+        if (!scene || typeof scene.clickAdvanceButton !== 'function') {
+          throw new Error('[gameTestBridge] ZoneScene not active');
+        }
+        scene.clickAdvanceButton();
+      },
+      startZonePath: (zoneId: string) => {
+        const sm = game.scene;
+        const active = sm.getScenes(true) ?? [];
+        for (const s of active) {
+          sm.stop(s.scene.key);
+        }
+        sm.start(ZONE_SCENE_KEY, { zoneId, screen: 'path' });
+      },
+      startBossHall: (zoneId: string) => {
+        const sm = game.scene;
+        const active = sm.getScenes(true) ?? [];
+        for (const s of active) {
+          sm.stop(s.scene.key);
+        }
+        sm.start(BOSS_HALL_SCENE_KEY, { zoneId });
+      },
+      engageBoss: () => {
+        const scene = game.scene.getScene(BOSS_HALL_SCENE_KEY) as {
+          simulateBossClick?: () => void;
+        } | null;
+        if (!scene || typeof scene.simulateBossClick !== 'function') {
+          throw new Error('[gameTestBridge] BossHallScene not active');
+        }
+        scene.simulateBossClick();
+      },
+      clickChest: () => {
+        const scene = game.scene.getScene(BOSS_HALL_SCENE_KEY) as {
+          simulateChestClick?: () => void;
+        } | null;
+        if (!scene || typeof scene.simulateChestClick !== 'function') {
+          throw new Error('[gameTestBridge] BossHallScene not active');
+        }
+        scene.simulateChestClick();
+      },
+      walkPathSafe: async () => {
+        type ZoneSceneTestSurface = {
+          simulateMaskAllWalkable: () => void;
+          simulateClickAt: (p: { x: number; y: number }) => void;
+          monsters?: unknown[];
+          tweens?: { add?: unknown };
+        };
+        const scene = game.scene.getScene(ZONE_SCENE_KEY) as unknown as ZoneSceneTestSurface | null;
+        if (!scene) {
+          throw new Error('[gameTestBridge] ZoneScene not active');
+        }
+        scene.simulateMaskAllWalkable();
+        if (Array.isArray(scene.monsters)) {
+          scene.monsters = [];
+        }
+
+        // Force synchronous traversal by temporarily disabling tweens
+        const oldAdd = scene.tweens?.add;
+        if (scene.tweens) {
+          scene.tweens.add = undefined;
+        }
+
+        scene.simulateClickAt({ x: 1180, y: 600 });
+
+        if (scene.tweens) {
+          scene.tweens.add = oldAdd;
+        }
+
+        // No need to wait since traversal was synchronous, but keep the promise signature
+        await Promise.resolve();
+      },
     },
+    getSaveState: () => useSaveState.getState(),
     __phaser: game,
   };
 
