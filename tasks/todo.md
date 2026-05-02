@@ -98,9 +98,6 @@
 Vite plugin `/api/quiz/validate` endpoint. Strip `correct_option_id` from bundled JSON. HMAC-signed receipt. ~3h.
 ⚠️ **Block before public launch** (R5).
 
-### Step 22.6 retrofit (R7) — Boss reward via `rollDrop`
-`CombatScene.handleVictory` boss branch currently grants only 500 EXP. With `LevelUpReward.rollDrop` already shipped in Step 22.8, retrofit boss kill to also grant a guaranteed item (filtered by player level). ~1h.
-
 ---
 
 ## 📋 CEO Review TODOs (accepted)
@@ -129,7 +126,7 @@ Vite plugin `/api/quiz/validate` endpoint. Strip `correct_option_id` from bundle
 | R4 | Production scope vs MVP AP v1.1 | Accepted — AP v1.1 + §11 Task C expansion + Sprint A/B deltas, no v1.2 refactor |
 | R5 | Step 3.5 server validation pending | ⏳ Block before public launch |
 | R6 | Aldergasp boss sprite not delivered (CombatScene renders default placeholder) | Defer to Phase 2 batch |
-| R7 | Step 22.6 item reward — boss gives only 500 EXP, no guaranteed item yet | ⏳ Retrofit using `rollDrop` from Step 22.8 — see "Phase 1 Cleanup" above |
+| R7 | Step 22.6 item reward — boss grants guaranteed item via `rollDrop` | ✅ Done — `CombatScene.handleVictory` lines 540-558, test at `CombatScene.test.ts:492` |
 | R8 | EventQueue HMAC wrap (CEO TODO #3 partial) | Defer — structure leaves seam |
 | R9 | `vfx_spell_fire` placeholder texture missing (console.warn during combat) | Antigravity Phase 2 asset gap, non-blocking |
 
@@ -154,6 +151,6 @@ Harness gates all green. Pre-commit hook enforces lint-staged + typecheck + veri
 
 ## 🎯 Next Session Action
 
-**Immediate:** Step 22.6 retrofit (R7) — wire `LevelUpReward.rollDrop` into `CombatScene.handleVictory` boss branch so killing the daily boss grants a guaranteed item alongside the 500 EXP. ~1h, isolated change, TDD: write test → red → patch handleVictory → green → commit.
+**Immediate:** Sprint C — Pet System brainstorm (per `docs/roadmap_phase2.5_prodigy_parity.md` §C). Builds on Sprint A's CombatEntity polymorphism. Pet rescue + leveling + evolution + inventory tab. Spec → plan → subagent-driven implementation, mirroring Sprint B pattern.
 
-**After R7:** Sprint C — Pet System brainstorm (per `docs/roadmap_phase2.5_prodigy_parity.md` §C). Builds on Sprint A's CombatEntity polymorphism.
+**Deferred:** Step 3.5 server-side validation (block before public launch).
