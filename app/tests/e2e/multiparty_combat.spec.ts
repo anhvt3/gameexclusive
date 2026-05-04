@@ -25,7 +25,7 @@ test('multiparty combat — hero + pet vs monster', async ({ page }) => {
 
   await page.goto('/');
 
-  // Seed save state with active pet before navigation
+  // Seed save state with active pet before navigation (Sprint C v5)
   await page.evaluate(() => {
     const saveState = {
       state: {
@@ -38,14 +38,29 @@ test('multiparty combat — hero + pet vs monster', async ({ page }) => {
         position: { x: 480, y: 320 },
         flags: { tutorial_completed: true },
         last_boss_attempt_date: null,
-        // v2 additions
-        inventory: [{ instanceId: 'inst-bun', petCodename: 'bunbleaf', level: 3, xp: 0 }],
+        // v2 additions (equipment-only inventory)
+        inventory: [],
         equipment: { hat: null, outfit: null, wand: null, shoes: null },
         lastLevelUpAt: null,
-        // v3 additions (active pet)
+        // v3 additions (active pet pointer)
         active_pet_instance_id: 'inst-bun',
+        // v4 additions (Sprint B zone persistence)
+        defeatedBossIds: [],
+        claimedChestIds: [],
+        currentZoneId: null,
+        // v5 additions (Sprint C pet roster — pet instance lives here now)
+        ownedPets: [
+          {
+            instanceId: 'inst-bun',
+            petCodename: 'bunbleaf',
+            rarity: 'common',
+            level: 3,
+            xp: 0,
+            capturedAt: 0,
+          },
+        ],
       },
-      version: 3,
+      version: 5,
     };
     localStorage.setItem('game_ss3_save_v1', JSON.stringify(saveState));
   });
