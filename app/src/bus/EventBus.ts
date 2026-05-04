@@ -18,6 +18,7 @@
 import mitt from 'mitt';
 import type { Emitter, Handler } from 'mitt';
 import type { Element } from '@/types/element';
+import type { PetCodename, PetRarity } from '@/types/pet';
 
 // Discriminated union — extend in ISP Step 1
 export type GameEvent =
@@ -65,7 +66,31 @@ export type GameEvent =
         items: ReadonlyArray<{ itemId: string; qty: number }>;
       };
     }
-  | { type: 'LOCKED_ISLAND_HINT'; payload: { islandId: string } };
+  | { type: 'LOCKED_ISLAND_HINT'; payload: { islandId: string } }
+  | {
+      type: 'PET_RESCUE_OFFERED';
+      payload: { petCodename: PetCodename; rarity: PetRarity };
+    }
+  | {
+      type: 'PET_COLLECTED';
+      payload: {
+        petInstanceId: string;
+        petCodename: PetCodename;
+        rarity: PetRarity;
+      };
+    }
+  | {
+      type: 'PET_RELEASED';
+      payload: {
+        petCodename: PetCodename;
+        rarity: PetRarity;
+        reason: 'rejected-offer' | 'roster-cap-replace' | 'manual';
+      };
+    }
+  | {
+      type: 'PET_LEVEL_UP';
+      payload: { petInstanceId: string; newLevel: number; evolved: boolean };
+    };
 
 // Strip `type` field and map to payload type
 type EventMap = {

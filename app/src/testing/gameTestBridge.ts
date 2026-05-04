@@ -66,6 +66,10 @@ export interface GameTestBridge {
     walkPathSafe: () => Promise<void>;
     engageBoss: () => void;
     clickChest: () => void;
+    // Sprint C Task 9 — PetRescueOverlay test driver hooks
+    acceptPet: () => void;
+    releasePet: () => void;
+    seedRng: (value: number) => void;
   };
   __phaser: Phaser.Game;
 }
@@ -228,6 +232,23 @@ export function attachGameTestBridge(game: Phaser.Game): void {
           throw new Error('[gameTestBridge] BossHallScene not active');
         }
         scene.simulateChestClick();
+      },
+      acceptPet: () => {
+        document.querySelector<HTMLButtonElement>('[data-testid="pet-rescue-collect"]')?.click();
+      },
+      releasePet: () => {
+        document.querySelector<HTMLButtonElement>('[data-testid="pet-rescue-release"]')?.click();
+      },
+      seedRng: (value: number) => {
+        // CombatScene exports __setCombatRng as the canonical test seam
+        // for the module-scoped _combatRng (see CombatScene.ts:48).
+        // Resolve dynamically so this bridge file does NOT pull Phaser
+        // (via CombatScene.ts module-eval) into non-Phaser test import
+        // graphs — matches the same isolation discipline used for the
+        // WorldMapScene/ZoneScene/BossHallScene scene-key constants.
+        void import('@game/scenes/CombatScene').then((mod) => {
+          mod.__setCombatRng(() => value);
+        });
       },
       walkPathSafe: async () => {
         type ZoneSceneTestSurface = {

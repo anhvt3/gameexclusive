@@ -59,3 +59,56 @@ describe('Sprint B EventBus events', () => {
     expect(captured).toEqual({ islandId: 'shadow' });
   });
 });
+
+describe('Sprint C EventBus events', () => {
+  it('PET_RESCUE_OFFERED carries codename and rarity', () => {
+    let captured: { petCodename: string; rarity: string } | null = null;
+    const off = eventBus.on('PET_RESCUE_OFFERED', (p) => {
+      captured = p;
+    });
+    eventBus.emit('PET_RESCUE_OFFERED', { petCodename: 'bunbleaf', rarity: 'rare' });
+    off();
+    expect(captured).toEqual({ petCodename: 'bunbleaf', rarity: 'rare' });
+  });
+
+  it('PET_COLLECTED carries instanceId, codename, rarity', () => {
+    let captured: any = null;
+    const off = eventBus.on('PET_COLLECTED', (p) => {
+      captured = p;
+    });
+    eventBus.emit('PET_COLLECTED', {
+      petInstanceId: 'inst-1',
+      petCodename: 'bunbleaf',
+      rarity: 'rare',
+    });
+    off();
+    expect(captured.petInstanceId).toBe('inst-1');
+  });
+
+  it('PET_RELEASED carries reason union', () => {
+    const reasons: string[] = [];
+    const off = eventBus.on('PET_RELEASED', (p) => reasons.push(p.reason));
+    eventBus.emit('PET_RELEASED', {
+      petCodename: 'bunbleaf',
+      rarity: 'rare',
+      reason: 'rejected-offer',
+    });
+    eventBus.emit('PET_RELEASED', { petCodename: 'pyropup', rarity: 'epic', reason: 'manual' });
+    off();
+    expect(reasons).toEqual(['rejected-offer', 'manual']);
+  });
+
+  it('PET_LEVEL_UP carries petInstanceId, newLevel, evolved', () => {
+    let captured: any = null;
+    const off = eventBus.on('PET_LEVEL_UP', (p) => {
+      captured = p;
+    });
+    eventBus.emit('PET_LEVEL_UP', {
+      petInstanceId: 'inst-1',
+      newLevel: 10,
+      evolved: true,
+    });
+    off();
+    expect(captured.evolved).toBe(true);
+  });
+});

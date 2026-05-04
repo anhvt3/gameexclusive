@@ -32,7 +32,8 @@ import { PlayerAvatar } from '../entities/PlayerAvatar';
 import { wireSpellVfx } from '@game/systems/SpellVfx';
 import { audioManager } from '@/utils/AudioManager';
 import type { CombatEntity, HeroEntity, MonsterEntity, PetEntity } from '@/types/combat';
-import { buildPetEntity, type PetInstanceShape } from '@domain/PetEntityFactory';
+import { buildPetEntity } from '@domain/PetEntityFactory';
+import { maybeOfferPetRescue } from '@domain/PetRescue';
 import { findPetDef } from '@data/staticConfig/pets';
 import { PartyHud } from '../entities/PartyHud';
 import { PetSprite } from '../entities/PetSprite';
@@ -270,10 +271,7 @@ export class CombatScene extends Phaser.Scene {
       isCrittable: false,
     };
     const out: CombatEntity[] = [heroEntity];
-    const inventoryAsPet = (save.inventory as unknown as PetInstanceShape[]).filter(
-      (i) => 'petCodename' in i
-    );
-    const pet = buildPetEntity(save.active_pet_instance_id, inventoryAsPet);
+    const pet = buildPetEntity(save.active_pet_instance_id, save.ownedPets);
     if (pet) out.push(pet);
     if (this.monsterDef) {
       const scale = this.monsterDef.is_boss ? BOSS_HP_SCALE : 1;
@@ -562,6 +560,20 @@ export class CombatScene extends Phaser.Scene {
       exp_gained: exp,
       monster_id: monsterId,
     });
+    // Sprint C Task 7 — pet rescue offer (post-EXIT_COMBAT so the React layer
+    // sees the combat-over signal first and the rescue overlay layers on top).
+    if (this.monsterDef) {
+      const offer = maybeOfferPetRescue({
+        monster: this.monsterDef,
+        rng: _combatRng,
+      });
+      if (offer) {
+        eventBus.emit('PET_RESCUE_OFFERED', {
+          petCodename: offer.codename,
+          rarity: offer.rarity,
+        });
+      }
+    }
     this.scene.stop();
   }
 

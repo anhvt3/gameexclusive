@@ -16,6 +16,7 @@ import { MainMenu } from '@react/screens/MainMenu';
 import { GuildLeaderboard } from '@react/screens/GuildLeaderboard';
 import { InventoryScreen } from '@react/screens/InventoryScreen';
 import { RewardChestOverlay } from '@react/overlays/RewardChestOverlay';
+import { PetRescueOverlay } from '@react/overlays/PetRescueOverlay';
 import { VictoryBanner } from '@react/overlays/VictoryBanner';
 import { PlayScreen } from './PlayScreen';
 import { initAppLifecycle } from './appLifecycle';
@@ -38,6 +39,9 @@ export function AppRouter() {
       {/* Step 22.14 — global LEVEL_UP reward overlay; subscribes the bus */}
       {/* and renders nothing while idle, so it's safe across every route. */}
       <RewardChestOverlay />
+      {/* Sprint C Task 9 — PET_RESCUE_OFFERED triggers a collect/release modal */}
+      {/* with a roster-cap picker subflow. Renders nothing while idle. */}
+      <PetRescueOverlay />
       {/* Step 22.16 — EXIT_COMBAT(won=true) reveals a celebratory banner. */}
       <VictoryBanner />
     </BrowserRouter>

@@ -5,6 +5,7 @@ import { InventoryScreen } from './InventoryScreen';
 import { useSaveState } from '@persistence/SaveStateStore';
 import type { InventoryItem } from '@/types/item';
 import { audioManager } from '@/utils/AudioManager';
+import { eventBus } from '@/bus/EventBus';
 
 vi.mock('howler', () => ({
   Howl: class {
@@ -164,5 +165,69 @@ describe('InventoryScreen — Step 22.9', () => {
     fireEvent.click(within(wandSlot).getByRole('button', { name: /Tháo/ }));
     expect(sfx).toHaveBeenCalledWith('ui_btn_click');
     sfx.mockRestore();
+  });
+});
+
+describe('InventoryScreen — Pet tab', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    useSaveState.getState().reset();
+  });
+
+  it('shows Items + Pets tabs, items default', () => {
+    renderInventory();
+    expect(screen.getByTestId('inventory-tab-items')).toBeInTheDocument();
+    expect(screen.getByTestId('inventory-tab-pets')).toBeInTheDocument();
+  });
+
+  it('Pet tab renders empty roster placeholder when no pets', () => {
+    renderInventory();
+    fireEvent.click(screen.getByTestId('inventory-tab-pets'));
+    expect(screen.getByText(/Chưa có pet/)).toBeInTheDocument();
+  });
+
+  it('Pet tab renders one card per ownedPets entry with correct rarity border', () => {
+    useSaveState.getState().addPet('bunbleaf', 'rare');
+    useSaveState.getState().addPet('pyropup', 'epic');
+    renderInventory();
+    fireEvent.click(screen.getByTestId('inventory-tab-pets'));
+    expect(screen.getAllByTestId(/^pet-card-/)).toHaveLength(2);
+  });
+
+  it('clicking a pet card sets it as active', () => {
+    useSaveState.getState().addPet('bunbleaf', 'rare');
+    const b = useSaveState.getState().addPet('pyropup', 'common');
+    renderInventory();
+    fireEvent.click(screen.getByTestId('inventory-tab-pets'));
+    fireEvent.click(screen.getByTestId(`pet-card-${b.instanceId}`));
+    expect(useSaveState.getState().active_pet_instance_id).toBe(b.instanceId);
+  });
+
+  it('active pet card shows the gold-star indicator', () => {
+    const a = useSaveState.getState().addPet('bunbleaf', 'rare');
+    renderInventory();
+    fireEvent.click(screen.getByTestId('inventory-tab-pets'));
+    expect(screen.getByTestId(`pet-active-indicator-${a.instanceId}`)).toBeInTheDocument();
+  });
+
+  it('release flow: right-click → confirm → pet removed', () => {
+    const a = useSaveState.getState().addPet('bunbleaf', 'rare');
+    renderInventory();
+    fireEvent.click(screen.getByTestId('inventory-tab-pets'));
+    fireEvent.contextMenu(screen.getByTestId(`pet-card-${a.instanceId}`));
+    fireEvent.click(screen.getByTestId('pet-release-confirm'));
+    expect(useSaveState.getState().findOwnedPet(a.instanceId)).toBeNull();
+  });
+
+  it('release emits PET_RELEASED with reason=manual', () => {
+    const events: Array<{ petCodename: string; rarity: string; reason: string }> = [];
+    const off = eventBus.on('PET_RELEASED', (p) => events.push(p));
+    const a = useSaveState.getState().addPet('bunbleaf', 'rare');
+    renderInventory();
+    fireEvent.click(screen.getByTestId('inventory-tab-pets'));
+    fireEvent.contextMenu(screen.getByTestId(`pet-card-${a.instanceId}`));
+    fireEvent.click(screen.getByTestId('pet-release-confirm'));
+    off();
+    expect(events).toEqual([{ petCodename: 'bunbleaf', rarity: 'rare', reason: 'manual' }]);
   });
 });

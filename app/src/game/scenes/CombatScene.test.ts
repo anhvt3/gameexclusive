@@ -1,6 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useSaveState } from '@persistence/SaveStateStore';
 import { eventBus } from '@bus/EventBus';
+import { maybeOfferPetRescue } from '@domain/PetRescue';
+import type * as PetRescueModule from '@domain/PetRescue';
+
+vi.mock('@domain/PetRescue', async () => {
+  const real = await vi.importActual<typeof PetRescueModule>('@domain/PetRescue');
+  return {
+    ...real,
+    maybeOfferPetRescue: vi.fn(),
+  };
+});
 
 vi.mock('phaser', () => {
   class MockScene {
@@ -531,10 +541,19 @@ describe('CombatScene — Step 17 damage resolution + victory/defeat', () => {
 
 describe('CombatScene — Sprint A Task 13a entity array', () => {
   it('create() with active pet builds 3-entity array (hero + pet + monster)', () => {
-    // beforeEach already reset(); patch only the pet-related fields.
+    // Sprint C: ownedPets[] replaces the Sprint A inventory cast hack.
     useSaveState.setState({
       active_pet_instance_id: 'inst-bun',
-      inventory: [{ instanceId: 'inst-bun', petCodename: 'bunbleaf', level: 3, xp: 0 } as never],
+      ownedPets: [
+        {
+          instanceId: 'inst-bun',
+          petCodename: 'bunbleaf',
+          rarity: 'common',
+          level: 3,
+          xp: 0,
+          capturedAt: 0,
+        },
+      ],
     });
     const scene = new CombatScene();
     scene.init({ monsterId: 1 });
@@ -544,8 +563,8 @@ describe('CombatScene — Sprint A Task 13a entity array', () => {
   });
 
   it('create() without active pet builds 2-entity array (hero + monster)', () => {
-    // beforeEach reset() sets active_pet_instance_id=null, inventory=[] — confirm no-pet path.
-    useSaveState.setState({ active_pet_instance_id: null, inventory: [] });
+    // beforeEach reset() sets active_pet_instance_id=null, ownedPets=[] — confirm no-pet path.
+    useSaveState.setState({ active_pet_instance_id: null, ownedPets: [] });
     const scene = new CombatScene();
     scene.init({ monsterId: 1 });
     scene.create();
@@ -561,7 +580,16 @@ describe('CombatScene — Sprint A Task 13b TurnQueue loop', () => {
       maxHp: 100,
       level: 1,
       active_pet_instance_id: 'inst-bun',
-      inventory: [{ instanceId: 'inst-bun', petCodename: 'bunbleaf', level: 3, xp: 0 } as never],
+      ownedPets: [
+        {
+          instanceId: 'inst-bun',
+          petCodename: 'bunbleaf',
+          rarity: 'common',
+          level: 3,
+          xp: 0,
+          capturedAt: 0,
+        },
+      ],
     });
     const scene = new CombatScene();
     scene.init({ monsterId: 1 });
@@ -584,7 +612,7 @@ describe('CombatScene — Sprint A Task 13b TurnQueue loop', () => {
       maxHp: 100,
       level: 99,
       active_pet_instance_id: null,
-      inventory: [],
+      ownedPets: [],
     });
     const fired: unknown[] = [];
     const off = eventBus.on('EXIT_COMBAT', (p) => fired.push(p));
@@ -605,7 +633,7 @@ describe('CombatScene — Sprint A Task 13b TurnQueue loop', () => {
       maxHp: 100,
       level: 1,
       active_pet_instance_id: null,
-      inventory: [],
+      ownedPets: [],
     });
     const fired: unknown[] = [];
     const off = eventBus.on('EXIT_COMBAT', (p) => fired.push(p));
@@ -617,5 +645,75 @@ describe('CombatScene — Sprint A Task 13b TurnQueue loop', () => {
     off();
     expect(fired).toHaveLength(1);
     expect((fired[0] as { won: boolean }).won).toBe(false);
+  });
+});
+
+describe('CombatScene Sprint C — handleVictory rescue offer', () => {
+  beforeEach(() => {
+    vi.mocked(maybeOfferPetRescue).mockReset();
+  });
+
+  it('emits PET_RESCUE_OFFERED when maybeOfferPetRescue returns an offer', () => {
+    vi.mocked(maybeOfferPetRescue).mockReturnValue({
+      codename: 'bunbleaf',
+      rarity: 'rare',
+    });
+    const events: Array<{ petCodename: string; rarity: string }> = [];
+    const off = eventBus.on('PET_RESCUE_OFFERED', (p) => events.push(p));
+    const scene = new CombatScene();
+    scene.init({ monsterId: 1 });
+    scene.create();
+    scene.__setMonsterHp(1);
+    scene.onSpellClick('fire_blast');
+    eventBus.emit('QUIZ_RESULT', { correct: true, timeSpent: 1, attempts: 1, lo_id: 100001 });
+    off();
+    expect(events).toEqual([{ petCodename: 'bunbleaf', rarity: 'rare' }]);
+  });
+
+  it('does not emit PET_RESCUE_OFFERED when offer is null', () => {
+    vi.mocked(maybeOfferPetRescue).mockReturnValue(null);
+    const events: unknown[] = [];
+    const off = eventBus.on('PET_RESCUE_OFFERED', (p) => events.push(p));
+    const scene = new CombatScene();
+    scene.init({ monsterId: 1 });
+    scene.create();
+    scene.__setMonsterHp(1);
+    scene.onSpellClick('fire_blast');
+    eventBus.emit('QUIZ_RESULT', { correct: true, timeSpent: 1, attempts: 1, lo_id: 100001 });
+    off();
+    expect(events).toEqual([]);
+  });
+});
+
+describe('CombatScene Sprint C — buildEntities reads ownedPets', () => {
+  it('builds a PetEntity from ownedPets when active_pet_instance_id matches', () => {
+    useSaveState.setState({
+      active_pet_instance_id: 'inst-bun',
+      ownedPets: [
+        {
+          instanceId: 'inst-bun',
+          petCodename: 'bunbleaf',
+          rarity: 'common',
+          level: 1,
+          xp: 0,
+          capturedAt: 0,
+        },
+      ],
+    });
+    const scene = new CombatScene();
+    scene.init({ monsterId: 1 });
+    scene.create();
+    const petEntity = scene.getEntities().find((e) => e.kind === 'pet');
+    expect(petEntity).toBeDefined();
+    expect(petEntity!.name).toMatch(/Thỏ Lá/);
+  });
+
+  it('builds hero-solo when ownedPets is empty', () => {
+    useSaveState.setState({ active_pet_instance_id: null, ownedPets: [] });
+    const scene = new CombatScene();
+    scene.init({ monsterId: 1 });
+    scene.create();
+    const petEntity = scene.getEntities().find((e) => e.kind === 'pet');
+    expect(petEntity).toBeUndefined();
   });
 });

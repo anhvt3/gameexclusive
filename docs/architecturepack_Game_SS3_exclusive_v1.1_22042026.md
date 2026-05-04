@@ -456,3 +456,54 @@ Waypoints smoothed via Bresenham line-of-sight collinear merge.
 27 new PNGs declared in PHASE1_ASSETS: 1 world map + 8 island icons +
 9 zone backgrounds + 9 walkable masks. Delivery is asynchronous; missing
 PNGs log 404s in dev but do not block unit tests or the wiring contract.
+
+---
+
+## Sprint C — Delta (02/05/2026)
+
+Sprint C ships the pet rescue + roster + leveling + evolution loop on
+top of Sprint A's combat foundation. Type B (Entity Schema delta + v5
+migration).
+
+### §3.1 — Folder structure additions
+- `domain/PetRescue.ts` — pure rolls (bucket, rarity, species)
+- `domain/PetLeveling.ts` — XP curve, evolution stages, applyPetXp
+- `react/overlays/PetRescueOverlay.tsx` — modal sparkle reveal +
+  roster-cap picker
+- `types/pet.ts` — PetInstance, PetRarity, PetEvolutionStage,
+  multiplier tables, ROSTER_CAP
+
+### §11.6 — Pet rescue rules (NEW)
+
+Rescue rate per monster bucket (tier-based; level field reused if
+present):
+- weak (tier=starter): 10% per battle, weights 70/25/5/0
+- mid (tier=mid|rare): 15%, weights 30/50/18/2
+- boss (tier=boss OR is_boss=true): 30%, weights 0/40/50/10
+
+Stat multipliers per rarity (HP × ATK):
+- common 1.0, rare 1.15, epic 1.3, legendary 1.6
+
+Evolution stages (derived from level):
+- stage 1 (lvl 1-9): mult 1.0
+- stage 2 (lvl 10-19): mult 1.3
+- stage 3 (lvl 20+): mult 1.6
+
+Per-level additive: +5 HP, +1 ATK per level above 1.
+
+Pet level cap = pre-cascade hero level. XP propagation: active pet
+(matched by active_pet_instance_id) gains 100% of scaled hero EXP per
+battle. Inactive pets gain 0%. Pet always lags one cascade behind
+hero — student must run another battle to catch up.
+
+### §13 — SaveState v5
++ `ownedPets: PetInstance[]` (defaults `[]`)
+- Existing `active_pet_instance_id` (v3) referenced by Sprint C as
+  the equip slot for the roster.
+- Migration v4→v5 additive; no behavioral change to v4 fields.
+
+### §14 — EventBus catalog additions
++ `PET_RESCUE_OFFERED { petCodename, rarity }`
++ `PET_COLLECTED { petInstanceId, petCodename, rarity }`
++ `PET_RELEASED { petCodename, rarity, reason: 'rejected-offer' | 'roster-cap-replace' | 'manual' }`
++ `PET_LEVEL_UP { petInstanceId, newLevel, evolved }`

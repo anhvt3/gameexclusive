@@ -13,6 +13,7 @@
  *   v2 → +inventory, +equipment, +lastLevelUpAt (AP §11, additive migrate)
  *   v3 → +active_pet_instance_id (Sprint A Task 9 / PetEntityFactory)
  *   v4 → +defeatedBossIds, +claimedChestIds, +currentZoneId (Sprint B Task 5)
+ *   v5 → +ownedPets[] (Sprint C Task 5 — pet roster, separate from inventory[])
  *
  * The migration injects empty defaults for missing fields so existing
  * Phase 1 saves survive the bump. HmacStorage re-signs on the next
@@ -28,13 +29,15 @@ import {
   type EquipmentSlot,
   type InventoryItem,
 } from '@/types/item';
+import { ROSTER_CAP, type PetCodename, type PetInstance, type PetRarity } from '@/types/pet';
 import { ITEM_REGISTRY } from '@data/staticConfig/items';
 import { rollDrop } from '@domain/LevelUpReward';
 import { computeEffectiveStats } from '@domain/EffectiveStats';
+import { applyPetXp } from '@domain/PetLeveling';
 import { eventBus } from '@bus/EventBus';
 
 export const SAVE_STATE_KEY = 'game_ss3_save_v1';
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 export function thresholdForLevel(level: number): number {
   return Math.floor(100 * Math.pow(level, 1.5));
@@ -90,6 +93,8 @@ export interface SaveStateData {
   // PreloadScene hands off to the legacy WorldScene; used by Phase 1 E2E
   // specs during the WorldMap/Zone migration.
   useLegacyWorldScene: boolean;
+  // v5 additions (Sprint C Task 5 — pet roster persistence)
+  ownedPets: PetInstance[];
 }
 
 export interface SaveStateActions {
@@ -113,6 +118,11 @@ export interface SaveStateActions {
   hasClaimedChest: (id: string) => boolean;
   // Sprint B Task 12 — transient debug flag setter
   setLegacyWorldFlag: (v: boolean) => void;
+  // v5 actions (Sprint C Task 5 — pet roster)
+  addPet: (codename: PetCodename, rarity: PetRarity, level?: number, xp?: number) => PetInstance;
+  removePet: (instanceId: string) => boolean;
+  hasPetAtCap: () => boolean;
+  findOwnedPet: (instanceId: string) => PetInstance | null;
   reset: () => void;
 }
 
@@ -136,6 +146,7 @@ const INITIAL_STATE: SaveStateData = {
   claimedChestIds: [],
   currentZoneId: null,
   useLegacyWorldScene: false,
+  ownedPets: [],
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -154,7 +165,7 @@ export function effectiveMaxHp(state: SaveStateData): number {
   return state.maxHp + stats.maxHpDelta;
 }
 
-/** Additive migration v1 → v2 → v3 → v4 — inject missing fields when absent. */
+/** Additive migration v1 → v2 → v3 → v4 → v5 — inject missing fields when absent. */
 function migrate(persisted: unknown, version: number): SaveStateData {
   const base = (
     persisted && typeof persisted === 'object' ? persisted : {}
@@ -181,6 +192,9 @@ function migrate(persisted: unknown, version: number): SaveStateData {
       claimedChestIds: [],
       currentZoneId: null,
     };
+  }
+  if (version < 5) {
+    s = { ...s, ownedPets: [] };
   }
   return s;
 }
@@ -250,6 +264,28 @@ export const useSaveState = create<SaveStateStore>()(
             grantedItemId: grant.itemId,
           });
         }
+        // Sprint C — propagate to active pet (after hero cascade settles)
+        const stateAfterHero = get();
+        const activeId = stateAfterHero.active_pet_instance_id;
+        if (activeId) {
+          const activePet = stateAfterHero.ownedPets.find((p) => p.instanceId === activeId);
+          if (activePet) {
+            // Cap uses the pre-cascade hero level so pets cannot ride a
+            // single XP grant past the trainer's prior level — matches
+            // the "pet capped at hero level" test contract.
+            const result = applyPetXp(activePet, startLevel, scaledAmount);
+            set((state) => ({
+              ownedPets: state.ownedPets.map((p) => (p.instanceId === activeId ? result.pet : p)),
+            }));
+            for (const ev of result.levelUps) {
+              eventBus.emit('PET_LEVEL_UP', {
+                petInstanceId: activeId,
+                newLevel: ev.newLevel,
+                evolved: ev.evolved,
+              });
+            }
+          }
+        }
       },
 
       setPosition: (x, y) => set({ position: { x, y } }),
@@ -279,6 +315,41 @@ export const useSaveState = create<SaveStateStore>()(
       hasClaimedChest: (id) => get().claimedChestIds.includes(id),
 
       setLegacyWorldFlag: (v) => set({ useLegacyWorldScene: v }),
+
+      addPet: (codename, rarity, level = 1, xp = 0) => {
+        const inst: PetInstance = {
+          instanceId: genInstanceId(),
+          petCodename: codename,
+          rarity,
+          level,
+          xp,
+          capturedAt: Date.now(),
+        };
+        set((state) => ({
+          ownedPets: [...state.ownedPets, inst],
+          active_pet_instance_id: state.active_pet_instance_id ?? inst.instanceId,
+        }));
+        return inst;
+      },
+
+      removePet: (instanceId) => {
+        const state = get();
+        const idx = state.ownedPets.findIndex((p) => p.instanceId === instanceId);
+        if (idx === -1) return false;
+        const newOwned = [...state.ownedPets];
+        newOwned.splice(idx, 1);
+        set({
+          ownedPets: newOwned,
+          active_pet_instance_id:
+            state.active_pet_instance_id === instanceId ? null : state.active_pet_instance_id,
+        });
+        return true;
+      },
+
+      hasPetAtCap: () => get().ownedPets.length >= ROSTER_CAP,
+
+      findOwnedPet: (instanceId) =>
+        get().ownedPets.find((p) => p.instanceId === instanceId) ?? null,
 
       equipItem: (slot, instanceId) => {
         const state = get();
@@ -315,6 +386,7 @@ export const useSaveState = create<SaveStateStore>()(
           ...INITIAL_STATE,
           equipment: { ...EMPTY_EQUIPMENT },
           useLegacyWorldScene: false,
+          ownedPets: [],
         }),
     }),
     {

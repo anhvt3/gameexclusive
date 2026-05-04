@@ -9,6 +9,7 @@ import {
   __resetLevelUpRng,
 } from './SaveStateStore';
 import { EMPTY_EQUIPMENT, type InventoryItem } from '@/types/item';
+import { ROSTER_CAP } from '@/types/pet';
 import { eventBus } from '@bus/EventBus';
 
 beforeEach(() => {
@@ -132,8 +133,8 @@ describe('SaveStateStore — persistence', () => {
     expect(parsed.version).toBeDefined();
   });
 
-  it('SCHEMA_VERSION is at v4 (Sprint B Task 5 boss/chest/zone fields)', () => {
-    expect(SCHEMA_VERSION).toBe(4);
+  it('SCHEMA_VERSION is at v5 (Sprint C Task 5 ownedPets[])', () => {
+    expect(SCHEMA_VERSION).toBe(5);
   });
 });
 
@@ -427,7 +428,7 @@ describe('SaveState v4 migration', () => {
     localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v3Save));
     await useSaveState.persist.rehydrate();
     const s = useSaveState.getState();
-    expect(SCHEMA_VERSION).toBe(4);
+    expect(SCHEMA_VERSION).toBe(5);
     expect(s.defeatedBossIds).toEqual([]);
     expect(s.claimedChestIds).toEqual([]);
     expect(s.currentZoneId).toBeNull();
@@ -490,7 +491,7 @@ describe('SaveState v4 migration', () => {
     localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v2Save));
     await useSaveState.persist.rehydrate();
     const s = useSaveState.getState();
-    expect(SCHEMA_VERSION).toBe(4);
+    expect(SCHEMA_VERSION).toBe(5);
     expect(s.active_pet_instance_id).toBeNull();
     expect(s.defeatedBossIds).toEqual([]);
     expect(s.claimedChestIds).toEqual([]);
@@ -574,5 +575,228 @@ describe('useLegacyWorldScene flag (transient — Sprint B Task 12)', () => {
     useSaveState.getState().setLegacyWorldFlag(true);
     useSaveState.getState().reset();
     expect(useSaveState.getState().useLegacyWorldScene).toBe(false);
+  });
+});
+
+describe('SaveState v5 migration', () => {
+  it('migrates a v4 snapshot to v5 with empty ownedPets', async () => {
+    const v4Save = {
+      state: {
+        hp: 80,
+        maxHp: 100,
+        mp: 30,
+        maxMp: 50,
+        exp: 42,
+        level: 2,
+        flags: { tutorial_completed: true },
+        inventory: [],
+        equipment: { hat: null, outfit: null, wand: null, shoes: null },
+        lastLevelUpAt: 1_700_000_000_000,
+        position: { x: 480, y: 320 },
+        last_boss_attempt_date: '2026-04-20',
+        active_pet_instance_id: 'inst_pet_xyz',
+        defeatedBossIds: ['forest-boss'],
+        claimedChestIds: [],
+        currentZoneId: null,
+      },
+      version: 4,
+    };
+    localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v4Save));
+    await useSaveState.persist.rehydrate();
+    const s = useSaveState.getState();
+    expect(SCHEMA_VERSION).toBe(5);
+    expect(s.ownedPets).toEqual([]);
+    // v4 fields preserved
+    expect(s.defeatedBossIds).toEqual(['forest-boss']);
+    expect(s.active_pet_instance_id).toBe('inst_pet_xyz');
+    expect(s.hp).toBe(80);
+  });
+
+  it('is idempotent on a v5 snapshot with non-empty ownedPets', async () => {
+    const v5Save = {
+      state: {
+        hp: 100,
+        maxHp: 100,
+        mp: 50,
+        maxMp: 50,
+        exp: 0,
+        level: 1,
+        flags: {},
+        inventory: [],
+        equipment: { hat: null, outfit: null, wand: null, shoes: null },
+        lastLevelUpAt: null,
+        position: { x: 0, y: 0 },
+        last_boss_attempt_date: null,
+        active_pet_instance_id: null,
+        defeatedBossIds: [],
+        claimedChestIds: [],
+        currentZoneId: null,
+        ownedPets: [
+          {
+            instanceId: 'inst-1',
+            petCodename: 'bunbleaf',
+            rarity: 'rare',
+            level: 3,
+            xp: 10,
+            capturedAt: 1000,
+          },
+        ],
+      },
+      version: 5,
+    };
+    localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v5Save));
+    await useSaveState.persist.rehydrate();
+    const s = useSaveState.getState();
+    expect(s.ownedPets).toHaveLength(1);
+    expect(s.ownedPets[0]!.petCodename).toBe('bunbleaf');
+  });
+
+  it('chains v3 → v4 → v5 from a fresh v3 snapshot', async () => {
+    const v3Save = {
+      state: {
+        hp: 100,
+        maxHp: 100,
+        mp: 50,
+        maxMp: 50,
+        exp: 0,
+        level: 1,
+        flags: {},
+        inventory: [],
+        equipment: { hat: null, outfit: null, wand: null, shoes: null },
+        lastLevelUpAt: null,
+        position: { x: 480, y: 320 },
+        last_boss_attempt_date: null,
+        active_pet_instance_id: null,
+      },
+      version: 3,
+    };
+    localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v3Save));
+    await useSaveState.persist.rehydrate();
+    const s = useSaveState.getState();
+    expect(SCHEMA_VERSION).toBe(5);
+    expect(s.ownedPets).toEqual([]);
+    expect(s.defeatedBossIds).toEqual([]); // v3→v4 step also fired
+  });
+});
+
+describe('SaveState v5 actions', () => {
+  beforeEach(() => useSaveState.getState().reset());
+
+  it('addPet mints an instance and pushes to ownedPets', () => {
+    const inst = useSaveState.getState().addPet('bunbleaf', 'rare');
+    expect(inst.petCodename).toBe('bunbleaf');
+    expect(inst.rarity).toBe('rare');
+    expect(inst.level).toBe(1);
+    expect(inst.xp).toBe(0);
+    expect(useSaveState.getState().ownedPets).toContainEqual(inst);
+  });
+
+  it('addPet auto-equips when active_pet_instance_id is null', () => {
+    expect(useSaveState.getState().active_pet_instance_id).toBeNull();
+    const inst = useSaveState.getState().addPet('bunbleaf', 'common');
+    expect(useSaveState.getState().active_pet_instance_id).toBe(inst.instanceId);
+  });
+
+  it('addPet does not auto-equip when a pet is already active', () => {
+    const first = useSaveState.getState().addPet('bunbleaf', 'common');
+    const second = useSaveState.getState().addPet('pyropup', 'rare');
+    expect(useSaveState.getState().active_pet_instance_id).toBe(first.instanceId);
+    expect(second.instanceId).not.toBe(first.instanceId);
+  });
+
+  it('removePet returns true and unequips when removing the active pet', () => {
+    const inst = useSaveState.getState().addPet('bunbleaf', 'common');
+    const removed = useSaveState.getState().removePet(inst.instanceId);
+    expect(removed).toBe(true);
+    expect(useSaveState.getState().ownedPets).toHaveLength(0);
+    expect(useSaveState.getState().active_pet_instance_id).toBeNull();
+  });
+
+  it('removePet returns false on unknown id and does not mutate state', () => {
+    expect(useSaveState.getState().removePet('does-not-exist')).toBe(false);
+  });
+
+  it('hasPetAtCap reports false until ROSTER_CAP pets are owned', () => {
+    expect(useSaveState.getState().hasPetAtCap()).toBe(false);
+    for (let i = 0; i < ROSTER_CAP; i++) {
+      useSaveState.getState().addPet('bunbleaf', 'common');
+    }
+    expect(useSaveState.getState().hasPetAtCap()).toBe(true);
+  });
+
+  it('findOwnedPet returns the pet by instanceId or null', () => {
+    const inst = useSaveState.getState().addPet('bunbleaf', 'epic');
+    expect(useSaveState.getState().findOwnedPet(inst.instanceId)?.rarity).toBe('epic');
+    expect(useSaveState.getState().findOwnedPet('nope')).toBeNull();
+  });
+
+  it('reset() zeroes ownedPets and active_pet_instance_id', () => {
+    useSaveState.getState().addPet('bunbleaf', 'rare');
+    useSaveState.getState().reset();
+    expect(useSaveState.getState().ownedPets).toEqual([]);
+    expect(useSaveState.getState().active_pet_instance_id).toBeNull();
+  });
+});
+
+describe('gainExp propagates to active pet', () => {
+  beforeEach(() => useSaveState.getState().reset());
+
+  it('active pet gains 100% of hero XP', () => {
+    const inst = useSaveState.getState().addPet('bunbleaf', 'common');
+    expect(inst.xp).toBe(0);
+    useSaveState.getState().gainExp(20);
+    const after = useSaveState.getState().findOwnedPet(inst.instanceId);
+    expect(after!.xp).toBe(20);
+  });
+
+  it('active pet levels up alongside hero with multi-level cascade', () => {
+    useSaveState.setState({ level: 5 }); // hero already at 5 so cap is high
+    const inst = useSaveState.getState().addPet('bunbleaf', 'common');
+    const events: Array<{ petInstanceId: string; newLevel: number; evolved: boolean }> = [];
+    const off = eventBus.on('PET_LEVEL_UP', (p) => events.push(p));
+    useSaveState.getState().gainExp(150); // 50 → lvl 2 (xp 0), 100 → lvl 3 (xp 0)
+    off();
+    const after = useSaveState.getState().findOwnedPet(inst.instanceId);
+    expect(after!.level).toBe(3);
+    expect(events).toHaveLength(2);
+  });
+
+  it('inactive pets do not gain XP', () => {
+    const a = useSaveState.getState().addPet('bunbleaf', 'common');
+    const b = useSaveState.getState().addPet('pyropup', 'common');
+    // a is auto-equipped; b is inactive
+    useSaveState.getState().gainExp(20);
+    const aAfter = useSaveState.getState().findOwnedPet(a.instanceId);
+    const bAfter = useSaveState.getState().findOwnedPet(b.instanceId);
+    expect(aAfter!.xp).toBe(20);
+    expect(bAfter!.xp).toBe(0);
+  });
+
+  it('pet level capped at hero level', () => {
+    useSaveState.setState({ level: 2 });
+    const inst = useSaveState.getState().addPet('bunbleaf', 'common');
+    useSaveState.getState().gainExp(99_999);
+    const after = useSaveState.getState().findOwnedPet(inst.instanceId);
+    expect(after!.level).toBe(2);
+  });
+
+  it('PET_LEVEL_UP at lvl 10 carries evolved=true', () => {
+    useSaveState.setState({ level: 11 });
+    useSaveState.getState().addPet('bunbleaf', 'common', 9, 0);
+    const events: Array<{ petInstanceId: string; newLevel: number; evolved: boolean }> = [];
+    const off = eventBus.on('PET_LEVEL_UP', (p) => events.push(p));
+    useSaveState.getState().gainExp(50 * 9); // exactly threshold for level 9 → 10
+    off();
+    expect(events).toHaveLength(1);
+    expect(events[0]!.newLevel).toBe(10);
+    expect(events[0]!.evolved).toBe(true);
+  });
+
+  it('no PET_LEVEL_UP when no active pet', () => {
+    const events: Array<{ petInstanceId: string; newLevel: number; evolved: boolean }> = [];
+    const off = eventBus.on('PET_LEVEL_UP', (p) => events.push(p));
+    useSaveState.getState().gainExp(100);
+    off();
+    expect(events).toEqual([]);
   });
 });

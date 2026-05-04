@@ -596,3 +596,23 @@ No placeholder art reaches dev.
 | S-B.13 | E2E + AP/ISP delta + roll-up | ✅ |
 
 **Sprint B closed.** Pending: Antigravity 27-PNG delivery.
+
+### Phase 2.5 — Sprint C (02/05/2026) — Pet System
+
+| # | Step | Status |
+|---|---|---|
+| S-C.1 | types/pet.ts + rarity/evolution constants | ✅ |
+| S-C.2 | domain/PetRescue (bucket, rolls, offer gate) | ✅ |
+| S-C.3 | domain/PetLeveling (XP curve, evolution stages, applyPetXp) | ✅ |
+| S-C.4 | PetEntityFactory rarity + evolution multiplier wiring | ✅ |
+| S-C.5 | SaveState v4→v5 migration + 4 actions | ✅ |
+| S-C.6 | EventBus +4 events | ✅ |
+| S-C.7 | CombatScene reads ownedPets + emits PET_RESCUE_OFFERED | ✅ |
+| S-C.8 | gainExp propagates to active pet | ✅ |
+| S-C.9 | PetRescueOverlay (modal + roster-cap picker) | ✅ |
+| S-C.10 | InventoryScreen Pet tab + grid + equip + release | ✅ |
+| S-C.11 | E2E sprint_c_pet_rescue.spec.ts | ✅ |
+| S-C.12 | AP/ISP delta + sprint roll-up | ✅ |
+
+**Sprint C closed.** Pending: Phase 2 sprite swap on evolution stages
+(when Antigravity ships evo art).
