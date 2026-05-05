@@ -64,6 +64,7 @@ export type GameEvent =
         chestId: string;
         zoneId: string;
         items: ReadonlyArray<{ itemId: string; qty: number }>;
+        label?: string; // NEW Sprint D — defaults to "Về Bản Đồ" in RewardChestOverlay
       };
     }
   | { type: 'LOCKED_ISLAND_HINT'; payload: { islandId: string } }
@@ -90,6 +91,10 @@ export type GameEvent =
   | {
       type: 'PET_LEVEL_UP';
       payload: { petInstanceId: string; newLevel: number; evolved: boolean };
+    }
+  | {
+      type: 'QUEST_PROGRESS';
+      payload: { questId: string; delta: number };
     };
 
 // Strip `type` field and map to payload type

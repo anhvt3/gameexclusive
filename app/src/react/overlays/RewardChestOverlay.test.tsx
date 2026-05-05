@@ -186,3 +186,30 @@ describe('RewardChestOverlay — Sprint B CHEST_OPENED handler', () => {
     expect(screen.getByText(/Lên cấp 5/)).toBeInTheDocument();
   });
 });
+
+describe('RewardChestOverlay — label override (Sprint D)', () => {
+  it('renders default "Về Bản Đồ" when CHEST_OPENED payload has no label', () => {
+    render(<RewardChestOverlay />);
+    act(() => {
+      eventBus.emit('CHEST_OPENED', {
+        chestId: 'forest-boss-chest',
+        zoneId: 'forest-island',
+        items: [{ itemId: 'wand-fire-01', qty: 1 }],
+      });
+    });
+    expect(screen.getByTestId('chest-overlay-back-to-world-map')).toHaveTextContent(/Về Bản Đồ/);
+  });
+
+  it('renders custom label when CHEST_OPENED payload includes one', () => {
+    render(<RewardChestOverlay />);
+    act(() => {
+      eventBus.emit('CHEST_OPENED', {
+        chestId: 'quest-daily-combat-3',
+        zoneId: 'quest-panel',
+        items: [{ itemId: 'wand-fire-01', qty: 1 }],
+        label: 'Đóng',
+      });
+    });
+    expect(screen.getByTestId('chest-overlay-back-to-world-map')).toHaveTextContent('Đóng');
+  });
+});

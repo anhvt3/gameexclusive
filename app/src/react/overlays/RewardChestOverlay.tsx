@@ -26,6 +26,7 @@ interface ChestCtx {
   chestId: string;
   zoneId: string;
   items: ReadonlyArray<{ itemId: string; qty: number }>;
+  label: string;
 }
 
 type Phase = 'idle' | 'closed' | 'wobble' | 'open';
@@ -62,7 +63,12 @@ export function RewardChestOverlay() {
   // Sprint B Task 11 — Subscribe to CHEST_OPENED.
   useEffect(() => {
     const off = eventBus.on('CHEST_OPENED', (p) => {
-      setZoneCtx({ chestId: p.chestId, zoneId: p.zoneId, items: p.items });
+      setZoneCtx({
+        chestId: p.chestId,
+        zoneId: p.zoneId,
+        items: p.items,
+        label: p.label ?? 'Về Bản Đồ',
+      });
       // TODO Sprint B follow-up: persist chest items to inventory.
       // SaveStateStore.addInventoryItem expects an InventoryItem with
       // instanceId; chest payload only carries {itemId, qty}. A proper
@@ -165,7 +171,7 @@ export function RewardChestOverlay() {
             onClick={handleBackToWorldMap}
             className="rounded-lg bg-amber-500 px-6 py-2 font-bold text-white shadow hover:bg-amber-600"
           >
-            Về Bản Đồ
+            {zoneCtx.label}
           </button>
         </div>
       </div>

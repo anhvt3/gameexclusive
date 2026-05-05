@@ -616,3 +616,25 @@ No placeholder art reaches dev.
 
 **Sprint C closed.** Pending: Phase 2 sprite swap on evolution stages
 (when Antigravity ships evo art).
+
+### Phase 2.5 — Sprint D (02/05/2026) — Quests & Goals Panel
+
+| # | Step | Status |
+|---|---|---|
+| S-D.1 | types/quest.ts + tier/reward constants | ✅ |
+| S-D.2 | data/staticConfig/quests.ts (8 quests) + tests | ✅ |
+| S-D.3 | domain/QuestCycle.ts (UTC+7 anchors) + tests | ✅ |
+| S-D.4 | domain/QuestReward.ts (tier→rarity rollDrop wrapper) + tests | ✅ |
+| S-D.5 | domain/QuestEngine.ts (event listener + dispatch) + tests | ✅ |
+| S-D.6 | SaveState v5→v6 + 4 actions + refreshCyclesIfNeeded | ✅ |
+| S-D.7 | EventBus +QUEST_PROGRESS, CHEST_OPENED.label?: string | ✅ |
+| S-D.8 | RewardChestOverlay honors optional label (default "Về Bản Đồ") | ✅ |
+| S-D.9 | QuestProgressToast (queue + dismiss) + tests | ✅ |
+| S-D.10 | QuestsPanel (/quests route, 3-tier groups, claim flow) | ✅ |
+| S-D.11 | MainMenu "Nhiệm vụ" button + sparkle indicator | ✅ |
+| S-D.12 | AppRouter wires QuestEngine + refresh + /quests + toast | ✅ |
+| S-D.13 | E2E sprint_d_quests.spec.ts | ✅ |
+| S-D.14 | AP §11.7 + §13 + §14 delta + ISP roll-up + tasks/todo.md | ✅ |
+
+**Sprint D closed.** Pending: 5 Antigravity quest UI assets (1 banner +
+4 tier icons; CSS+emoji fallback shipped this sprint).

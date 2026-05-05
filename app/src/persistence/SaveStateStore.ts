@@ -30,14 +30,18 @@ import {
   type InventoryItem,
 } from '@/types/item';
 import { ROSTER_CAP, type PetCodename, type PetInstance, type PetRarity } from '@/types/pet';
-import { ITEM_REGISTRY } from '@data/staticConfig/items';
+import { ITEM_REGISTRY, type ItemDef } from '@data/staticConfig/items';
 import { rollDrop } from '@domain/LevelUpReward';
 import { computeEffectiveStats } from '@domain/EffectiveStats';
 import { applyPetXp } from '@domain/PetLeveling';
 import { eventBus } from '@bus/EventBus';
+import type { QuestId, QuestCycleAnchors } from '@/types/quest';
+import { findQuestDef, QUESTS } from '@data/staticConfig/quests';
+import { dailyAnchor, weeklyAnchor, needsRefresh } from '@/domain/QuestCycle';
+import { rollQuestReward } from '@/domain/QuestReward';
 
 export const SAVE_STATE_KEY = 'game_ss3_save_v1';
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 export function thresholdForLevel(level: number): number {
   return Math.floor(100 * Math.pow(level, 1.5));
@@ -95,6 +99,10 @@ export interface SaveStateData {
   useLegacyWorldScene: boolean;
   // v5 additions (Sprint C Task 5 — pet roster persistence)
   ownedPets: PetInstance[];
+  // v6 additions (Sprint D Task 6 — quest progress + cycle anchors)
+  questProgress: Record<QuestId, number>;
+  claimedRewards: QuestId[];
+  questCycleAnchors: QuestCycleAnchors;
 }
 
 export interface SaveStateActions {
@@ -123,6 +131,11 @@ export interface SaveStateActions {
   removePet: (instanceId: string) => boolean;
   hasPetAtCap: () => boolean;
   findOwnedPet: (instanceId: string) => PetInstance | null;
+  // v6 actions (Sprint D Task 6 — quests)
+  incrementQuestProgress: (questId: QuestId, delta: number) => void;
+  isQuestReady: (questId: QuestId) => boolean;
+  claimQuestReward: (questId: QuestId, heroLevel: number, rng?: () => number) => ItemDef | null;
+  refreshCyclesIfNeeded: (now?: number) => { dailyReset: boolean; weeklyReset: boolean };
   reset: () => void;
 }
 
@@ -147,6 +160,9 @@ const INITIAL_STATE: SaveStateData = {
   currentZoneId: null,
   useLegacyWorldScene: false,
   ownedPets: [],
+  questProgress: {},
+  claimedRewards: [],
+  questCycleAnchors: { dailyEpochUtc7: 0, weeklyEpochUtc7: 0 },
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -165,7 +181,7 @@ export function effectiveMaxHp(state: SaveStateData): number {
   return state.maxHp + stats.maxHpDelta;
 }
 
-/** Additive migration v1 → v2 → v3 → v4 → v5 — inject missing fields when absent. */
+/** Additive migration v1 → v2 → v3 → v4 → v5 → v6 — inject missing fields when absent. */
 function migrate(persisted: unknown, version: number): SaveStateData {
   const base = (
     persisted && typeof persisted === 'object' ? persisted : {}
@@ -195,6 +211,14 @@ function migrate(persisted: unknown, version: number): SaveStateData {
   }
   if (version < 5) {
     s = { ...s, ownedPets: [] };
+  }
+  if (version < 6) {
+    s = {
+      ...s,
+      questProgress: {},
+      claimedRewards: [],
+      questCycleAnchors: { dailyEpochUtc7: 0, weeklyEpochUtc7: 0 },
+    };
   }
   return s;
 }
@@ -381,12 +405,86 @@ export const useSaveState = create<SaveStateStore>()(
         set({ equipment: nextEquipment, hp: Math.min(state.hp, maxAfter) });
       },
 
+      incrementQuestProgress: (questId, delta) => {
+        const state = get();
+        if (state.claimedRewards.includes(questId)) return;
+        const def = findQuestDef(questId);
+        if (!def) return;
+        const current = state.questProgress[questId] ?? 0;
+        const next = Math.min(current + delta, def.target);
+        if (next === current) return;
+        set({ questProgress: { ...state.questProgress, [questId]: next } });
+      },
+
+      isQuestReady: (questId) => {
+        const state = get();
+        if (state.claimedRewards.includes(questId)) return false;
+        const def = findQuestDef(questId);
+        if (!def) return false;
+        return (state.questProgress[questId] ?? 0) >= def.target;
+      },
+
+      claimQuestReward: (questId, heroLevel, rng = Math.random) => {
+        const state = get();
+        if (!state.isQuestReady(questId)) return null;
+        const def = findQuestDef(questId);
+        if (!def) return null;
+        const item = rollQuestReward(def.rewardTier, heroLevel, rng);
+        if (!item) return null;
+        const instance: InventoryItem = {
+          instanceId: genInstanceId(),
+          itemId: item.id,
+          acquiredAt: Date.now(),
+        };
+        set({
+          inventory: [...state.inventory, instance],
+          claimedRewards: [...state.claimedRewards, questId],
+        });
+        return item;
+      },
+
+      refreshCyclesIfNeeded: (now = Date.now()) => {
+        const state = get();
+        const dailyReset = needsRefresh(state.questCycleAnchors.dailyEpochUtc7, now, 'daily');
+        const weeklyReset = needsRefresh(state.questCycleAnchors.weeklyEpochUtc7, now, 'weekly');
+        if (!dailyReset && !weeklyReset) return { dailyReset, weeklyReset };
+
+        const newProgress = { ...state.questProgress };
+        let newClaimed = [...state.claimedRewards];
+        if (dailyReset) {
+          for (const q of QUESTS.filter((q) => q.tier === 'daily')) {
+            delete newProgress[q.id];
+            newClaimed = newClaimed.filter((id) => id !== q.id);
+          }
+        }
+        if (weeklyReset) {
+          for (const q of QUESTS.filter((q) => q.tier === 'weekly')) {
+            delete newProgress[q.id];
+            newClaimed = newClaimed.filter((id) => id !== q.id);
+          }
+        }
+        set({
+          questProgress: newProgress,
+          claimedRewards: newClaimed,
+          questCycleAnchors: {
+            dailyEpochUtc7: dailyReset ? dailyAnchor(now) : state.questCycleAnchors.dailyEpochUtc7,
+            weeklyEpochUtc7: weeklyReset
+              ? weeklyAnchor(now)
+              : state.questCycleAnchors.weeklyEpochUtc7,
+          },
+        });
+        return { dailyReset, weeklyReset };
+      },
+
       reset: () =>
         set({
           ...INITIAL_STATE,
           equipment: { ...EMPTY_EQUIPMENT },
           useLegacyWorldScene: false,
           ownedPets: [],
+          questProgress: {},
+          claimedRewards: [],
+          questCycleAnchors: { dailyEpochUtc7: 0, weeklyEpochUtc7: 0 },
         }),
     }),
     {

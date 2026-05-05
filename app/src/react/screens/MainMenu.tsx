@@ -14,6 +14,7 @@ import { useSaveState } from '@persistence/SaveStateStore';
 import { TUTORIAL_FLAG } from '@react/mascot/tutorialSteps';
 import { BOSS_PENDING_FLAG, canAttemptBoss } from '@domain/BossQuest';
 import { useGameAudio } from '@react/shell/useGameAudio';
+import { QUESTS } from '@data/staticConfig/quests';
 
 export function MainMenu() {
   const navigate = useNavigate();
@@ -23,6 +24,9 @@ export function MainMenu() {
   const lastBossAttempt = useSaveState((s) => s.last_boss_attempt_date);
   const setFlag = useSaveState((s) => s.setFlag);
   const canFightBoss = canAttemptBoss(lastBossAttempt);
+  const anyQuestReady = useSaveState((s) =>
+    QUESTS.some((q) => (s.questProgress[q.id] ?? 0) >= q.target && !s.claimedRewards.includes(q.id))
+  );
   const { playSfx } = useGameAudio();
 
   // Step 22.17 — primary-button audio handlers. Hover→ui_btn_hover,
@@ -103,6 +107,21 @@ export function MainMenu() {
           className="w-full rounded-xl bg-stone-100 px-6 py-3 text-base font-semibold text-amber-800 shadow transition hover:bg-stone-200"
         >
           Kho đồ
+        </button>
+        <button
+          type="button"
+          data-testid="main-menu-quests"
+          onMouseEnter={onHover}
+          onClick={click(() => navigate('/quests'))}
+          className="relative w-full rounded-xl bg-amber-500 px-6 py-3 text-base font-semibold text-white shadow transition hover:bg-amber-600"
+        >
+          📜 Nhiệm vụ
+          {anyQuestReady && (
+            <span
+              data-testid="main-menu-quests-sparkle"
+              className="absolute -top-1 -right-1 h-3 w-3 animate-pulse rounded-full bg-yellow-300 shadow-[0_0_6px_rgba(253,224,71,0.9)]"
+            />
+          )}
         </button>
         <div className="flex gap-3">
           <button

@@ -124,3 +124,60 @@ describe('MainMenu — WF1', () => {
     expect(btn).toBeDisabled();
   });
 });
+
+describe('MainMenu — Nhiệm vụ button + sparkle (Sprint D)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    useSaveState.getState().reset();
+  });
+
+  it('renders "Nhiệm vụ" button navigating to /quests', () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route path="/" element={<MainMenu />} />
+          <Route path="/quests" element={<div data-testid="quests-screen">QUESTS</div>} />
+        </Routes>
+      </MemoryRouter>
+    );
+    const btn = screen.getByTestId('main-menu-quests');
+    expect(btn).toBeInTheDocument();
+    fireEvent.click(btn);
+    expect(screen.getByTestId('quests-screen')).toBeInTheDocument();
+  });
+
+  it('shows sparkle indicator when at least one quest is ready to claim', () => {
+    useSaveState.setState({
+      questProgress: { 'daily-combat-3': 3 },
+    });
+    render(
+      <MemoryRouter>
+        <MainMenu />
+      </MemoryRouter>
+    );
+    expect(screen.getByTestId('main-menu-quests-sparkle')).toBeInTheDocument();
+  });
+
+  it('hides sparkle when no quest is ready', () => {
+    useSaveState.setState({ questProgress: {} });
+    render(
+      <MemoryRouter>
+        <MainMenu />
+      </MemoryRouter>
+    );
+    expect(screen.queryByTestId('main-menu-quests-sparkle')).toBeNull();
+  });
+
+  it('hides sparkle when ready quest is already claimed', () => {
+    useSaveState.setState({
+      questProgress: { 'daily-combat-3': 3 },
+      claimedRewards: ['daily-combat-3'],
+    });
+    render(
+      <MemoryRouter>
+        <MainMenu />
+      </MemoryRouter>
+    );
+    expect(screen.queryByTestId('main-menu-quests-sparkle')).toBeNull();
+  });
+});

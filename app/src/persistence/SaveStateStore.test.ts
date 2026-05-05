@@ -11,6 +11,7 @@ import {
 import { EMPTY_EQUIPMENT, type InventoryItem } from '@/types/item';
 import { ROSTER_CAP } from '@/types/pet';
 import { eventBus } from '@bus/EventBus';
+import { dailyAnchor, weeklyAnchor } from '@/domain/QuestCycle';
 
 beforeEach(() => {
   localStorage.clear();
@@ -133,8 +134,8 @@ describe('SaveStateStore — persistence', () => {
     expect(parsed.version).toBeDefined();
   });
 
-  it('SCHEMA_VERSION is at v5 (Sprint C Task 5 ownedPets[])', () => {
-    expect(SCHEMA_VERSION).toBe(5);
+  it('SCHEMA_VERSION is at v6 (Sprint D Task 6 quest progress)', () => {
+    expect(SCHEMA_VERSION).toBe(6);
   });
 });
 
@@ -428,7 +429,7 @@ describe('SaveState v4 migration', () => {
     localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v3Save));
     await useSaveState.persist.rehydrate();
     const s = useSaveState.getState();
-    expect(SCHEMA_VERSION).toBe(5);
+    expect(SCHEMA_VERSION).toBe(6);
     expect(s.defeatedBossIds).toEqual([]);
     expect(s.claimedChestIds).toEqual([]);
     expect(s.currentZoneId).toBeNull();
@@ -491,7 +492,7 @@ describe('SaveState v4 migration', () => {
     localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v2Save));
     await useSaveState.persist.rehydrate();
     const s = useSaveState.getState();
-    expect(SCHEMA_VERSION).toBe(5);
+    expect(SCHEMA_VERSION).toBe(6);
     expect(s.active_pet_instance_id).toBeNull();
     expect(s.defeatedBossIds).toEqual([]);
     expect(s.claimedChestIds).toEqual([]);
@@ -604,7 +605,7 @@ describe('SaveState v5 migration', () => {
     localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v4Save));
     await useSaveState.persist.rehydrate();
     const s = useSaveState.getState();
-    expect(SCHEMA_VERSION).toBe(5);
+    expect(SCHEMA_VERSION).toBe(6);
     expect(s.ownedPets).toEqual([]);
     // v4 fields preserved
     expect(s.defeatedBossIds).toEqual(['forest-boss']);
@@ -673,7 +674,7 @@ describe('SaveState v5 migration', () => {
     localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v3Save));
     await useSaveState.persist.rehydrate();
     const s = useSaveState.getState();
-    expect(SCHEMA_VERSION).toBe(5);
+    expect(SCHEMA_VERSION).toBe(6);
     expect(s.ownedPets).toEqual([]);
     expect(s.defeatedBossIds).toEqual([]); // v3→v4 step also fired
   });
@@ -798,5 +799,168 @@ describe('gainExp propagates to active pet', () => {
     useSaveState.getState().gainExp(100);
     off();
     expect(events).toEqual([]);
+  });
+});
+
+describe('SaveState v6 migration', () => {
+  it('migrates v5 → v6 with empty quest fields', async () => {
+    const v5Save = {
+      state: {
+        hp: 100,
+        maxHp: 100,
+        mp: 50,
+        maxMp: 50,
+        exp: 0,
+        level: 1,
+        flags: {},
+        inventory: [],
+        equipment: { hat: null, outfit: null, wand: null, shoes: null },
+        lastLevelUpAt: null,
+        position: { x: 0, y: 0 },
+        last_boss_attempt_date: null,
+        active_pet_instance_id: null,
+        defeatedBossIds: [],
+        claimedChestIds: [],
+        currentZoneId: null,
+        ownedPets: [],
+      },
+      version: 5,
+    };
+    localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v5Save));
+    await useSaveState.persist.rehydrate();
+    const s = useSaveState.getState();
+    expect(s.questProgress).toEqual({});
+    expect(s.claimedRewards).toEqual([]);
+    expect(s.questCycleAnchors).toEqual({ dailyEpochUtc7: 0, weeklyEpochUtc7: 0 });
+  });
+
+  it('idempotent on v6 — non-empty fields preserved', async () => {
+    const v6Snapshot = {
+      state: {
+        hp: 100,
+        maxHp: 100,
+        mp: 50,
+        maxMp: 50,
+        exp: 0,
+        level: 1,
+        flags: {},
+        inventory: [],
+        equipment: { hat: null, outfit: null, wand: null, shoes: null },
+        lastLevelUpAt: null,
+        position: { x: 0, y: 0 },
+        last_boss_attempt_date: null,
+        active_pet_instance_id: null,
+        defeatedBossIds: [],
+        claimedChestIds: [],
+        currentZoneId: null,
+        ownedPets: [],
+        questProgress: { 'daily-combat-3': 2 },
+        claimedRewards: ['main-level-5'],
+        questCycleAnchors: { dailyEpochUtc7: 1700000000000, weeklyEpochUtc7: 1699000000000 },
+      },
+      version: 6,
+    };
+    localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v6Snapshot));
+    await useSaveState.persist.rehydrate();
+    expect(useSaveState.getState().questProgress['daily-combat-3']).toBe(2);
+    expect(useSaveState.getState().claimedRewards).toEqual(['main-level-5']);
+  });
+});
+
+describe('SaveState v6 quest actions', () => {
+  beforeEach(() => useSaveState.getState().reset());
+
+  it('incrementQuestProgress adds delta and clamps at target', () => {
+    useSaveState.getState().incrementQuestProgress('daily-combat-3', 2);
+    expect(useSaveState.getState().questProgress['daily-combat-3']).toBe(2);
+    useSaveState.getState().incrementQuestProgress('daily-combat-3', 5); // overflow target=3
+    expect(useSaveState.getState().questProgress['daily-combat-3']).toBe(3);
+  });
+
+  it('incrementQuestProgress no-op when quest already claimed', () => {
+    useSaveState.setState({ claimedRewards: ['daily-combat-3'] });
+    useSaveState.getState().incrementQuestProgress('daily-combat-3', 1);
+    expect(useSaveState.getState().questProgress['daily-combat-3'] ?? 0).toBe(0);
+  });
+
+  it('incrementQuestProgress no-op for unknown quest id', () => {
+    useSaveState.getState().incrementQuestProgress('nonexistent-quest', 1);
+    expect(useSaveState.getState().questProgress['nonexistent-quest'] ?? 0).toBe(0);
+  });
+
+  it('isQuestReady returns true only at target AND not claimed', () => {
+    useSaveState.setState({ questProgress: { 'daily-combat-3': 3 } });
+    expect(useSaveState.getState().isQuestReady('daily-combat-3')).toBe(true);
+    useSaveState.setState({ claimedRewards: ['daily-combat-3'] });
+    expect(useSaveState.getState().isQuestReady('daily-combat-3')).toBe(false);
+  });
+
+  it('isQuestReady returns false when below target', () => {
+    useSaveState.setState({ questProgress: { 'daily-combat-3': 2 } });
+    expect(useSaveState.getState().isQuestReady('daily-combat-3')).toBe(false);
+  });
+
+  it('claimQuestReward returns ItemDef on first call, null on second', () => {
+    useSaveState.setState({ questProgress: { 'daily-combat-3': 3 } });
+    const item1 = useSaveState.getState().claimQuestReward('daily-combat-3', 1);
+    expect(item1).not.toBeNull();
+    expect(useSaveState.getState().claimedRewards).toContain('daily-combat-3');
+    const item2 = useSaveState.getState().claimQuestReward('daily-combat-3', 1);
+    expect(item2).toBeNull();
+  });
+
+  it('claimQuestReward returns null when below target', () => {
+    useSaveState.setState({ questProgress: { 'daily-combat-3': 2 } });
+    const item = useSaveState.getState().claimQuestReward('daily-combat-3', 1);
+    expect(item).toBeNull();
+  });
+
+  it('claimQuestReward mints inventory item on success', () => {
+    useSaveState.setState({ questProgress: { 'daily-combat-3': 3 } });
+    const before = useSaveState.getState().inventory.length;
+    useSaveState.getState().claimQuestReward('daily-combat-3', 1);
+    expect(useSaveState.getState().inventory.length).toBe(before + 1);
+  });
+
+  it('refreshCyclesIfNeeded resets daily progress when daily anchor expired', () => {
+    const oldDaily = Date.UTC(2025, 0, 1, 0, 0); // ancient anchor
+    const now = Date.UTC(2026, 4, 2, 5, 0);
+    useSaveState.setState({
+      questProgress: { 'daily-combat-3': 2, 'weekly-combat-20': 5, 'main-level-5': 1 },
+      claimedRewards: ['daily-quiz-5'],
+      questCycleAnchors: { dailyEpochUtc7: oldDaily, weeklyEpochUtc7: weeklyAnchor(now) },
+    });
+    const result = useSaveState.getState().refreshCyclesIfNeeded(now);
+    expect(result.dailyReset).toBe(true);
+    expect(result.weeklyReset).toBe(false);
+    expect(useSaveState.getState().questProgress['daily-combat-3']).toBeUndefined();
+    expect(useSaveState.getState().questProgress['weekly-combat-20']).toBe(5);
+    expect(useSaveState.getState().questProgress['main-level-5']).toBe(1);
+    expect(useSaveState.getState().claimedRewards).not.toContain('daily-quiz-5');
+  });
+
+  it('refreshCyclesIfNeeded does nothing when both anchors current', () => {
+    const now = Date.UTC(2026, 4, 2, 5, 0);
+    useSaveState.setState({
+      questProgress: { 'daily-combat-3': 2 },
+      questCycleAnchors: {
+        dailyEpochUtc7: dailyAnchor(now),
+        weeklyEpochUtc7: weeklyAnchor(now),
+      },
+    });
+    const result = useSaveState.getState().refreshCyclesIfNeeded(now);
+    expect(result.dailyReset).toBe(false);
+    expect(result.weeklyReset).toBe(false);
+    expect(useSaveState.getState().questProgress['daily-combat-3']).toBe(2);
+  });
+
+  it('reset() zeroes quest fields', () => {
+    useSaveState.setState({
+      questProgress: { 'daily-combat-3': 1 },
+      claimedRewards: ['weekly-pet-1'],
+    });
+    useSaveState.getState().reset();
+    expect(useSaveState.getState().questProgress).toEqual({});
+    expect(useSaveState.getState().claimedRewards).toEqual([]);
   });
 });

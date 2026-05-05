@@ -32,7 +32,7 @@
 | **A** | Multi-party combat refactor — `CombatEntity[]`, TurnQueue FSM, ElementMatrix 8×8, 6 starter pets | ✅ shipped | `ed6dbee` | +192 (351 → 543) |
 | **B** | World Map + Zone(entrance/path) + Boss Hall scenes — A* pathfinding, walkable masks, persistence | ✅ shipped | `49e5e79` (squash `c5a78b4`) | +106 (543 → 649) |
 | **C** | Pet System — rescue mechanic, leveling, evolution, inventory tab | ✅ shipped | (this commit) | +71 (649 → 720) |
-| **D** | Quests & Goals panel — daily/weekly/main quest catalog | ⏳ pending | — | — |
+| **D** | Quests & Goals panel — 8-quest catalog, QuestEngine, /quests route, toast notifications | ✅ shipped | (this commit) | +74 (720 → 794) |
 | **E** | Polish & Onboarding — name selection, wizard customization, tutorial polish, settings | ⏳ pending | — | — |
 | **F** | Free Daily Rewards — login calendar, loot jar, battle stars | ⏳ pending | — | — |
 
@@ -151,6 +151,6 @@ Harness gates all green. Pre-commit hook enforces lint-staged + typecheck + veri
 
 ## 🎯 Next Session Action
 
-**Immediate:** Sprint D — Quests & Goals Panel brainstorm (per `docs/roadmap_phase2.5_prodigy_parity.md` §D). Quest catalog + progress hooks reading existing combat / quiz / level-up / pet-rescue events.
+**Immediate:** Sprint E — Polish & Onboarding brainstorm (per `docs/roadmap_phase2.5_prodigy_parity.md` §E). Name selection, wizard customization, tutorial polish, settings panel.
 
-**Deferred:** Step 3.5 server-side validation (block before public launch). Phase 2 sprite swap on pet evolution (when Antigravity ships evo art).
+**Deferred:** Step 3.5 server-side validation (block before public launch). Phase 2 sprite swap on pet evolution. Antigravity quest UI assets (1 banner + 4 icons).

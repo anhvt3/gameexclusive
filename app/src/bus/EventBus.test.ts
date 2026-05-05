@@ -112,3 +112,44 @@ describe('Sprint C EventBus events', () => {
     expect(captured.evolved).toBe(true);
   });
 });
+
+describe('Sprint D EventBus events', () => {
+  it('QUEST_PROGRESS carries questId and delta', () => {
+    let captured: { questId: string; delta: number } | null = null;
+    const off = eventBus.on('QUEST_PROGRESS', (p) => {
+      captured = p;
+    });
+    eventBus.emit('QUEST_PROGRESS', { questId: 'daily-combat-3', delta: 1 });
+    off();
+    expect(captured).toEqual({ questId: 'daily-combat-3', delta: 1 });
+  });
+
+  it('CHEST_OPENED accepts optional label override', () => {
+    let captured: any = null;
+    const off = eventBus.on('CHEST_OPENED', (p) => {
+      captured = p;
+    });
+    eventBus.emit('CHEST_OPENED', {
+      chestId: 'quest-daily-combat-3',
+      zoneId: 'quest-panel',
+      items: [{ itemId: 'wand-fire-01', qty: 1 }],
+      label: 'Đóng',
+    });
+    off();
+    expect(captured.label).toBe('Đóng');
+  });
+
+  it('CHEST_OPENED label is optional — Sprint B emits still work without it', () => {
+    let captured: any = null;
+    const off = eventBus.on('CHEST_OPENED', (p) => {
+      captured = p;
+    });
+    eventBus.emit('CHEST_OPENED', {
+      chestId: 'forest-boss-chest',
+      zoneId: 'forest-island',
+      items: [{ itemId: 'wand-fire-01', qty: 1 }],
+    });
+    off();
+    expect(captured.label).toBeUndefined();
+  });
+});

@@ -507,3 +507,71 @@ hero — student must run another battle to catch up.
 + `PET_COLLECTED { petInstanceId, petCodename, rarity }`
 + `PET_RELEASED { petCodename, rarity, reason: 'rejected-offer' | 'roster-cap-replace' | 'manual' }`
 + `PET_LEVEL_UP { petInstanceId, newLevel, evolved }`
+
+---
+
+## Sprint D — Delta (02/05/2026)
+
+Sprint D ships the centralized QuestEngine + 8-quest catalog (3 daily +
+2 weekly + 3 main) + Quests Panel UI. Type B (Entity Schema delta + v6
+migration). No scene/quiz/combat code modified — engine listens to
+existing Sprint A-C events.
+
+### §3.1 — Folder structure additions
+- `domain/QuestEngine.ts` — class with start()/stop() lifecycle that
+  subscribes once per source-event-type and translates matches into
+  QUEST_PROGRESS emits + SaveState increments
+- `domain/QuestCycle.ts` — UTC+7 daily/weekly anchor math (pure ms,
+  no Date weirdness)
+- `domain/QuestReward.ts` — tier→rarity rollDrop wrapper
+- `data/staticConfig/quests.ts` — 8-quest catalog with declarative
+  match predicates per quest
+- `react/overlays/QuestProgressToast.tsx` — top-right ephemeral
+  notification with ready-state sparkle variant
+- `react/screens/QuestsPanel.tsx` — `/quests` route with daily/weekly/
+  main tier sections + per-quest progress / claim / claimed states
+- `types/quest.ts` — QuestId, QuestTier, QuestDef, QuestRewardTier,
+  TIER_REWARD/TIER_LABEL_VI maps
+
+### §11.7 — Quest schema (NEW)
+
+QuestDef carries id, tier (daily/weekly/main), displayNameVi,
+description, target (count goal), rewardTier (common/rare/epic),
+source (GameEventType), and match (payload → delta) predicate.
+
+QuestEngine subscribes once per unique source-event-type from the
+catalog. On each emit, the engine runs all matching quests' match()
+predicates; non-zero deltas trigger SaveState.incrementQuestProgress
+(clamped at target, no-op if already claimed) and a QUEST_PROGRESS
+event emit.
+
+Refresh semantics:
+- Daily quests reset at UTC+7 midnight (Vietnam local midnight).
+- Weekly quests reset at UTC+7 Sunday-midnight.
+- Main quests never reset; once claimed, stay claimed.
+- refreshCyclesIfNeeded runs on app mount and window focus, NOT on
+  every event (R2 mitigation — session crossing midnight keeps progress
+  until next mount/focus).
+
+Reward minting: claimQuestReward calls rollQuestReward (tier→rarity
+filter on ITEM_REGISTRY, defers to LevelUpReward.rollDrop for the
+weighted pick), mints an InventoryItem instance, pushes to inventory,
+and pushes the questId to claimedRewards.
+
+Monotonic counter policy: PET_COLLECTED-sourced quests count every
+collect emit, not "currently owned". Release-and-re-collect could
+inflate but rate-gating (Sprint C 10-30%) makes this practically a
+non-issue.
+
+### §13 — SaveState v6 (additive over v5)
++ `questProgress: Record<QuestId, number>` (default `{}`)
++ `claimedRewards: QuestId[]` (default `[]`)
++ `questCycleAnchors: { dailyEpochUtc7: number; weeklyEpochUtc7: number }`
+  (default `{ dailyEpochUtc7: 0, weeklyEpochUtc7: 0 }` — `0` triggers
+  first-run refresh)
+
+### §14 — EventBus catalog additions / extensions
++ `QUEST_PROGRESS { questId: string; delta: number }` (NEW)
+~ `CHEST_OPENED` payload extended with optional `label?: string` —
+  defaults to "Về Bản Đồ" in `RewardChestOverlay` for back-compat
+  with Sprint B/C; quest claims pass `label: "Đóng"`.

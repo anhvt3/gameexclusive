@@ -70,6 +70,12 @@ export interface GameTestBridge {
     acceptPet: () => void;
     releasePet: () => void;
     seedRng: (value: number) => void;
+    // Sprint D Task 13 — reset quest cycle anchors to a fixed `now` so the
+    // daily/weekly reset doesn't fire mid-test, plus zero out questProgress
+    // and claimedRewards. Dispatches via dynamic ESM import to keep the
+    // bridge module's eval graph free of Sprint D-specific deps (matches
+    // the seedRng / scene-key isolation discipline above).
+    setQuestCycleAnchors: (now: number) => void;
   };
   __phaser: Phaser.Game;
 }
@@ -248,6 +254,21 @@ export function attachGameTestBridge(game: Phaser.Game): void {
         // WorldMapScene/ZoneScene/BossHallScene scene-key constants.
         void import('@game/scenes/CombatScene').then((mod) => {
           mod.__setCombatRng(() => value);
+        });
+      },
+      setQuestCycleAnchors: (now: number) => {
+        // Dynamic import to avoid pulling SaveState into the bridge module's
+        // eval graph (mirrors seedRng's pattern). Anchor to `now` so daily
+        // and weekly cycles don't refresh mid-test.
+        void import('@domain/QuestCycle').then((cycleModule) => {
+          useSaveState.setState({
+            questProgress: {},
+            claimedRewards: [],
+            questCycleAnchors: {
+              dailyEpochUtc7: cycleModule.dailyAnchor(now),
+              weeklyEpochUtc7: cycleModule.weeklyAnchor(now),
+            },
+          });
         });
       },
       walkPathSafe: async () => {
