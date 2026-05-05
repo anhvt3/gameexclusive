@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useSaveState } from '@persistence/SaveStateStore';
 import { eventBus } from '@bus/EventBus';
+import { PLAYER_NAME_PLACEHOLDER } from '@/types/identity';
 import { maybeOfferPetRescue } from '@domain/PetRescue';
 import type * as PetRescueModule from '@domain/PetRescue';
 
@@ -715,5 +716,25 @@ describe('CombatScene Sprint C — buildEntities reads ownedPets', () => {
     scene.create();
     const petEntity = scene.getEntities().find((e) => e.kind === 'pet');
     expect(petEntity).toBeUndefined();
+  });
+});
+
+describe('CombatScene Sprint E personalization', () => {
+  it('hero entity name reads playerName when set', () => {
+    useSaveState.setState({ playerName: 'Minh' });
+    const scene = new CombatScene();
+    scene.init({ monsterId: 1 });
+    scene.create();
+    const hero = scene.getEntities().find((e) => e.kind === 'hero');
+    expect(hero!.name).toBe('Minh');
+  });
+
+  it('hero entity name reads "Khách" when playerName is null', () => {
+    useSaveState.setState({ playerName: null });
+    const scene = new CombatScene();
+    scene.init({ monsterId: 1 });
+    scene.create();
+    const hero = scene.getEntities().find((e) => e.kind === 'hero');
+    expect(hero!.name).toBe(PLAYER_NAME_PLACEHOLDER);
   });
 });

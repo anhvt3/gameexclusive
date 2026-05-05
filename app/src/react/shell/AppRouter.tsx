@@ -24,6 +24,7 @@ import { MainMenu } from '@react/screens/MainMenu';
 import { GuildLeaderboard } from '@react/screens/GuildLeaderboard';
 import { InventoryScreen } from '@react/screens/InventoryScreen';
 import { QuestsPanel } from '@react/screens/QuestsPanel';
+import { SettingsPanel } from '@react/screens/SettingsPanel';
 import { RewardChestOverlay } from '@react/overlays/RewardChestOverlay';
 import { PetRescueOverlay } from '@react/overlays/PetRescueOverlay';
 import { VictoryBanner } from '@react/overlays/VictoryBanner';
@@ -76,6 +77,7 @@ export function AppRouter() {
         <Route path="/guild" element={<GuildLeaderboard />} />
         <Route path="/inventory" element={<InventoryScreen />} />
         <Route path="/quests" element={<QuestsPanel />} />
+        <Route path="/settings" element={<SettingsPanel />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       {/* Step 22.14 — global LEVEL_UP reward overlay; subscribes the bus */}

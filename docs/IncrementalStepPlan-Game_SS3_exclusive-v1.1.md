@@ -638,3 +638,28 @@ No placeholder art reaches dev.
 
 **Sprint D closed.** Pending: 5 Antigravity quest UI assets (1 banner +
 4 tier icons; CSS+emoji fallback shipped this sprint).
+
+### Phase 2.5 — Sprint E (02/05/2026) — Polish & Onboarding
+
+| # | Step | Status |
+|---|---|---|
+| S-E.1 | types/identity.ts + namePresets.ts | ✅ |
+| S-E.2 | SaveState v6→v7 + 4 setters | ✅ |
+| S-E.3 | tutorialSteps extend (target field + 4 new beats, "bạn" alignment) | ✅ |
+| S-E.4 | TutorialArrow + sceneAnchorRegistry (hybrid Phaser/DOM positioning) | ✅ |
+| S-E.5 | TutorialSequence integrates TutorialArrow | ✅ |
+| S-E.6 | NamePicker (12 preset + Random button) | ✅ |
+| S-E.7 | CustomizationPicker (real hair PNG layered render) | ✅ |
+| S-E.7b | PreloadScene 8 hair textures + Player.setHairOverlay slot | ✅ |
+| S-E.8 | OnboardingFlow orchestrator | ✅ |
+| S-E.9 | MainMenu personalization + Settings button + onboarding trigger | ✅ |
+| S-E.10 | SettingsPanel (4 controls) | ✅ |
+| S-E.11 | QuizCard hint visibility | ✅ |
+| S-E.12 | CombatScene + QuestsPanel personalization callsites | ✅ |
+| S-E.13 | AppRouter /settings route | ✅ |
+| S-E.14 | E2E sprint_e_onboarding.spec.ts | ✅ |
+| S-E.15 | AP §11.8 + §13 delta + ISP roll-up + tasks/todo.md | ✅ |
+
+**Sprint E closed.** 8 hair PNG assets bundled with this branch
+(committed pre-T1 per pre-merge gate convention; squash merge bundles
+them with code).

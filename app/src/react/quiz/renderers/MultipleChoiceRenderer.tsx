@@ -10,8 +10,10 @@
  * Timer starts at mount, reports timeSpent in milliseconds.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { MultipleChoiceLO } from '@data/supham/LearningObjectSchema';
+import { useSaveState } from '@/persistence/SaveStateStore';
+import { HINT_VISIBILITY_PROBABILITY } from '@/types/identity';
 
 export type MultipleChoiceResult = {
   optionId: string;
@@ -27,6 +29,17 @@ interface Props {
 export function MultipleChoiceRenderer({ lo, onSubmit }: Props) {
   const mountedAt = useRef(0);
   const [submitted, setSubmitted] = useState(false);
+  const hintDifficulty = useSaveState((s) => s.hintDifficulty);
+
+  // Sprint E Task 11: per-question deterministic seed (stable for the card's
+  // mount lifecycle) prevents hint flicker on re-render. Visibility threshold
+  // from HINT_VISIBILITY_PROBABILITY (easy 50% / medium 25% / hard 0%).
+  // lo.id is intentionally in deps so navigating to a different LO re-rolls.
+  const showHint = useMemo(
+    () => Math.random() < HINT_VISIBILITY_PROBABILITY[hintDifficulty],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [lo.id, hintDifficulty]
+  );
 
   useEffect(() => {
     mountedAt.current = Date.now();
@@ -46,6 +59,15 @@ export function MultipleChoiceRenderer({ lo, onSubmit }: Props) {
   return (
     <div className="mc-renderer flex flex-col gap-4">
       <p className="question text-lg font-medium">{lo.question_text}</p>
+      {showHint && (
+        <button
+          type="button"
+          data-testid="quiz-hint-button"
+          className="hint-btn self-start rounded-md border border-amber-300 bg-amber-50 px-3 py-1 text-sm text-amber-800 hover:bg-amber-100"
+        >
+          💡 Gợi ý
+        </button>
+      )}
       <div className="options grid grid-cols-2 gap-3">
         {lo.options.map((opt) => (
           <button

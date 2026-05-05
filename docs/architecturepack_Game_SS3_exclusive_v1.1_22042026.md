@@ -575,3 +575,57 @@ non-issue.
 ~ `CHEST_OPENED` payload extended with optional `label?: string` —
   defaults to "Về Bản Đồ" in `RewardChestOverlay` for back-compat
   with Sprint B/C; quest claims pass `label: "Đóng"`.
+
+---
+
+## Sprint E — Delta (02/05/2026)
+
+Sprint E ships the onboarding + identity + settings surface. Type B
+(spec drift from roadmap §E Type A — 4 new persisted SaveState fields
+required). No combat code modified.
+
+### §3.1 — Folder structure additions
+- `react/onboarding/{OnboardingFlow,NamePicker,CustomizationPicker}.tsx`
+- `react/mascot/TutorialArrow.tsx` + `sceneAnchorRegistry.ts`
+- `react/screens/SettingsPanel.tsx`
+- `types/identity.ts`
+- `data/staticConfig/namePresets.ts`
+- 8 hair PNG assets at `app/public/assets/player/hair/{male|female}_hair_{a,b,c,d}.png`
+
+### §11.8 — Identity & Settings schema (NEW)
+
+Player identity + settings are 4 SaveState fields:
+- `playerName: string | null` — null triggers onboarding gate; set
+  non-null persists chosen preset name
+- `gender: 'male' | 'female'` — set together with playerName at name
+  pick step; can be overridden at customization step
+- `hairStyle: 'a' | 'b' | 'c' | 'd'` — picked at customization step
+- `hintDifficulty: 'easy' | 'medium' | 'hard'` — controls quiz hint
+  button visibility probability (50% / 25% / 0% per question)
+
+Onboarding state machine:
+- `playerName === null && !flags.tutorial_completed` → first launch
+  full sequence (tutorial → name → customization)
+- `playerName !== null && flags.tutorial_completed` → normal play
+- Settings "Replay tutorial" → clears TUTORIAL_FLAG, opens tutorial-only
+  mode (no name/customization re-prompt)
+
+Tutorial gesture overlay: TutorialStep gains optional `target:
+GestureTarget`. GestureTarget is a discriminated union:
+`{ type: 'canvas'; selector: string }` (resolves via
+sceneAnchorRegistry coordinates + canvas getBoundingClientRect) or
+`{ type: 'dom'; selector: string }` (resolves via document
+querySelector by data-testid). Engine routes to a single arrow
+component which positions via getBoundingClientRect — no Phaser
+import in the React layer.
+
+Reward minting: NONE — Sprint E is pure UI + persistence.
+
+### §13 — SaveState v7 (additive over v6)
++ `playerName: string | null` (default `null`)
++ `gender: 'male' | 'female'` (default `'male'`)
++ `hairStyle: 'a' | 'b' | 'c' | 'd'` (default `'a'`)
++ `hintDifficulty: 'easy' | 'medium' | 'hard'` (default `'medium'`)
+
+### §14 — EventBus catalog additions / extensions
+None. Sprint E is state-driven (Zustand subscriptions handle re-renders).

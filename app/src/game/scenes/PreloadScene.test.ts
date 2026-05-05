@@ -152,3 +152,32 @@ describe('PreloadScene Sprint B assets', () => {
     }
   });
 });
+
+describe('PreloadScene Sprint E hair assets', () => {
+  function runPreloadAndCaptureLoadCalls(): Array<{ key: string; url: string }> {
+    const scene = new PreloadScene();
+    scene.preload();
+    const mockCalls = (scene.load.image as unknown as { mock: { calls: [string, string][] } }).mock
+      .calls;
+    return mockCalls.map(([key, url]) => ({ key, url }));
+  }
+
+  it('loads 8 hair textures with hair-{gender}-{style} key convention', () => {
+    const calls = runPreloadAndCaptureLoadCalls();
+    const keys = calls.map((c) => c.key);
+    for (const gender of ['male', 'female']) {
+      for (const style of ['a', 'b', 'c', 'd']) {
+        expect(keys).toContain(`hair-${gender}-${style}`);
+      }
+    }
+  });
+
+  it('hair texture paths follow /assets/player/hair/{gender}_hair_{style}.png', () => {
+    const calls = runPreloadAndCaptureLoadCalls();
+    const hairCalls = calls.filter((c) => c.key.startsWith('hair-'));
+    expect(hairCalls).toHaveLength(8);
+    for (const c of hairCalls) {
+      expect(c.url).toMatch(/^\/assets\/player\/hair\/(male|female)_hair_[abcd]\.png$/);
+    }
+  });
+});

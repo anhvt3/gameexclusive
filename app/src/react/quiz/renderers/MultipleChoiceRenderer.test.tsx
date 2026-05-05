@@ -1,8 +1,9 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MultipleChoiceRenderer } from './MultipleChoiceRenderer';
 import type { MultipleChoiceLO } from '@data/supham/LearningObjectSchema';
+import { useSaveState } from '@/persistence/SaveStateStore';
 
 const sampleLO: MultipleChoiceLO = {
   id: 1,
@@ -23,6 +24,14 @@ const sampleLO: MultipleChoiceLO = {
 };
 
 describe('MultipleChoiceRenderer', () => {
+  beforeEach(() => {
+    // Sprint E Task 11: pin hint difficulty to 'hard' (0% probability) so the
+    // hint button never renders during these tests. Tests for hint visibility
+    // live in QuizHintVisibility.test.tsx.
+    useSaveState.getState().reset();
+    useSaveState.getState().setHintDifficulty('hard');
+  });
+
   it('renders question and all 4 options', () => {
     render(<MultipleChoiceRenderer lo={sampleLO} onSubmit={vi.fn()} />);
     expect(screen.getByText('What is 1 + 1?')).toBeInTheDocument();

@@ -13,6 +13,7 @@
 import { useState } from 'react';
 import { useSaveState } from '@persistence/SaveStateStore';
 import { MascotDialog } from './MascotDialog';
+import { TutorialArrow } from './TutorialArrow';
 import { TUTORIAL_FLAG, TUTORIAL_STEPS } from './tutorialSteps';
 
 interface TutorialSequenceProps {
@@ -41,12 +42,15 @@ export function TutorialSequence({ onComplete, typingSpeedMs }: TutorialSequence
   };
 
   return (
-    <MascotDialog
-      portraitFile={step.portraitFile}
-      text={step.text}
-      onContinue={handleContinue}
-      continueLabel={isLast ? 'Bắt đầu' : 'Tiếp'}
-      {...(typingSpeedMs !== undefined ? { typingSpeedMs } : {})}
-    />
+    <>
+      {step.target && <TutorialArrow target={step.target} />}
+      <MascotDialog
+        portraitFile={step.portraitFile}
+        text={step.text}
+        onContinue={handleContinue}
+        continueLabel={isLast ? 'Bắt đầu' : 'Tiếp'}
+        {...(typingSpeedMs !== undefined ? { typingSpeedMs } : {})}
+      />
+    </>
   );
 }

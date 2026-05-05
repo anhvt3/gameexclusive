@@ -32,6 +32,7 @@ import { PlayerAvatar } from '../entities/PlayerAvatar';
 import { wireSpellVfx } from '@game/systems/SpellVfx';
 import { audioManager } from '@/utils/AudioManager';
 import type { CombatEntity, HeroEntity, MonsterEntity, PetEntity } from '@/types/combat';
+import { PLAYER_NAME_PLACEHOLDER } from '@/types/identity';
 import { buildPetEntity } from '@domain/PetEntityFactory';
 import { maybeOfferPetRescue } from '@domain/PetRescue';
 import { findPetDef } from '@data/staticConfig/pets';
@@ -256,7 +257,7 @@ export class CombatScene extends Phaser.Scene {
       id: 'hero',
       kind: 'hero',
       faction: 'ally',
-      name: 'Phù thủy',
+      name: save.playerName ?? PLAYER_NAME_PLACEHOLDER,
       element: 'Fire',
       level: save.level,
       hp: save.hp,

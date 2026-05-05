@@ -53,8 +53,13 @@ export class Player {
   public speed: number = PLAYER_SPEED;
   /** Last footstep SFX timestamp (ms since epoch). Throttles step playback. */
   private lastStepAt = 0;
+  /** Sprint E Task 7b — hair overlay sprite (layered above base body). */
+  private hairSprite: Phaser.GameObjects.Sprite | null = null;
+  /** Reference to scene retained for late overlay attachment (setHairOverlay). */
+  private scene: Phaser.Scene;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
+    this.scene = scene;
     const tex =
       scene.textures && typeof scene.textures.exists === 'function'
         ? scene.textures.exists(PLAYER_SPRITE_KEY)
@@ -91,9 +96,7 @@ export class Player {
     if (!kb) {
       throw new Error('[Player] scene.input.keyboard is null — enable keyboard input');
     }
-    this.keys = kb.addKeys(
-      'W,A,S,D,UP,DOWN,LEFT,RIGHT'
-    ) as unknown as PlayerKeys;
+    this.keys = kb.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT') as unknown as PlayerKeys;
   }
 
   update(): void {
@@ -121,7 +124,40 @@ export class Player {
     }
   }
 
+  /**
+   * Sprint E Task 7b — attach a hair overlay sprite atop the base player body.
+   *
+   * Mirrors the equipment-overlay seam pattern (Phase 1.5 / Appendix H) but is
+   * the first overlay slot to land on Player.ts directly. Safe to call multiple
+   * times — the previous overlay is destroyed before a new one is added.
+   *
+   * In unit-test mode (no scene.textures / scene.add.sprite), this is a no-op
+   * so callers (CustomizationPicker apply path, e.g.) can invoke unconditionally.
+   */
+  setHairOverlay(textureKey: string): void {
+    if (this.hairSprite) {
+      this.hairSprite.destroy?.();
+      this.hairSprite = null;
+    }
+    if (!this.scene) return;
+    const textures = (this.scene as Phaser.Scene).textures;
+    const texturesOk =
+      textures && typeof textures.exists === 'function' && textures.exists(textureKey);
+    if (!texturesOk) return;
+    const addSprite = (this.scene.add as Phaser.GameObjects.GameObjectFactory)?.sprite;
+    if (typeof addSprite !== 'function') return;
+    const overlay = this.scene.add.sprite(this.sprite.x, this.sprite.y, textureKey);
+    overlay.setDisplaySize?.(PLAYER_WIDTH, PLAYER_HEIGHT);
+    const baseDepth = (this.sprite as unknown as { depth?: number }).depth ?? 0;
+    overlay.setDepth?.(baseDepth + 1);
+    this.hairSprite = overlay;
+  }
+
   destroy(): void {
+    if (this.hairSprite) {
+      this.hairSprite.destroy?.();
+      this.hairSprite = null;
+    }
     this.sprite.destroy();
   }
 }

@@ -130,6 +130,14 @@ export const PHASE1_ASSETS = {
         },
       ])
     ),
+    // Sprint E Task 7b — Hair customization sprites (PNG-32 RGBA, 1024×1024)
+    // 8 textures: 2 genders × 4 styles. Layered atop base player by Player.setHairOverlay.
+    ...['male', 'female'].flatMap((g) =>
+      ['a', 'b', 'c', 'd'].map((s) => ({
+        key: `hair-${g}-${s}`,
+        path: `/assets/player/hair/${g}_hair_${s}.png`,
+      }))
+    ),
   ] as Array<{ key: string; path: string }>,
   spritesheets: [
     {

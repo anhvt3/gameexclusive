@@ -61,3 +61,18 @@ describe('QuestsPanel', () => {
     expect(useSaveState.getState().claimedRewards).toContain('daily-combat-3');
   });
 });
+
+describe('QuestsPanel Sprint E personalization', () => {
+  beforeEach(() => useSaveState.getState().reset());
+
+  it('header reads "Nhiệm vụ của Minh" when playerName=Minh', () => {
+    useSaveState.getState().setPlayerName('Minh');
+    renderPanel();
+    expect(screen.getByText(/Nhiệm vụ của Minh/)).toBeInTheDocument();
+  });
+
+  it('header reads "Nhiệm vụ của Khách" when playerName is null', () => {
+    renderPanel();
+    expect(screen.getByText(/Nhiệm vụ của Khách/)).toBeInTheDocument();
+  });
+});

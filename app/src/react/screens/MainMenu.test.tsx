@@ -61,7 +61,9 @@ describe('MainMenu — WF1', () => {
     expect(screen.getByRole('button', { name: /Tiếp tục/i })).toBeEnabled();
   });
 
-  it('clicking "Bắt đầu" navigates to /play', () => {
+  it('clicking "Bắt đầu" when already onboarded navigates to /play', () => {
+    useSaveState.getState().setPlayerName('Minh');
+    useSaveState.getState().setFlag(TUTORIAL_FLAG, true);
     renderMenu();
     fireEvent.click(screen.getByRole('button', { name: /Bắt đầu cuộc phiêu lưu/i }));
     expect(screen.getByTestId('play-screen')).toBeInTheDocument();
@@ -74,9 +76,8 @@ describe('MainMenu — WF1', () => {
     expect(screen.getByTestId('play-screen')).toBeInTheDocument();
   });
 
-  it('Settings + Giới thiệu buttons are disabled (deferred)', () => {
+  it('Giới thiệu button is disabled (deferred)', () => {
     renderMenu();
-    expect(screen.getByRole('button', { name: /Cài đặt/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /Giới thiệu/i })).toBeDisabled();
   });
 
@@ -179,5 +180,65 @@ describe('MainMenu — Nhiệm vụ button + sparkle (Sprint D)', () => {
       </MemoryRouter>
     );
     expect(screen.queryByTestId('main-menu-quests-sparkle')).toBeNull();
+  });
+});
+
+describe('MainMenu — Sprint E personalization + Settings + onboarding', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    useSaveState.getState().reset();
+  });
+
+  it('shows "Xin chào, Khách!" when playerName is null', () => {
+    render(
+      <MemoryRouter>
+        <MainMenu />
+      </MemoryRouter>
+    );
+    expect(screen.getByText(/Xin chào, Khách!/)).toBeInTheDocument();
+  });
+
+  it('shows "Xin chào, Minh!" when playerName=Minh', () => {
+    useSaveState.getState().setPlayerName('Minh');
+    render(
+      <MemoryRouter>
+        <MainMenu />
+      </MemoryRouter>
+    );
+    expect(screen.getByText(/Xin chào, Minh!/)).toBeInTheDocument();
+  });
+
+  it('renders Cài đặt (Settings) button', () => {
+    render(
+      <MemoryRouter>
+        <MainMenu />
+      </MemoryRouter>
+    );
+    expect(screen.getByTestId('main-menu-settings')).toBeInTheDocument();
+  });
+
+  it('clicking Bắt đầu when not yet onboarded opens OnboardingFlow', () => {
+    render(
+      <MemoryRouter>
+        <MainMenu />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByTestId('main-menu-play'));
+    expect(screen.getByTestId('onboarding-flow')).toBeInTheDocument();
+  });
+
+  it('clicking Bắt đầu when already onboarded navigates straight to /play', () => {
+    useSaveState.getState().setPlayerName('Minh');
+    useSaveState.getState().setFlag(TUTORIAL_FLAG, true);
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route path="/" element={<MainMenu />} />
+          <Route path="/play" element={<div data-testid="play-screen">Play</div>} />
+        </Routes>
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByTestId('main-menu-play'));
+    expect(screen.getByTestId('play-screen')).toBeInTheDocument();
   });
 });

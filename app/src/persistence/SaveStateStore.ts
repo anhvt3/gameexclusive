@@ -14,6 +14,8 @@
  *   v3 → +active_pet_instance_id (Sprint A Task 9 / PetEntityFactory)
  *   v4 → +defeatedBossIds, +claimedChestIds, +currentZoneId (Sprint B Task 5)
  *   v5 → +ownedPets[] (Sprint C Task 5 — pet roster, separate from inventory[])
+ *   v6 → +questProgress, +claimedRewards, +questCycleAnchors (Sprint D Task 6)
+ *   v7 → +playerName, +gender, +hairStyle, +hintDifficulty (Sprint E Task 2)
  *
  * The migration injects empty defaults for missing fields so existing
  * Phase 1 saves survive the bump. HmacStorage re-signs on the next
@@ -36,12 +38,13 @@ import { computeEffectiveStats } from '@domain/EffectiveStats';
 import { applyPetXp } from '@domain/PetLeveling';
 import { eventBus } from '@bus/EventBus';
 import type { QuestId, QuestCycleAnchors } from '@/types/quest';
+import type { Gender, HairStyle, HintDifficulty } from '@/types/identity';
 import { findQuestDef, QUESTS } from '@data/staticConfig/quests';
 import { dailyAnchor, weeklyAnchor, needsRefresh } from '@/domain/QuestCycle';
 import { rollQuestReward } from '@/domain/QuestReward';
 
 export const SAVE_STATE_KEY = 'game_ss3_save_v1';
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 export function thresholdForLevel(level: number): number {
   return Math.floor(100 * Math.pow(level, 1.5));
@@ -103,6 +106,11 @@ export interface SaveStateData {
   questProgress: Record<QuestId, number>;
   claimedRewards: QuestId[];
   questCycleAnchors: QuestCycleAnchors;
+  // v7 additions (Sprint E Task 2 — identity + settings)
+  playerName: string | null;
+  gender: Gender;
+  hairStyle: HairStyle;
+  hintDifficulty: HintDifficulty;
 }
 
 export interface SaveStateActions {
@@ -136,6 +144,11 @@ export interface SaveStateActions {
   isQuestReady: (questId: QuestId) => boolean;
   claimQuestReward: (questId: QuestId, heroLevel: number, rng?: () => number) => ItemDef | null;
   refreshCyclesIfNeeded: (now?: number) => { dailyReset: boolean; weeklyReset: boolean };
+  // v7 actions (Sprint E Task 2 — identity + settings)
+  setPlayerName: (name: string | null) => void;
+  setGender: (gender: Gender) => void;
+  setHairStyle: (style: HairStyle) => void;
+  setHintDifficulty: (difficulty: HintDifficulty) => void;
   reset: () => void;
 }
 
@@ -163,6 +176,10 @@ const INITIAL_STATE: SaveStateData = {
   questProgress: {},
   claimedRewards: [],
   questCycleAnchors: { dailyEpochUtc7: 0, weeklyEpochUtc7: 0 },
+  playerName: null,
+  gender: 'male',
+  hairStyle: 'a',
+  hintDifficulty: 'medium',
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -218,6 +235,15 @@ function migrate(persisted: unknown, version: number): SaveStateData {
       questProgress: {},
       claimedRewards: [],
       questCycleAnchors: { dailyEpochUtc7: 0, weeklyEpochUtc7: 0 },
+    };
+  }
+  if (version < 7) {
+    s = {
+      ...s,
+      playerName: null,
+      gender: 'male',
+      hairStyle: 'a',
+      hintDifficulty: 'medium',
     };
   }
   return s;
@@ -476,6 +502,14 @@ export const useSaveState = create<SaveStateStore>()(
         return { dailyReset, weeklyReset };
       },
 
+      setPlayerName: (name) => set({ playerName: name }),
+
+      setGender: (gender) => set({ gender }),
+
+      setHairStyle: (style) => set({ hairStyle: style }),
+
+      setHintDifficulty: (difficulty) => set({ hintDifficulty: difficulty }),
+
       reset: () =>
         set({
           ...INITIAL_STATE,
@@ -485,6 +519,10 @@ export const useSaveState = create<SaveStateStore>()(
           questProgress: {},
           claimedRewards: [],
           questCycleAnchors: { dailyEpochUtc7: 0, weeklyEpochUtc7: 0 },
+          playerName: null,
+          gender: 'male',
+          hairStyle: 'a',
+          hintDifficulty: 'medium',
         }),
     }),
     {

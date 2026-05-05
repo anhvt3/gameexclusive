@@ -57,9 +57,7 @@ describe('Player entity — Step 12', () => {
   });
 
   it('constructor registers WASD keys', () => {
-    expect(scene.input.keyboard.addKeys).toHaveBeenCalledWith(
-      'W,A,S,D,UP,DOWN,LEFT,RIGHT'
-    );
+    expect(scene.input.keyboard.addKeys).toHaveBeenCalledWith('W,A,S,D,UP,DOWN,LEFT,RIGHT');
   });
 
   it('update with no keys down → velocity reset to 0,0', () => {
@@ -118,5 +116,57 @@ describe('Player entity — Step 12', () => {
     const badScene = { ...makeMockScene(), input: { keyboard: null } };
 
     expect(() => new Player(badScene as any, 0, 0)).toThrow();
+  });
+});
+
+describe('Player Sprint E — setHairOverlay', () => {
+  it('exposes setHairOverlay on the prototype', () => {
+    expect(typeof (Player.prototype as any).setHairOverlay).toBe('function');
+  });
+
+  it('is a no-op when scene textures lookup unavailable (test mode)', () => {
+    const scene = makeMockScene();
+    const player = new Player(scene as any, 0, 0);
+    expect(() => player.setHairOverlay('hair-male-a')).not.toThrow();
+    expect(() => player.setHairOverlay('nonexistent-key')).not.toThrow();
+  });
+
+  it('adds a layered sprite when scene.textures.exists returns true', () => {
+    const overlaySprite = {
+      setDisplaySize: vi.fn(),
+      setDepth: vi.fn(),
+      destroy: vi.fn(),
+    };
+    const scene = makeMockScene() as any;
+    scene.add.sprite = vi.fn().mockReturnValue(overlaySprite);
+    // Constructor probes for player base keys — return false there so it
+    // falls through to the rectangle path. Only the hair overlay key exists.
+    scene.textures = {
+      exists: vi.fn((k: string) => k.startsWith('hair-')),
+    };
+    const player = new Player(scene, 50, 60);
+    // Sprite (rectangle stand-in) keeps default x/y; align them to assert.
+    (player as any).sprite.x = 50;
+    (player as any).sprite.y = 60;
+    player.setHairOverlay('hair-female-c');
+    expect(scene.textures.exists).toHaveBeenCalledWith('hair-female-c');
+    expect(scene.add.sprite).toHaveBeenCalledWith(50, 60, 'hair-female-c');
+    expect(overlaySprite.setDepth).toHaveBeenCalled();
+  });
+
+  it('replaces previous hair overlay on subsequent calls', () => {
+    const first = { setDisplaySize: vi.fn(), setDepth: vi.fn(), destroy: vi.fn() };
+    const second = { setDisplaySize: vi.fn(), setDepth: vi.fn(), destroy: vi.fn() };
+    const scene = makeMockScene() as any;
+    const spriteFn = vi.fn().mockReturnValueOnce(first).mockReturnValueOnce(second);
+    scene.add.sprite = spriteFn;
+    scene.textures = {
+      exists: vi.fn((k: string) => k.startsWith('hair-')),
+    };
+    const player = new Player(scene, 0, 0);
+    player.setHairOverlay('hair-male-a');
+    player.setHairOverlay('hair-male-b');
+    expect(first.destroy).toHaveBeenCalled();
+    expect(spriteFn).toHaveBeenCalledTimes(2);
   });
 });

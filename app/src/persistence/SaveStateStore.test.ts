@@ -134,8 +134,8 @@ describe('SaveStateStore — persistence', () => {
     expect(parsed.version).toBeDefined();
   });
 
-  it('SCHEMA_VERSION is at v6 (Sprint D Task 6 quest progress)', () => {
-    expect(SCHEMA_VERSION).toBe(6);
+  it('SCHEMA_VERSION is at v7 (Sprint E Task 2 identity + settings)', () => {
+    expect(SCHEMA_VERSION).toBe(7);
   });
 });
 
@@ -429,7 +429,7 @@ describe('SaveState v4 migration', () => {
     localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v3Save));
     await useSaveState.persist.rehydrate();
     const s = useSaveState.getState();
-    expect(SCHEMA_VERSION).toBe(6);
+    expect(SCHEMA_VERSION).toBe(7);
     expect(s.defeatedBossIds).toEqual([]);
     expect(s.claimedChestIds).toEqual([]);
     expect(s.currentZoneId).toBeNull();
@@ -492,7 +492,7 @@ describe('SaveState v4 migration', () => {
     localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v2Save));
     await useSaveState.persist.rehydrate();
     const s = useSaveState.getState();
-    expect(SCHEMA_VERSION).toBe(6);
+    expect(SCHEMA_VERSION).toBe(7);
     expect(s.active_pet_instance_id).toBeNull();
     expect(s.defeatedBossIds).toEqual([]);
     expect(s.claimedChestIds).toEqual([]);
@@ -605,7 +605,7 @@ describe('SaveState v5 migration', () => {
     localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v4Save));
     await useSaveState.persist.rehydrate();
     const s = useSaveState.getState();
-    expect(SCHEMA_VERSION).toBe(6);
+    expect(SCHEMA_VERSION).toBe(7);
     expect(s.ownedPets).toEqual([]);
     // v4 fields preserved
     expect(s.defeatedBossIds).toEqual(['forest-boss']);
@@ -674,7 +674,7 @@ describe('SaveState v5 migration', () => {
     localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v3Save));
     await useSaveState.persist.rehydrate();
     const s = useSaveState.getState();
-    expect(SCHEMA_VERSION).toBe(6);
+    expect(SCHEMA_VERSION).toBe(7);
     expect(s.ownedPets).toEqual([]);
     expect(s.defeatedBossIds).toEqual([]); // v3→v4 step also fired
   });
@@ -962,5 +962,89 @@ describe('SaveState v6 quest actions', () => {
     useSaveState.getState().reset();
     expect(useSaveState.getState().questProgress).toEqual({});
     expect(useSaveState.getState().claimedRewards).toEqual([]);
+  });
+});
+
+describe('SaveState v7 migration', () => {
+  it('migrates v6 → v7 with default identity + settings fields', async () => {
+    const v6 = {
+      schemaVersion: 6,
+      questProgress: {},
+      claimedRewards: [],
+      questCycleAnchors: { dailyEpochUtc7: 0, weeklyEpochUtc7: 0 },
+      ownedPets: [],
+    };
+    localStorage.setItem(SAVE_STATE_KEY, JSON.stringify({ state: v6, version: 6 }));
+    await useSaveState.persist.rehydrate();
+    const s = useSaveState.getState();
+    expect(s.playerName).toBeNull();
+    expect(s.gender).toBe('male');
+    expect(s.hairStyle).toBe('a');
+    expect(s.hintDifficulty).toBe('medium');
+  });
+
+  it('idempotent on v7 — non-default values preserved', async () => {
+    const v7 = {
+      schemaVersion: 7,
+      playerName: 'Minh',
+      gender: 'male',
+      hairStyle: 'c',
+      hintDifficulty: 'hard',
+      questProgress: {},
+      claimedRewards: [],
+      questCycleAnchors: { dailyEpochUtc7: 0, weeklyEpochUtc7: 0 },
+      ownedPets: [],
+    };
+    localStorage.setItem(SAVE_STATE_KEY, JSON.stringify({ state: v7, version: 7 }));
+    await useSaveState.persist.rehydrate();
+    const s = useSaveState.getState();
+    expect(s.playerName).toBe('Minh');
+    expect(s.gender).toBe('male');
+    expect(s.hairStyle).toBe('c');
+    expect(s.hintDifficulty).toBe('hard');
+  });
+});
+
+describe('SaveState v7 actions', () => {
+  beforeEach(() => useSaveState.getState().reset());
+
+  it('setPlayerName persists string', () => {
+    useSaveState.getState().setPlayerName('Linh');
+    expect(useSaveState.getState().playerName).toBe('Linh');
+  });
+
+  it('setPlayerName(null) clears to placeholder state', () => {
+    useSaveState.getState().setPlayerName('Linh');
+    useSaveState.getState().setPlayerName(null);
+    expect(useSaveState.getState().playerName).toBeNull();
+  });
+
+  it('setGender persists', () => {
+    useSaveState.getState().setGender('female');
+    expect(useSaveState.getState().gender).toBe('female');
+  });
+
+  it('setHairStyle persists', () => {
+    useSaveState.getState().setHairStyle('c');
+    expect(useSaveState.getState().hairStyle).toBe('c');
+  });
+
+  it('setHintDifficulty persists', () => {
+    useSaveState.getState().setHintDifficulty('hard');
+    expect(useSaveState.getState().hintDifficulty).toBe('hard');
+  });
+
+  it('reset() zeroes identity + settings to defaults', () => {
+    const s = useSaveState.getState();
+    s.setPlayerName('Minh');
+    s.setGender('female');
+    s.setHairStyle('d');
+    s.setHintDifficulty('hard');
+    s.reset();
+    const after = useSaveState.getState();
+    expect(after.playerName).toBeNull();
+    expect(after.gender).toBe('male');
+    expect(after.hairStyle).toBe('a');
+    expect(after.hintDifficulty).toBe('medium');
   });
 });

@@ -9,12 +9,15 @@
  * but disabled (deferred — ISP says "Settings defer").
  */
 
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSaveState } from '@persistence/SaveStateStore';
 import { TUTORIAL_FLAG } from '@react/mascot/tutorialSteps';
 import { BOSS_PENDING_FLAG, canAttemptBoss } from '@domain/BossQuest';
 import { useGameAudio } from '@react/shell/useGameAudio';
 import { QUESTS } from '@data/staticConfig/quests';
+import { PLAYER_NAME_PLACEHOLDER } from '@/types/identity';
+import { OnboardingFlow } from '@/react/onboarding/OnboardingFlow';
 
 export function MainMenu() {
   const navigate = useNavigate();
@@ -27,6 +30,10 @@ export function MainMenu() {
   const anyQuestReady = useSaveState((s) =>
     QUESTS.some((q) => (s.questProgress[q.id] ?? 0) >= q.target && !s.claimedRewards.includes(q.id))
   );
+  const playerName = useSaveState((s) => s.playerName);
+  const tutorialCompleted = useSaveState((s) => s.flags[TUTORIAL_FLAG] === true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const displayName = playerName ?? PLAYER_NAME_PLACEHOLDER;
   const { playSfx } = useGameAudio();
 
   // Step 22.17 — primary-button audio handlers. Hover→ui_btn_hover,
@@ -43,6 +50,14 @@ export function MainMenu() {
     navigate('/play');
   });
 
+  const handlePlay = click(() => {
+    if (!playerName || !tutorialCompleted) {
+      setShowOnboarding(true);
+      return;
+    }
+    navigate('/play');
+  });
+
   return (
     <main
       aria-label="Menu chính"
@@ -51,6 +66,7 @@ export function MainMenu() {
       <header className="flex flex-col items-center gap-2 pt-8">
         <h1 className="text-3xl font-extrabold tracking-tight text-amber-900">Elemagica</h1>
         <p className="text-sm text-amber-700">Clevai Adventure</p>
+        <p className="text-base font-semibold text-amber-800">Xin chào, {displayName}!</p>
       </header>
 
       <section className="flex flex-col items-center gap-4">
@@ -67,8 +83,9 @@ export function MainMenu() {
       <section className="flex w-full max-w-sm flex-col gap-3">
         <button
           type="button"
+          data-testid="main-menu-play"
           onMouseEnter={onHover}
-          onClick={click(() => navigate('/play'))}
+          onClick={handlePlay}
           className="w-full rounded-xl bg-orange-600 px-6 py-3 text-lg font-bold text-white shadow-md transition hover:bg-orange-700"
         >
           Bắt đầu cuộc phiêu lưu
@@ -126,11 +143,12 @@ export function MainMenu() {
         <div className="flex gap-3">
           <button
             type="button"
-            disabled
-            className="flex-1 rounded-lg bg-stone-200 px-4 py-2 text-sm font-medium text-stone-500"
-            aria-label="Cài đặt (sắp có)"
+            data-testid="main-menu-settings"
+            onMouseEnter={onHover}
+            onClick={click(() => navigate('/settings'))}
+            className="flex-1 rounded-lg bg-slate-500 px-4 py-2 text-sm font-bold text-white shadow transition hover:bg-slate-600"
           >
-            Cài đặt
+            ⚙️ Cài đặt
           </button>
           <button
             type="button"
@@ -144,6 +162,15 @@ export function MainMenu() {
       </section>
 
       <footer className="text-xs text-amber-700">v1.0 · © Clevai 2026</footer>
+
+      {showOnboarding && (
+        <OnboardingFlow
+          onComplete={() => {
+            setShowOnboarding(false);
+            navigate('/play');
+          }}
+        />
+      )}
     </main>
   );
 }

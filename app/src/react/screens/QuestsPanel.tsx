@@ -15,14 +15,16 @@ import { eventBus } from '@/bus/EventBus';
 import { useSaveState } from '@/persistence/SaveStateStore';
 import { questsByTier } from '@data/staticConfig/quests';
 import { TIER_LABEL_VI, type QuestDef, type QuestTier } from '@/types/quest';
+import { PLAYER_NAME_PLACEHOLDER } from '@/types/identity';
 
 const TIERS: ReadonlyArray<QuestTier> = ['daily', 'weekly', 'main'];
 
 export function QuestsPanel() {
+  const playerName = useSaveState((s) => s.playerName) ?? PLAYER_NAME_PLACEHOLDER;
   return (
     <div className="min-h-screen bg-slate-50 p-4 sm:p-8">
       <header className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">📜 Nhiệm vụ</h1>
+        <h1 className="text-2xl font-bold">📜 Nhiệm vụ của {playerName}</h1>
         <Link
           to="/"
           data-testid="quests-back-home"
