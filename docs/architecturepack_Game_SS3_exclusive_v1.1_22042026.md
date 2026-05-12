@@ -731,7 +731,9 @@ Phase 3 ships spend-side economy (Shop), pet collection arc (Breeding), and Serv
 
 Pricing (Q2): common 25-50 stars · rare 100-200 · epic 400-600.
 
-Stock refresh reuses `QuestCycle.dailyAnchor`. Refresh triggers on `AppRouter` mount + window focus. `SHOP_STOCK_REFRESHED` event emitted post-refresh.
+Stock refresh reuses `QuestCycle.dailyAnchor`. Refresh triggers on `AppRouter` mount + window focus.
+
+**Event emit boundary (impl detail):** `SaveState.refreshShopStockIfNeeded` is pure — it mutates state only and does NOT emit `SHOP_STOCK_REFRESHED`. The event is emitted by `AppRouter` (lines 62 + 84) after observing a state change (`shopStockRefreshedAt` advanced). This keeps the persistence layer decoupled from the EventBus (mirrors the Sprint D `refreshCyclesIfNeeded` pattern).
 
 Catalog (`shopCatalog.ts`) covers all 10 real ITEM_REGISTRY entries; `ShopEngine.rollStock` samples 3+1+1 slots per cycle.
 
@@ -767,7 +769,14 @@ Roster cap (Q7): `performBreedingStart` returns `roster_full` when `ownedPets.le
 
 Vite middleware (`server/validationRoutes.ts`) verifies HMAC + nonce, returns 200/400/401. Production build skips middleware; client falls through soft-fail.
 
-Shared dev secret: `phase3-game-ss3-validation-secret-v1` (both client `ServerValidator` and server middleware derive same CryptoKey). Phase 4+ can rotate via env var.
+**Shared dev secret — `PHASE3_DEV_SECRET` (module-local const):**
+
+Both client `ServerValidator.ts` (line 20) and server `validationRoutes.ts` (line 9) hard-code the literal `'phase3-game-ss3-validation-secret-v1'` and derive an identical `CryptoKey` via `deriveKeyFromString`. Symmetry is required: the same key must sign on the browser side and verify on the Vite-middleware side.
+
+Properties of this seam:
+- **Scope:** Phase 3 internal Clevai deploy only. Soft-fail policy (above) means the seam is *advisory*, not enforcement — a leaked secret degrades validation to "always-pass" but does NOT enable client-side privilege escalation since SaveState invariants (`spendBattleStars`, `startBreeding`, `applyShopPurchase`) still throw on protocol violation.
+- **Drift risk:** secret literal duplicated across 2 files. If one is edited without the other, all requests 401 silently → all purchases soft-allow → validation effectively bypassed. Tracked as Phase 4 cleanup: extract to shared module `app/src/server/validationSecret.ts` (or env-driven const) so both sides import a single source.
+- **Production rotation:** before public launch, replace the literal with `process.env.PHASE3_VALIDATION_SECRET` (or equivalent build-time injection). Phase 4 backend hardening will replace the soft-fail Vite middleware with an authoritative server check; at that point the secret moves to backend env-var entirely.
 
 ### §13 — SaveState v9 (additive over v8)
 + `shopStock: ShopItemSlot[]` (default `[]`)
