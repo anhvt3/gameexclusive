@@ -42,9 +42,12 @@ import type { Gender, HairStyle, HintDifficulty } from '@/types/identity';
 import { findQuestDef, QUESTS } from '@data/staticConfig/quests';
 import { dailyAnchor, weeklyAnchor, needsRefresh } from '@/domain/QuestCycle';
 import { rollQuestReward } from '@/domain/QuestReward';
+import type { ShopItemSlot, ShopCatalogEntry } from '@/types/shop';
+import type { BreedingSession } from '@/types/breeding';
+import { SHOP_CATALOG } from '@/data/staticConfig/shopCatalog';
 
 export const SAVE_STATE_KEY = 'game_ss3_save_v1';
-export const SCHEMA_VERSION = 8;
+export const SCHEMA_VERSION = 9;
 
 /** Battles required since last loot-jar claim before the jar is ready to open. */
 export const LOOT_JAR_THRESHOLD = 3;
@@ -77,6 +80,28 @@ function genInstanceId(): string {
     return crypto.randomUUID();
   }
   return `inst_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+// v9 inline helper — rolls daily shop stock without importing ShopEngine
+// (avoids circular dependency; Task 4 will re-extract to ShopEngine.rollStock)
+const SHOP_CYCLE_LIMITS_INLINE = { common: 3, rare: 1, epic: 1 } as const;
+
+function rollShopStockInline(rng: () => number = Math.random): ShopItemSlot[] {
+  const slots: ShopItemSlot[] = [];
+  for (const rarity of ['common', 'rare', 'epic'] as const) {
+    const pool: ShopCatalogEntry[] = SHOP_CATALOG.filter((e) => e.rarity === rarity);
+    const n = SHOP_CYCLE_LIMITS_INLINE[rarity];
+    const shuffled = [...pool].sort(() => rng() - 0.5);
+    for (const entry of shuffled.slice(0, n)) {
+      slots.push({
+        itemId: entry.itemId,
+        priceBattleStars: entry.basePrice,
+        stockRemaining: 1,
+        cycleLimit: 1,
+      });
+    }
+  }
+  return slots;
 }
 
 export interface SaveStateData {
@@ -119,6 +144,12 @@ export interface SaveStateData {
   loginStreak: number;
   battleStars: number;
   lootJarBattlesSinceLast: number;
+  // v9 additions (Phase 3 Task 6 — shop + breeding + server validation)
+  shopStock: ShopItemSlot[];
+  shopStockRefreshedAt: number;
+  purchaseHistory: Record<string, number>;
+  breedingChamber: BreedingSession | null;
+  clientNonce: number;
 }
 
 export interface SaveStateActions {
@@ -164,6 +195,15 @@ export interface SaveStateActions {
   commitLoginClaim: (anchorUtc7: number, newStreak: number) => void;
   isLoginClaimable: (now?: number) => boolean;
   isLootJarReady: () => boolean;
+  // v9 actions (Phase 3 Task 6)
+  spendBattleStars: (amount: number) => void;
+  refreshShopStockIfNeeded: (now?: number) => void;
+  applyShopPurchase: (itemId: string, priceCharged: number) => void;
+  startBreeding: (session: BreedingSession) => void;
+  clearBreeding: () => void;
+  bumpClientNonce: () => void;
+  isShopStockFresh: (now?: number) => boolean;
+  isBreedingChamberBusy: () => boolean;
   reset: () => void;
 }
 
@@ -199,6 +239,11 @@ const INITIAL_STATE: SaveStateData = {
   loginStreak: 0,
   battleStars: 0,
   lootJarBattlesSinceLast: 0,
+  shopStock: [],
+  shopStockRefreshedAt: 0,
+  purchaseHistory: {},
+  breedingChamber: null,
+  clientNonce: 0,
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -272,6 +317,16 @@ function migrate(persisted: unknown, version: number): SaveStateData {
       loginStreak: 0,
       battleStars: 0,
       lootJarBattlesSinceLast: 0,
+    };
+  }
+  if (version < 9) {
+    s = {
+      ...s,
+      shopStock: [],
+      shopStockRefreshedAt: 0,
+      purchaseHistory: {},
+      breedingChamber: null,
+      clientNonce: 0,
     };
   }
   return s;
@@ -582,6 +637,94 @@ export const useSaveState = create<SaveStateStore>()(
 
       isLoginClaimable: (now = Date.now()) => dailyAnchor(now) > get().lastLoginAnchorUtc7,
 
+      // v9 actions (Phase 3 Task 6 — shop + breeding + server validation)
+      spendBattleStars: (amount) => {
+        if (amount <= 0) throw new Error(`spendBattleStars: amount must be > 0, got ${amount}`);
+        const current = get().battleStars;
+        if (current < amount) {
+          throw new Error(
+            `spendBattleStars: insufficient (balance=${current}, requested=${amount})`
+          );
+        }
+        set({ battleStars: current - amount });
+      },
+
+      refreshShopStockIfNeeded: (now = Date.now()) => {
+        const anchor = dailyAnchor(now);
+        if (anchor <= get().shopStockRefreshedAt) return;
+        set({
+          shopStock: rollShopStockInline(),
+          shopStockRefreshedAt: anchor,
+        });
+      },
+
+      applyShopPurchase: (itemId, priceCharged) => {
+        const state = get();
+        const slotIdx = state.shopStock.findIndex((s) => s.itemId === itemId);
+        if (slotIdx < 0) {
+          throw new Error(`applyShopPurchase: itemId "${itemId}" not in stock`);
+        }
+        const slot = state.shopStock[slotIdx]!;
+        if (slot.stockRemaining <= 0) {
+          throw new Error(`applyShopPurchase: stock exhausted for "${itemId}"`);
+        }
+        if (state.battleStars < priceCharged) {
+          throw new Error(
+            `applyShopPurchase: insufficient stars (${state.battleStars} < ${priceCharged})`
+          );
+        }
+        const instance: InventoryItem = {
+          instanceId: genInstanceId(),
+          itemId,
+          acquiredAt: Date.now(),
+        };
+        const newStock = [...state.shopStock];
+        newStock[slotIdx] = { ...slot, stockRemaining: slot.stockRemaining - 1 };
+        set({
+          inventory: [...state.inventory, instance],
+          battleStars: state.battleStars - priceCharged,
+          shopStock: newStock,
+          purchaseHistory: {
+            ...state.purchaseHistory,
+            [itemId]: (state.purchaseHistory[itemId] ?? 0) + 1,
+          },
+        });
+      },
+
+      startBreeding: (session) => {
+        const state = get();
+        if (state.breedingChamber !== null) {
+          throw new Error('startBreeding: chamber already busy');
+        }
+        if (state.battleStars < session.costBattleStars) {
+          throw new Error(
+            `startBreeding: insufficient stars (${state.battleStars} < ${session.costBattleStars})`
+          );
+        }
+        set({
+          breedingChamber: session,
+          battleStars: state.battleStars - session.costBattleStars,
+        });
+      },
+
+      clearBreeding: () => {
+        set({ breedingChamber: null });
+      },
+
+      bumpClientNonce: () => {
+        set({ clientNonce: get().clientNonce + 1 });
+      },
+
+      isShopStockFresh: (now = Date.now()) => {
+        const refreshedAt = get().shopStockRefreshedAt;
+        if (refreshedAt === 0) return false;
+        return dailyAnchor(now) <= refreshedAt;
+      },
+
+      isBreedingChamberBusy: () => {
+        return get().breedingChamber !== null;
+      },
+
       reset: () =>
         set({
           ...INITIAL_STATE,
@@ -599,6 +742,11 @@ export const useSaveState = create<SaveStateStore>()(
           loginStreak: 0,
           battleStars: 0,
           lootJarBattlesSinceLast: 0,
+          shopStock: [],
+          shopStockRefreshedAt: 0,
+          purchaseHistory: {},
+          breedingChamber: null,
+          clientNonce: 0,
         }),
     }),
     {

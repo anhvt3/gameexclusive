@@ -1,9 +1,19 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
+import { shopValidateRoute, breedValidateRoute } from './src/server/validationRoutes';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    {
+      name: 'phase-3-validation-routes',
+      configureServer(server) {
+        server.middlewares.use(shopValidateRoute());
+        server.middlewares.use(breedValidateRoute());
+      },
+    },
+  ],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),

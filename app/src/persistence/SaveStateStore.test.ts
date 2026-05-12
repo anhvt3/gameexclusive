@@ -136,7 +136,7 @@ describe('SaveStateStore — persistence', () => {
   });
 
   it('SCHEMA_VERSION is at v8 (Sprint F Task 6 daily reward fields)', () => {
-    expect(SCHEMA_VERSION).toBe(8);
+    expect(SCHEMA_VERSION).toBe(9);
   });
 });
 
@@ -430,7 +430,7 @@ describe('SaveState v4 migration', () => {
     localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v3Save));
     await useSaveState.persist.rehydrate();
     const s = useSaveState.getState();
-    expect(SCHEMA_VERSION).toBe(8);
+    expect(SCHEMA_VERSION).toBe(9);
     expect(s.defeatedBossIds).toEqual([]);
     expect(s.claimedChestIds).toEqual([]);
     expect(s.currentZoneId).toBeNull();
@@ -493,7 +493,7 @@ describe('SaveState v4 migration', () => {
     localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v2Save));
     await useSaveState.persist.rehydrate();
     const s = useSaveState.getState();
-    expect(SCHEMA_VERSION).toBe(8);
+    expect(SCHEMA_VERSION).toBe(9);
     expect(s.active_pet_instance_id).toBeNull();
     expect(s.defeatedBossIds).toEqual([]);
     expect(s.claimedChestIds).toEqual([]);
@@ -606,7 +606,7 @@ describe('SaveState v5 migration', () => {
     localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v4Save));
     await useSaveState.persist.rehydrate();
     const s = useSaveState.getState();
-    expect(SCHEMA_VERSION).toBe(8);
+    expect(SCHEMA_VERSION).toBe(9);
     expect(s.ownedPets).toEqual([]);
     // v4 fields preserved
     expect(s.defeatedBossIds).toEqual(['forest-boss']);
@@ -675,7 +675,7 @@ describe('SaveState v5 migration', () => {
     localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v3Save));
     await useSaveState.persist.rehydrate();
     const s = useSaveState.getState();
-    expect(SCHEMA_VERSION).toBe(8);
+    expect(SCHEMA_VERSION).toBe(9);
     expect(s.ownedPets).toEqual([]);
     expect(s.defeatedBossIds).toEqual([]); // v3→v4 step also fired
   });
@@ -1299,6 +1299,200 @@ describe('Sprint F — v8 daily reward fields', () => {
       expect(s.lootJarBattlesSinceLast).toBe(0);
       expect(s.lastLoginAnchorUtc7).toBe(0);
       expect(s.loginStreak).toBe(0);
+    });
+  });
+});
+
+describe('Phase 3 — v9 schema + actions', () => {
+  beforeEach(() => {
+    useSaveState.getState().reset();
+  });
+
+  describe('v9 schema fields default values', () => {
+    it('shopStock empty, refreshedAt 0, history empty', () => {
+      const s = useSaveState.getState();
+      expect(s.shopStock).toEqual([]);
+      expect(s.shopStockRefreshedAt).toBe(0);
+      expect(s.purchaseHistory).toEqual({});
+    });
+
+    it('breedingChamber null, clientNonce 0', () => {
+      const s = useSaveState.getState();
+      expect(s.breedingChamber).toBeNull();
+      expect(s.clientNonce).toBe(0);
+    });
+  });
+
+  describe('spendBattleStars', () => {
+    it('subtracts when sufficient', () => {
+      useSaveState.getState().addBattleStars(100);
+      useSaveState.getState().spendBattleStars(30);
+      expect(useSaveState.getState().battleStars).toBe(70);
+    });
+
+    it('throws when amount > balance', () => {
+      useSaveState.getState().addBattleStars(10);
+      expect(() => useSaveState.getState().spendBattleStars(20)).toThrow();
+    });
+
+    it('throws when amount <= 0', () => {
+      useSaveState.getState().addBattleStars(50);
+      expect(() => useSaveState.getState().spendBattleStars(0)).toThrow();
+      expect(() => useSaveState.getState().spendBattleStars(-5)).toThrow();
+    });
+  });
+
+  describe('refreshShopStockIfNeeded', () => {
+    it('rolls stock when refreshedAt=0', () => {
+      useSaveState.getState().refreshShopStockIfNeeded(Date.now());
+      const s = useSaveState.getState();
+      expect(s.shopStock.length).toBeGreaterThanOrEqual(3);
+      expect(s.shopStockRefreshedAt).toBeGreaterThan(0);
+    });
+
+    it('no-op when same-day call after refresh', () => {
+      const now = Date.now();
+      useSaveState.getState().refreshShopStockIfNeeded(now);
+      const beforeAnchor = useSaveState.getState().shopStockRefreshedAt;
+      useSaveState.getState().refreshShopStockIfNeeded(now + 1000);
+      expect(useSaveState.getState().shopStockRefreshedAt).toBe(beforeAnchor);
+    });
+
+    it('refreshes on cross-day boundary', () => {
+      const now = Date.now();
+      useSaveState.getState().refreshShopStockIfNeeded(now);
+      const tomorrow = now + 25 * 60 * 60 * 1000;
+      useSaveState.getState().refreshShopStockIfNeeded(tomorrow);
+      expect(useSaveState.getState().shopStockRefreshedAt).toBe(dailyAnchor(tomorrow));
+    });
+  });
+
+  describe('applyShopPurchase', () => {
+    beforeEach(() => {
+      useSaveState.getState().addBattleStars(500);
+      useSaveState.getState().refreshShopStockIfNeeded(Date.now());
+    });
+
+    it('mints item, spends stars, decrements stock, bumps history', () => {
+      const slot = useSaveState.getState().shopStock[0]!;
+      const beforeInv = useSaveState.getState().inventory.length;
+      const beforeStars = useSaveState.getState().battleStars;
+      useSaveState.getState().applyShopPurchase(slot.itemId, slot.priceBattleStars);
+      const after = useSaveState.getState();
+      expect(after.inventory.length).toBe(beforeInv + 1);
+      expect(after.battleStars).toBe(beforeStars - slot.priceBattleStars);
+      expect(after.purchaseHistory[slot.itemId]).toBe(1);
+      const slotAfter = after.shopStock.find((s) => s.itemId === slot.itemId)!;
+      expect(slotAfter.stockRemaining).toBe(slot.stockRemaining - 1);
+    });
+  });
+
+  describe('startBreeding + clearBreeding', () => {
+    it('startBreeding sets chamber + charges stars', () => {
+      useSaveState.getState().addBattleStars(300);
+      const session = {
+        parentA: 'pet-a',
+        parentB: 'pet-b',
+        startedAt: Date.now(),
+        durationMs: 0,
+        costBattleStars: 200,
+        offspringSpec: { codename: 'aquakit' as const, rarity: 'rare' as const, level: 5 },
+      };
+      useSaveState.getState().startBreeding(session);
+      expect(useSaveState.getState().breedingChamber).toEqual(session);
+      expect(useSaveState.getState().battleStars).toBe(100);
+    });
+
+    it('startBreeding throws when chamber busy', () => {
+      useSaveState.getState().addBattleStars(300);
+      const session = {
+        parentA: 'a',
+        parentB: 'b',
+        startedAt: 0,
+        durationMs: 0,
+        costBattleStars: 50,
+        offspringSpec: { codename: 'bunbleaf' as const, rarity: 'common' as const, level: 1 },
+      };
+      useSaveState.getState().startBreeding(session);
+      expect(() => useSaveState.getState().startBreeding(session)).toThrow();
+    });
+
+    it('startBreeding throws when stars insufficient', () => {
+      useSaveState.getState().addBattleStars(10);
+      const session = {
+        parentA: 'a',
+        parentB: 'b',
+        startedAt: 0,
+        durationMs: 0,
+        costBattleStars: 100,
+        offspringSpec: { codename: 'bunbleaf' as const, rarity: 'common' as const, level: 1 },
+      };
+      expect(() => useSaveState.getState().startBreeding(session)).toThrow();
+    });
+
+    it('clearBreeding sets chamber to null', () => {
+      useSaveState.getState().addBattleStars(300);
+      useSaveState.getState().startBreeding({
+        parentA: 'a',
+        parentB: 'b',
+        startedAt: 0,
+        durationMs: 0,
+        costBattleStars: 50,
+        offspringSpec: { codename: 'bunbleaf' as const, rarity: 'common' as const, level: 1 },
+      });
+      useSaveState.getState().clearBreeding();
+      expect(useSaveState.getState().breedingChamber).toBeNull();
+    });
+  });
+
+  describe('bumpClientNonce', () => {
+    it('increments by 1 each call', () => {
+      useSaveState.getState().bumpClientNonce();
+      useSaveState.getState().bumpClientNonce();
+      expect(useSaveState.getState().clientNonce).toBe(2);
+    });
+  });
+
+  describe('isShopStockFresh + isBreedingChamberBusy', () => {
+    it('isShopStockFresh true after refresh', () => {
+      useSaveState.getState().refreshShopStockIfNeeded(Date.now());
+      expect(useSaveState.getState().isShopStockFresh()).toBe(true);
+    });
+
+    it('isShopStockFresh false on fresh state (refreshedAt=0)', () => {
+      expect(useSaveState.getState().isShopStockFresh()).toBe(false);
+    });
+
+    it('isBreedingChamberBusy true after startBreeding', () => {
+      useSaveState.getState().addBattleStars(100);
+      useSaveState.getState().startBreeding({
+        parentA: 'a',
+        parentB: 'b',
+        startedAt: 0,
+        durationMs: 0,
+        costBattleStars: 50,
+        offspringSpec: { codename: 'bunbleaf' as const, rarity: 'common' as const, level: 1 },
+      });
+      expect(useSaveState.getState().isBreedingChamberBusy()).toBe(true);
+    });
+
+    it('isBreedingChamberBusy false when chamber null', () => {
+      expect(useSaveState.getState().isBreedingChamberBusy()).toBe(false);
+    });
+  });
+
+  describe('reset', () => {
+    it('clears all v9 fields', () => {
+      useSaveState.getState().addBattleStars(100);
+      useSaveState.getState().bumpClientNonce();
+      useSaveState.getState().refreshShopStockIfNeeded(Date.now());
+      useSaveState.getState().reset();
+      const s = useSaveState.getState();
+      expect(s.shopStock).toEqual([]);
+      expect(s.shopStockRefreshedAt).toBe(0);
+      expect(s.purchaseHistory).toEqual({});
+      expect(s.breedingChamber).toBeNull();
+      expect(s.clientNonce).toBe(0);
     });
   });
 });

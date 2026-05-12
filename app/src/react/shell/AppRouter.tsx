@@ -33,6 +33,7 @@ import { LootJarOverlay } from '@react/overlays/LootJarOverlay';
 import { QuestEngine } from '@/domain/QuestEngine';
 import { DailyRewardEngine } from '@/domain/DailyRewardEngine';
 import { useSaveState } from '@/persistence/SaveStateStore';
+import { eventBus } from '@/bus/EventBus';
 import { PlayScreen } from './PlayScreen';
 import { initAppLifecycle } from './appLifecycle';
 
@@ -52,6 +53,17 @@ export function AppRouter() {
       engineRef.current = new QuestEngine();
       engineRef.current.start();
       useSaveState.getState().refreshCyclesIfNeeded();
+
+      // Phase 3 Task 16 — shop stock refresh + event emit
+      const before = useSaveState.getState().shopStockRefreshedAt;
+      useSaveState.getState().refreshShopStockIfNeeded();
+      const after = useSaveState.getState().shopStockRefreshedAt;
+      if (after > before) {
+        eventBus.emit('SHOP_STOCK_REFRESHED', {
+          slots: useSaveState.getState().shopStock,
+          anchorUtc7: after,
+        });
+      }
     };
 
     let cleanupHydration: (() => void) | null = null;
@@ -61,7 +73,20 @@ export function AppRouter() {
       cleanupHydration = useSaveState.persist.onFinishHydration(startEngine);
     }
 
-    const onFocus = () => useSaveState.getState().refreshCyclesIfNeeded();
+    const onFocus = () => {
+      useSaveState.getState().refreshCyclesIfNeeded();
+
+      // Phase 3 Task 16 — also refresh shop on focus
+      const before = useSaveState.getState().shopStockRefreshedAt;
+      useSaveState.getState().refreshShopStockIfNeeded();
+      const after = useSaveState.getState().shopStockRefreshedAt;
+      if (after > before) {
+        eventBus.emit('SHOP_STOCK_REFRESHED', {
+          slots: useSaveState.getState().shopStock,
+          anchorUtc7: after,
+        });
+      }
+    };
     window.addEventListener('focus', onFocus);
 
     return () => {

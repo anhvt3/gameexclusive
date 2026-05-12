@@ -688,3 +688,29 @@ them with code).
 analysis. Asset delivery pending Antigravity: calendar plate, jar 3-frame,
 star icon+badge, 3 flame variants — Sprint F ships with emoji/Tailwind
 fallback (CSS shake animation). Phase 2.5 COMPLETE: 6/6 sprints shipped.
+
+### Phase 3 (12/05/2026) — Shop + Pet Breeding + Server Validation
+
+| # | Step | Status |
+|---|---|---|
+| P3.0 | Preflight (baseline 964 tests green) | ✅ |
+| P3.1 | types/{shop,breeding}.ts | ✅ |
+| P3.2 | data/staticConfig/shopCatalog.ts (10 real items) + tests | ✅ |
+| P3.3 | data/staticConfig/{breedingPairs,breedingCosts}.ts + tests | ✅ |
+| P3.6 | SaveState v8→v9 + 8 actions + tests (reordered before 4/5) | ✅ |
+| P3.7 | EventBus +4 events + tests | ✅ |
+| P3.4 | domain/ShopEngine.ts (refresh + validate) + tests | ✅ |
+| P3.5 | domain/PetBreedingEngine.ts (compat + roll) + tests | ✅ |
+| P3.8 | domain/ServerValidator.ts (HMAC envelope + soft-fail) + tests | ✅ |
+| P3.9 | server/validationRoutes.ts (Vite middleware) + Connect types | ✅ |
+| P3.10 | domain/performShopPurchase.ts orchestration + tests | ✅ |
+| P3.11 | domain/{performBreedingStart,performBreedingHatch}.ts + tests | ✅ |
+| P3.12 | components: ShopItemCard + PetSlot + EggHatchAnim + tests (3 commits) | ✅ |
+| P3.13 | overlays/ShopOverlay.tsx (stock grid + buy) + tests | ✅ |
+| P3.14 | overlays/PetBreedingOverlay.tsx (2-slot + breed + hatch) + tests | ✅ |
+| P3.15 | MainMenu edits (+🛒 +🥚 buttons) | ✅ |
+| P3.16 | AppRouter wire refreshShopStockIfNeeded on mount+focus | ✅ |
+| P3.17 | E2E phase_3_shop_pets.spec.ts (earn → buy → breed → roster grows) | ✅ |
+| P3.18 | AP §11.10-13 + ISP Phase 3 row + todo.md roll-up | ✅ |
+
+**Phase 3 closed.** 19 atomic tasks shipped. Schema v8→v9 with 5 new fields + 8 actions. 4 new EventBus events. HMAC server validation seam (Step 3.5 CEO TODO #2 ✅). 1072 → ~1085 unit + 11 E2E (added phase_3_shop_pets). Asset delivery still pending Antigravity per Appendix G § + new shop UI prompts (Appendix F append for Phase 4).

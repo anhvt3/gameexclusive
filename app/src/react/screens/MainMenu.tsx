@@ -20,6 +20,8 @@ import { PLAYER_NAME_PLACEHOLDER } from '@/types/identity';
 import { OnboardingFlow } from '@/react/onboarding/OnboardingFlow';
 import { BattleStarsBadge } from '@/react/components/BattleStarsBadge';
 import { DailyLoginCalendarOverlay } from '@/react/overlays/DailyLoginCalendarOverlay';
+import { ShopOverlay } from '@/react/overlays/ShopOverlay';
+import { PetBreedingOverlay } from '@/react/overlays/PetBreedingOverlay';
 
 export function MainMenu() {
   const navigate = useNavigate();
@@ -37,6 +39,8 @@ export function MainMenu() {
   const isLoginClaimable = useSaveState((s) => s.isLoginClaimable(Date.now()));
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showLoginCalendar, setShowLoginCalendar] = useState(false);
+  const [showShop, setShowShop] = useState(false);
+  const [showBreeding, setShowBreeding] = useState(false);
   const displayName = playerName ?? PLAYER_NAME_PLACEHOLDER;
   const { playSfx } = useGameAudio();
 
@@ -162,6 +166,24 @@ export function MainMenu() {
             />
           )}
         </button>
+        <button
+          type="button"
+          data-testid="main-menu-shop"
+          onMouseEnter={onHover}
+          onClick={click(() => setShowShop(true))}
+          className="w-full rounded-xl bg-amber-500 px-6 py-3 text-base font-semibold text-white shadow transition hover:bg-amber-600"
+        >
+          🛒 Cửa Hàng
+        </button>
+        <button
+          type="button"
+          data-testid="main-menu-breeding"
+          onMouseEnter={onHover}
+          onClick={click(() => setShowBreeding(true))}
+          className="w-full rounded-xl bg-amber-500 px-6 py-3 text-base font-semibold text-white shadow transition hover:bg-amber-600"
+        >
+          🥚 Lai Tạo
+        </button>
         <div className="flex gap-3">
           <button
             type="button"
@@ -197,6 +219,8 @@ export function MainMenu() {
         open={showLoginCalendar}
         onClose={() => setShowLoginCalendar(false)}
       />
+      <ShopOverlay open={showShop} onClose={() => setShowShop(false)} />
+      <PetBreedingOverlay open={showBreeding} onClose={() => setShowBreeding(false)} />
     </main>
   );
 }

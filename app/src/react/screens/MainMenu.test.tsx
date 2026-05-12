@@ -299,3 +299,50 @@ describe('Sprint F — daily rewards integration', () => {
     expect(screen.getByTestId('daily-login-overlay')).toBeInTheDocument();
   });
 });
+
+describe('Phase 3 — shop + breeding buttons', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    useSaveState.getState().reset();
+  });
+
+  it('mounts "Cửa Hàng" button', () => {
+    render(
+      <MemoryRouter>
+        <MainMenu />
+      </MemoryRouter>
+    );
+    expect(screen.getByTestId('main-menu-shop')).toBeInTheDocument();
+  });
+
+  it('mounts "Lai Tạo" button', () => {
+    render(
+      <MemoryRouter>
+        <MainMenu />
+      </MemoryRouter>
+    );
+    expect(screen.getByTestId('main-menu-breeding')).toBeInTheDocument();
+  });
+
+  it('clicking shop button opens ShopOverlay', () => {
+    render(
+      <MemoryRouter>
+        <MainMenu />
+      </MemoryRouter>
+    );
+    expect(screen.queryByTestId('shop-overlay')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('main-menu-shop'));
+    expect(screen.getByTestId('shop-overlay')).toBeInTheDocument();
+  });
+
+  it('clicking breeding button opens PetBreedingOverlay', () => {
+    render(
+      <MemoryRouter>
+        <MainMenu />
+      </MemoryRouter>
+    );
+    expect(screen.queryByTestId('breed-overlay')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('main-menu-breeding'));
+    expect(screen.getByTestId('breed-overlay')).toBeInTheDocument();
+  });
+});

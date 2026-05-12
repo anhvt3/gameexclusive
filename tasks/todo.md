@@ -1,10 +1,10 @@
 # Project: Game_SS3_exclusive (Edu-RPG Production App)
 
-> **Last updated:** 07/05/2026 (post Sprint F merge — Phase 2.5 COMPLETE)
-> **Current commit:** `<sprint-f-squash>` (Sprint F: Free Daily Rewards)
-> **Tests:** 964/964 unit · 10/10 E2E (smoke + full_flow + boss_quest + equipment_damage + multiparty_combat + sprint_b_zone_flow + sprint_c_pet_rescue + sprint_d_quests + sprint_e_onboarding + sprint_f_rewards)
+> **Last updated:** 12/05/2026 (post Phase 3 merge — production hardening shipped)
+> **Current commit:** `<phase-3-squash>` (Phase 3: Shop + Breeding + Server Validation)
+> **Tests:** 1072/1072 unit · 11/11 E2E (+ phase_3_shop_pets)
 > **Phase 1+1.5 progress:** 100% complete (35/35 steps + harness 22.x extension shipped)
-> **Phase 2.5 progress:** Sprint A ✅ + B ✅ + C ✅ + D ✅ + E ✅ + F ✅ — **6/6 sprints done · Phase 2.5 COMPLETE** 🎉
+> **Phase progress:** Phase 1+1.5 ✅ · Phase 2.5 ✅ · **Phase 3 ✅ — production-ready** 🎉
 
 ---
 
@@ -35,6 +35,7 @@
 | **D** | Quests & Goals panel — 8-quest catalog, QuestEngine, /quests route, toast notifications | ✅ shipped | (this commit) | +74 (720 → 794) |
 | **E** | Polish & Onboarding — name picker, customization, tutorial extension (8 beats), settings panel | ✅ shipped | (this commit) | +80 (794 → 874) |
 | **F** | Free Daily Rewards — login calendar (7-day), loot jar (3-battle), battle stars currency, streak multiplier | ✅ shipped | (this commit) | +90 (874 → 964) |
+| **P3** | Shop (5-slot daily rotating) + Pet Breeding (cost gate + element-blend matrix) + Server Validation (HMAC Vite middleware seam) | ✅ shipped | (this commit) | +108 (964 → 1072) |
 
 ---
 

@@ -19,6 +19,7 @@ import mitt from 'mitt';
 import type { Emitter, Handler } from 'mitt';
 import type { Element } from '@/types/element';
 import type { PetCodename, PetRarity } from '@/types/pet';
+import type { ShopItemSlot } from '@/types/shop';
 
 // Discriminated union — extend in ISP Step 1
 export type GameEvent =
@@ -107,6 +108,22 @@ export type GameEvent =
   | {
       type: 'LOGIN_CLAIMED';
       payload: { dayOfCycle: number; streak: number; items: string[] };
+    }
+  | {
+      type: 'SHOP_STOCK_REFRESHED';
+      payload: { slots: ShopItemSlot[]; anchorUtc7: number };
+    }
+  | {
+      type: 'SHOP_PURCHASE_COMPLETED';
+      payload: { itemId: string; priceCharged: number; stockRemaining: number };
+    }
+  | {
+      type: 'BREEDING_STARTED';
+      payload: { parentA: string; parentB: string; durationMs: number; expectedRarity: PetRarity };
+    }
+  | {
+      type: 'EGG_HATCHED';
+      payload: { offspringInstanceId: string; rarity: PetRarity; codename: string };
     };
 
 // Strip `type` field and map to payload type

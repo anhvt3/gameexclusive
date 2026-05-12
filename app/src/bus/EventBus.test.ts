@@ -185,3 +185,50 @@ describe('Sprint F — daily reward events', () => {
     off();
   });
 });
+
+describe('Phase 3 — shop + breeding events', () => {
+  it('SHOP_STOCK_REFRESHED carries slots + anchorUtc7', () => {
+    const received: Array<{ slots: unknown[]; anchorUtc7: number }> = [];
+    const off = eventBus.on('SHOP_STOCK_REFRESHED', (p) => received.push(p));
+    eventBus.emit('SHOP_STOCK_REFRESHED', { slots: [], anchorUtc7: 12345 });
+    expect(received).toEqual([{ slots: [], anchorUtc7: 12345 }]);
+    off();
+  });
+
+  it('SHOP_PURCHASE_COMPLETED carries itemId + priceCharged + stockRemaining', () => {
+    const received: unknown[] = [];
+    const off = eventBus.on('SHOP_PURCHASE_COMPLETED', (p) => received.push(p));
+    eventBus.emit('SHOP_PURCHASE_COMPLETED', {
+      itemId: 'hat-apprentice-01',
+      priceCharged: 30,
+      stockRemaining: 0,
+    });
+    expect(received).toHaveLength(1);
+    off();
+  });
+
+  it('BREEDING_STARTED carries parents + duration + expectedRarity', () => {
+    const received: unknown[] = [];
+    const off = eventBus.on('BREEDING_STARTED', (p) => received.push(p));
+    eventBus.emit('BREEDING_STARTED', {
+      parentA: 'pet-a',
+      parentB: 'pet-b',
+      durationMs: 0,
+      expectedRarity: 'rare',
+    });
+    expect(received).toHaveLength(1);
+    off();
+  });
+
+  it('EGG_HATCHED carries offspring info', () => {
+    const received: unknown[] = [];
+    const off = eventBus.on('EGG_HATCHED', (p) => received.push(p));
+    eventBus.emit('EGG_HATCHED', {
+      offspringInstanceId: 'inst-xyz',
+      rarity: 'rare',
+      codename: 'aquakit',
+    });
+    expect(received).toHaveLength(1);
+    off();
+  });
+});

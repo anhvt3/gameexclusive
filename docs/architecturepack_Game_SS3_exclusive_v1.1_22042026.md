@@ -709,3 +709,88 @@ still upgrade through v7→v8 chain.
 + `BATTLE_STARS_EARNED { amount: number; total: number }` — engine→bus, consumed by BattleStarsBadge
 + `LOOT_JAR_READY { battlesSince: number }` — engine→bus, consumed by LootJarOverlay
 + `LOGIN_CLAIMED { dayOfCycle: number; streak: number; items: string[] }` — overlay→bus, observability seam
+
+## Phase 3 — Delta (12/05/2026)
+
+Phase 3 ships spend-side economy (Shop), pet collection arc (Breeding), and Server Validation seam (Step 3.5). Type C: SaveState v8→v9 + 4 new EventBus events + new Vite middleware surface.
+
+### §3.1 — Folder structure additions
+- `types/{shop,breeding}.ts`
+- `domain/{ShopEngine,PetBreedingEngine,ServerValidator,performShopPurchase,performBreedingStart,performBreedingHatch}.ts`
+- `data/staticConfig/{shopCatalog,breedingPairs,breedingCosts}.ts`
+- `react/components/{ShopItemCard,PetSlot,EggHatchAnim}.tsx`
+- `react/overlays/{ShopOverlay,PetBreedingOverlay}.tsx`
+- `server/validationRoutes.ts`
+
+### §11.10 — Shop schema (NEW)
+
+3 SaveState v9 fields:
+- `shopStock: ShopItemSlot[]` — 5-slot daily rotating (3 common + 1 rare + 1 epic per Q3 hard cap)
+- `shopStockRefreshedAt: number` — UTC+7 anchor of last refresh
+- `purchaseHistory: Record<string, number>` — lifetime per-itemId counts
+
+Pricing (Q2): common 25-50 stars · rare 100-200 · epic 400-600.
+
+Stock refresh reuses `QuestCycle.dailyAnchor`. Refresh triggers on `AppRouter` mount + window focus. `SHOP_STOCK_REFRESHED` event emitted post-refresh.
+
+Catalog (`shopCatalog.ts`) covers all 10 real ITEM_REGISTRY entries; `ShopEngine.rollStock` samples 3+1+1 slots per cycle.
+
+### §11.11 — Breeding schema (NEW)
+
+1 SaveState v9 field:
+- `breedingChamber: BreedingSession | null` — single active session (multi-slot defer Phase 4)
+
+`BreedingSession` snapshots offspring spec at "Breed" click (no re-roll at hatch). `durationMs = 0` Phase 3 (Q5 instant). `costBattleStars` charged at start per Q4 cost table:
+- common 50 · rare 200 · epic 500 · legendary 1000
+
+Parents stay in roster (Q4). Cost charged via new `spendBattleStars(amount)` SaveState action (mirrors invariant pattern of Sprint F `claimLootJar`).
+
+Compatibility formula (Q6):
+- Same element → MEDIUM (×1.0, fall back to higher-rarity parent codename, no rarity upgrade)
+- Cross-element with `BREEDING_PAIRS` matrix → HIGH (×1.5, catalog codename, upgrade chance = 0.45)
+- Cross-element without matrix → LOW (×0.5, fallback codename, upgrade chance = 0.15)
+
+Roster cap (Q7): `performBreedingStart` returns `roster_full` when `ownedPets.length >= ROSTER_CAP`.
+
+`BREEDING_PAIRS` (15 entries) covers C(6,2) combinations of 6 Sprint C starter elements (Fire, Water, Plant, Ice, Storm, Earth). All `offspringCodename` resolve to STARTER_PETS roster.
+
+### §11.12 — Server validation seam (NEW)
+
+1 SaveState v9 field:
+- `clientNonce: number` — monotonically incrementing, replay protection
+
+`ServerValidator.validateAction(endpoint, payload)`:
+- HMAC-signs `${nonce}:${body}` via project's WebCrypto `signHex` + `deriveKeyFromString` (Step 9.5 seam)
+- POSTs to `/api/{shop,breed}/validate`
+- Bumps `clientNonce` BEFORE fetch (so replay attempts always fail even on network error)
+- Soft-fails on network error (`console.warn` + `ok: true, reason: 'fetch_failed_soft_allow'`) — Phase 3 internal-deploy treats validation as advisory
+
+Vite middleware (`server/validationRoutes.ts`) verifies HMAC + nonce, returns 200/400/401. Production build skips middleware; client falls through soft-fail.
+
+Shared dev secret: `phase3-game-ss3-validation-secret-v1` (both client `ServerValidator` and server middleware derive same CryptoKey). Phase 4+ can rotate via env var.
+
+### §13 — SaveState v9 (additive over v8)
++ `shopStock: ShopItemSlot[]` (default `[]`)
++ `shopStockRefreshedAt: number` (default `0`)
++ `purchaseHistory: Record<string, number>` (default `{}`)
++ `breedingChamber: BreedingSession | null` (default `null`)
++ `clientNonce: number` (default `0`)
+
+Migration v8→v9 additive: `if (version < 9)` injects defaults.
+
+### §14 — EventBus catalog additions
++ `SHOP_STOCK_REFRESHED { slots: ShopItemSlot[]; anchorUtc7: number }` — SaveState refresh → bus → ShopOverlay
++ `SHOP_PURCHASE_COMPLETED { itemId: string; priceCharged: number; stockRemaining: number }` — orchestration → bus → toast/analytics
++ `BREEDING_STARTED { parentA, parentB, durationMs, expectedRarity }` — orchestration → bus → analytics
++ `EGG_HATCHED { offspringInstanceId, rarity, codename }` — orchestration → bus → toast/celebration
+
+### §11.13 — New SaveState v9 actions (8)
+- `spendBattleStars(amount)` — invariant throw on `amount<=0` or `balance<amount`
+- `refreshShopStockIfNeeded(now?)` — idempotent
+- `applyShopPurchase(itemId, priceCharged)` — atomic mint+spend+stock-- +history
+- `startBreeding(session)` — atomic chamber set + stars spend; throws on busy/insufficient
+- `clearBreeding()` — chamber → null
+- `bumpClientNonce()` — +1
+- `isShopStockFresh(now?)` — false when refreshedAt=0, else anchor compare
+- `isBreedingChamberBusy()` — boolean
+

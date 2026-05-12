@@ -78,6 +78,8 @@ export interface GameTestBridge {
     setQuestCycleAnchors: (now: number) => void;
     // Sprint F Task 13 — direct event emit for E2E without running full combat scene.
     emitCombatExit: (won: boolean, expGained?: number) => void;
+    // Phase 3 Task 17 — seed a pet into SaveState for breeding E2E without going through rescue flow.
+    seedPetForBreeding: (codename: string, level: number) => void;
   };
   __phaser: Phaser.Game;
 }
@@ -277,6 +279,12 @@ export function attachGameTestBridge(game: Phaser.Game): void {
         // Sprint F Task 13 — direct event emit for E2E without running full combat scene
         void import('@bus/EventBus').then(({ eventBus: bus }) => {
           bus.emit('EXIT_COMBAT', { won, exp_gained: expGained, monster_id: 1 });
+        });
+      },
+      seedPetForBreeding: (codename: string, level: number) => {
+        // Phase 3 Task 17 — dynamic import like setQuestCycleAnchors pattern (avoids module dep)
+        void import('@persistence/SaveStateStore').then(({ useSaveState: store }) => {
+          store.getState().addPet(codename as never, 'common', level, 0);
         });
       },
       walkPathSafe: async () => {
