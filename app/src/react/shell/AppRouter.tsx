@@ -29,7 +29,9 @@ import { RewardChestOverlay } from '@react/overlays/RewardChestOverlay';
 import { PetRescueOverlay } from '@react/overlays/PetRescueOverlay';
 import { VictoryBanner } from '@react/overlays/VictoryBanner';
 import { QuestProgressToast } from '@react/overlays/QuestProgressToast';
+import { LootJarOverlay } from '@react/overlays/LootJarOverlay';
 import { QuestEngine } from '@/domain/QuestEngine';
+import { DailyRewardEngine } from '@/domain/DailyRewardEngine';
 import { useSaveState } from '@/persistence/SaveStateStore';
 import { PlayScreen } from './PlayScreen';
 import { initAppLifecycle } from './appLifecycle';
@@ -69,6 +71,29 @@ export function AppRouter() {
     };
   }, []);
 
+  // Sprint F Task 12 — DailyRewardEngine lifecycle. Listens for EXIT_COMBAT
+  // wins to grant Battle Stars + tick Loot Jar counter.
+  const dailyEngineRef = useRef<DailyRewardEngine | null>(null);
+
+  useEffect(() => {
+    const startEngine = () => {
+      dailyEngineRef.current = new DailyRewardEngine();
+      dailyEngineRef.current.start();
+    };
+
+    let cleanupHydration: (() => void) | null = null;
+    if (useSaveState.persist.hasHydrated()) {
+      startEngine();
+    } else {
+      cleanupHydration = useSaveState.persist.onFinishHydration(startEngine);
+    }
+
+    return () => {
+      cleanupHydration?.();
+      dailyEngineRef.current?.stop();
+    };
+  }, []);
+
   return (
     <BrowserRouter>
       <Routes>
@@ -90,6 +115,8 @@ export function AppRouter() {
       <VictoryBanner />
       {/* Sprint D Task 12 — QUEST_PROGRESS / QUEST_COMPLETED toast. */}
       <QuestProgressToast />
+      {/* Sprint F Task 12 — LOOT_JAR_READY triggers a 3-frame jar reveal. */}
+      <LootJarOverlay />
     </BrowserRouter>
   );
 }

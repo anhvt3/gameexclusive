@@ -76,6 +76,8 @@ export interface GameTestBridge {
     // bridge module's eval graph free of Sprint D-specific deps (matches
     // the seedRng / scene-key isolation discipline above).
     setQuestCycleAnchors: (now: number) => void;
+    // Sprint F Task 13 — direct event emit for E2E without running full combat scene.
+    emitCombatExit: (won: boolean, expGained?: number) => void;
   };
   __phaser: Phaser.Game;
 }
@@ -269,6 +271,12 @@ export function attachGameTestBridge(game: Phaser.Game): void {
               weeklyEpochUtc7: cycleModule.weeklyAnchor(now),
             },
           });
+        });
+      },
+      emitCombatExit: (won: boolean, expGained = 0) => {
+        // Sprint F Task 13 — direct event emit for E2E without running full combat scene
+        void import('@bus/EventBus').then(({ eventBus: bus }) => {
+          bus.emit('EXIT_COMBAT', { won, exp_gained: expGained, monster_id: 1 });
         });
       },
       walkPathSafe: async () => {

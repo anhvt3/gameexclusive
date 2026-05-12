@@ -7,6 +7,7 @@ import { useSaveState } from '@persistence/SaveStateStore';
 import { TUTORIAL_FLAG } from '@react/mascot/tutorialSteps';
 import { BOSS_PENDING_FLAG, todayIso } from '@domain/BossQuest';
 import { audioManager } from '@/utils/AudioManager';
+import { dailyAnchor } from '@/domain/QuestCycle';
 
 vi.mock('howler', () => ({
   Howl: class {
@@ -240,5 +241,61 @@ describe('MainMenu — Sprint E personalization + Settings + onboarding', () => 
     );
     fireEvent.click(screen.getByTestId('main-menu-play'));
     expect(screen.getByTestId('play-screen')).toBeInTheDocument();
+  });
+});
+
+describe('Sprint F — daily rewards integration', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    useSaveState.getState().reset();
+  });
+
+  it('mounts BattleStarsBadge in header', () => {
+    render(
+      <MemoryRouter>
+        <MainMenu />
+      </MemoryRouter>
+    );
+    expect(screen.getByTestId('battle-stars-badge')).toBeInTheDocument();
+  });
+
+  it('mounts "Quà Hằng Ngày" button', () => {
+    render(
+      <MemoryRouter>
+        <MainMenu />
+      </MemoryRouter>
+    );
+    expect(screen.getByTestId('main-menu-daily-rewards')).toBeInTheDocument();
+  });
+
+  it('shows sparkle indicator when login is claimable', () => {
+    // Fresh state has lastLoginAnchorUtc7=0 → isLoginClaimable=true
+    render(
+      <MemoryRouter>
+        <MainMenu />
+      </MemoryRouter>
+    );
+    expect(screen.getByTestId('main-menu-daily-rewards-sparkle')).toBeInTheDocument();
+  });
+
+  it('hides sparkle when already claimed today', () => {
+    useSaveState.getState().commitLoginClaim(dailyAnchor(Date.now()), 1);
+    render(
+      <MemoryRouter>
+        <MainMenu />
+      </MemoryRouter>
+    );
+    expect(screen.queryByTestId('main-menu-daily-rewards-sparkle')).not.toBeInTheDocument();
+  });
+
+  it('clicking daily rewards button opens DailyLoginCalendarOverlay', () => {
+    render(
+      <MemoryRouter>
+        <MainMenu />
+      </MemoryRouter>
+    );
+    expect(screen.queryByTestId('daily-login-overlay')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('main-menu-daily-rewards'));
+    expect(screen.getByTestId('daily-login-overlay')).toBeInTheDocument();
   });
 });

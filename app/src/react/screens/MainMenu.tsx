@@ -18,6 +18,8 @@ import { useGameAudio } from '@react/shell/useGameAudio';
 import { QUESTS } from '@data/staticConfig/quests';
 import { PLAYER_NAME_PLACEHOLDER } from '@/types/identity';
 import { OnboardingFlow } from '@/react/onboarding/OnboardingFlow';
+import { BattleStarsBadge } from '@/react/components/BattleStarsBadge';
+import { DailyLoginCalendarOverlay } from '@/react/overlays/DailyLoginCalendarOverlay';
 
 export function MainMenu() {
   const navigate = useNavigate();
@@ -32,7 +34,9 @@ export function MainMenu() {
   );
   const playerName = useSaveState((s) => s.playerName);
   const tutorialCompleted = useSaveState((s) => s.flags[TUTORIAL_FLAG] === true);
+  const isLoginClaimable = useSaveState((s) => s.isLoginClaimable(Date.now()));
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showLoginCalendar, setShowLoginCalendar] = useState(false);
   const displayName = playerName ?? PLAYER_NAME_PLACEHOLDER;
   const { playSfx } = useGameAudio();
 
@@ -66,7 +70,10 @@ export function MainMenu() {
       <header className="flex flex-col items-center gap-2 pt-8">
         <h1 className="text-3xl font-extrabold tracking-tight text-amber-900">Elemagica</h1>
         <p className="text-sm text-amber-700">Clevai Adventure</p>
-        <p className="text-base font-semibold text-amber-800">Xin chào, {displayName}!</p>
+        <div className="flex items-center gap-3">
+          <p className="text-base font-semibold text-amber-800">Xin chào, {displayName}!</p>
+          <BattleStarsBadge />
+        </div>
       </header>
 
       <section className="flex flex-col items-center gap-4">
@@ -140,6 +147,21 @@ export function MainMenu() {
             />
           )}
         </button>
+        <button
+          type="button"
+          data-testid="main-menu-daily-rewards"
+          onMouseEnter={onHover}
+          onClick={click(() => setShowLoginCalendar(true))}
+          className="relative w-full rounded-xl bg-amber-500 px-6 py-3 text-base font-semibold text-white shadow transition hover:bg-amber-600"
+        >
+          🎁 Quà Hằng Ngày
+          {isLoginClaimable && (
+            <span
+              data-testid="main-menu-daily-rewards-sparkle"
+              className="absolute -top-1 -right-1 h-3 w-3 animate-pulse rounded-full bg-yellow-300 shadow-[0_0_6px_rgba(253,224,71,0.9)]"
+            />
+          )}
+        </button>
         <div className="flex gap-3">
           <button
             type="button"
@@ -171,6 +193,10 @@ export function MainMenu() {
           }}
         />
       )}
+      <DailyLoginCalendarOverlay
+        open={showLoginCalendar}
+        onClose={() => setShowLoginCalendar(false)}
+      />
     </main>
   );
 }

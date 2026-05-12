@@ -7,6 +7,7 @@ import {
   InvalidEquipError,
   __setLevelUpRng,
   __resetLevelUpRng,
+  LOOT_JAR_THRESHOLD,
 } from './SaveStateStore';
 import { EMPTY_EQUIPMENT, type InventoryItem } from '@/types/item';
 import { ROSTER_CAP } from '@/types/pet';
@@ -134,8 +135,8 @@ describe('SaveStateStore — persistence', () => {
     expect(parsed.version).toBeDefined();
   });
 
-  it('SCHEMA_VERSION is at v7 (Sprint E Task 2 identity + settings)', () => {
-    expect(SCHEMA_VERSION).toBe(7);
+  it('SCHEMA_VERSION is at v8 (Sprint F Task 6 daily reward fields)', () => {
+    expect(SCHEMA_VERSION).toBe(8);
   });
 });
 
@@ -429,7 +430,7 @@ describe('SaveState v4 migration', () => {
     localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v3Save));
     await useSaveState.persist.rehydrate();
     const s = useSaveState.getState();
-    expect(SCHEMA_VERSION).toBe(7);
+    expect(SCHEMA_VERSION).toBe(8);
     expect(s.defeatedBossIds).toEqual([]);
     expect(s.claimedChestIds).toEqual([]);
     expect(s.currentZoneId).toBeNull();
@@ -492,7 +493,7 @@ describe('SaveState v4 migration', () => {
     localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v2Save));
     await useSaveState.persist.rehydrate();
     const s = useSaveState.getState();
-    expect(SCHEMA_VERSION).toBe(7);
+    expect(SCHEMA_VERSION).toBe(8);
     expect(s.active_pet_instance_id).toBeNull();
     expect(s.defeatedBossIds).toEqual([]);
     expect(s.claimedChestIds).toEqual([]);
@@ -605,7 +606,7 @@ describe('SaveState v5 migration', () => {
     localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v4Save));
     await useSaveState.persist.rehydrate();
     const s = useSaveState.getState();
-    expect(SCHEMA_VERSION).toBe(7);
+    expect(SCHEMA_VERSION).toBe(8);
     expect(s.ownedPets).toEqual([]);
     // v4 fields preserved
     expect(s.defeatedBossIds).toEqual(['forest-boss']);
@@ -674,7 +675,7 @@ describe('SaveState v5 migration', () => {
     localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v3Save));
     await useSaveState.persist.rehydrate();
     const s = useSaveState.getState();
-    expect(SCHEMA_VERSION).toBe(7);
+    expect(SCHEMA_VERSION).toBe(8);
     expect(s.ownedPets).toEqual([]);
     expect(s.defeatedBossIds).toEqual([]); // v3→v4 step also fired
   });
@@ -1046,5 +1047,258 @@ describe('SaveState v7 actions', () => {
     expect(after.gender).toBe('male');
     expect(after.hairStyle).toBe('a');
     expect(after.hintDifficulty).toBe('medium');
+  });
+});
+
+// ─── Sprint F — v8 daily reward fields ────────────────────────────────────────
+
+describe('SaveState v8 migration', () => {
+  it('migrates v7 → v8 with 4 new fields defaulting to 0', async () => {
+    const v7Snapshot = {
+      schemaVersion: 7,
+      playerName: 'Minh',
+      gender: 'male',
+      hairStyle: 'a',
+      hintDifficulty: 'medium',
+      questProgress: {},
+      claimedRewards: [],
+      questCycleAnchors: { dailyEpochUtc7: 0, weeklyEpochUtc7: 0 },
+      ownedPets: [],
+    };
+    localStorage.setItem(SAVE_STATE_KEY, JSON.stringify({ state: v7Snapshot, version: 7 }));
+    await useSaveState.persist.rehydrate();
+    const s = useSaveState.getState();
+    expect(s.lastLoginAnchorUtc7).toBe(0);
+    expect(s.loginStreak).toBe(0);
+    expect(s.battleStars).toBe(0);
+    expect(s.lootJarBattlesSinceLast).toBe(0);
+    // pre-existing v7 fields preserved
+    expect(s.playerName).toBe('Minh');
+    expect(s.hintDifficulty).toBe('medium');
+  });
+
+  it('idempotent on v8 — non-zero values preserved through re-hydration', async () => {
+    const v8Snapshot = {
+      schemaVersion: 8,
+      playerName: 'An',
+      gender: 'female',
+      hairStyle: 'b',
+      hintDifficulty: 'easy',
+      questProgress: {},
+      claimedRewards: [],
+      questCycleAnchors: { dailyEpochUtc7: 0, weeklyEpochUtc7: 0 },
+      ownedPets: [],
+      lastLoginAnchorUtc7: 9999,
+      loginStreak: 3,
+      battleStars: 42,
+      lootJarBattlesSinceLast: 1,
+    };
+    localStorage.setItem(SAVE_STATE_KEY, JSON.stringify({ state: v8Snapshot, version: 8 }));
+    await useSaveState.persist.rehydrate();
+    const s = useSaveState.getState();
+    expect(s.lastLoginAnchorUtc7).toBe(9999);
+    expect(s.loginStreak).toBe(3);
+    expect(s.battleStars).toBe(42);
+    expect(s.lootJarBattlesSinceLast).toBe(1);
+  });
+});
+
+describe('Sprint F — v8 daily reward fields', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    useSaveState.getState().reset();
+  });
+
+  describe('addBattleStars', () => {
+    it('adds positive amount to battleStars', () => {
+      useSaveState.getState().addBattleStars(15);
+      expect(useSaveState.getState().battleStars).toBe(15);
+      useSaveState.getState().addBattleStars(10);
+      expect(useSaveState.getState().battleStars).toBe(25);
+    });
+
+    it('no-op for amount === 0', () => {
+      useSaveState.getState().addBattleStars(20);
+      useSaveState.getState().addBattleStars(0);
+      expect(useSaveState.getState().battleStars).toBe(20);
+    });
+
+    it('no-op for negative amount', () => {
+      useSaveState.getState().addBattleStars(20);
+      useSaveState.getState().addBattleStars(-5);
+      expect(useSaveState.getState().battleStars).toBe(20);
+    });
+  });
+
+  describe('incrementLootJarCounter', () => {
+    it('starts at 0 after reset', () => {
+      expect(useSaveState.getState().lootJarBattlesSinceLast).toBe(0);
+    });
+
+    it('increments by 1 each call', () => {
+      useSaveState.getState().incrementLootJarCounter();
+      useSaveState.getState().incrementLootJarCounter();
+      expect(useSaveState.getState().lootJarBattlesSinceLast).toBe(2);
+    });
+  });
+
+  describe('isLootJarReady', () => {
+    it('LOOT_JAR_THRESHOLD is 3', () => {
+      expect(LOOT_JAR_THRESHOLD).toBe(3);
+    });
+
+    it('false when counter < threshold', () => {
+      for (let i = 0; i < LOOT_JAR_THRESHOLD - 1; i++) {
+        useSaveState.getState().incrementLootJarCounter();
+      }
+      expect(useSaveState.getState().isLootJarReady()).toBe(false);
+    });
+
+    it('true when counter === threshold', () => {
+      for (let i = 0; i < LOOT_JAR_THRESHOLD; i++) {
+        useSaveState.getState().incrementLootJarCounter();
+      }
+      expect(useSaveState.getState().isLootJarReady()).toBe(true);
+    });
+
+    it('true when counter > threshold', () => {
+      for (let i = 0; i < LOOT_JAR_THRESHOLD + 2; i++) {
+        useSaveState.getState().incrementLootJarCounter();
+      }
+      expect(useSaveState.getState().isLootJarReady()).toBe(true);
+    });
+  });
+
+  describe('claimLootJar', () => {
+    it('returns null when counter < threshold (not ready)', () => {
+      useSaveState.getState().incrementLootJarCounter();
+      useSaveState.getState().incrementLootJarCounter();
+      const result = useSaveState.getState().claimLootJar(1);
+      expect(result).toBeNull();
+    });
+
+    it('returns null when counter === 0', () => {
+      const result = useSaveState.getState().claimLootJar(1);
+      expect(result).toBeNull();
+    });
+
+    it('mints 3 items and resets counter when ready', () => {
+      // Use a deterministic rng so rollDrop always picks an item
+      const deterministicRng = () => 0;
+      for (let i = 0; i < LOOT_JAR_THRESHOLD; i++) {
+        useSaveState.getState().incrementLootJarCounter();
+      }
+      const inventoryBefore = useSaveState.getState().inventory.length;
+      const items = useSaveState.getState().claimLootJar(5, deterministicRng);
+      expect(items).not.toBeNull();
+      expect(items).toHaveLength(3);
+      expect(useSaveState.getState().lootJarBattlesSinceLast).toBe(0);
+      // Inventory grew by 3
+      expect(useSaveState.getState().inventory.length).toBe(inventoryBefore + 3);
+    });
+
+    it('each minted item has a valid itemId and instanceId', () => {
+      const deterministicRng = () => 0;
+      for (let i = 0; i < LOOT_JAR_THRESHOLD; i++) {
+        useSaveState.getState().incrementLootJarCounter();
+      }
+      const items = useSaveState.getState().claimLootJar(5, deterministicRng);
+      expect(items).not.toBeNull();
+      for (const item of items!) {
+        expect(typeof item.id).toBe('string');
+        expect(item.id.length).toBeGreaterThan(0);
+      }
+      // Verify inventory entries are properly linked
+      const inventory = useSaveState.getState().inventory;
+      const lastThree = inventory.slice(-3);
+      for (const inv of lastThree) {
+        expect(typeof inv.instanceId).toBe('string');
+        expect(typeof inv.itemId).toBe('string');
+        expect(typeof inv.acquiredAt).toBe('number');
+      }
+    });
+
+    it('returns null again after claiming (counter reset to 0)', () => {
+      const deterministicRng = () => 0;
+      for (let i = 0; i < LOOT_JAR_THRESHOLD; i++) {
+        useSaveState.getState().incrementLootJarCounter();
+      }
+      useSaveState.getState().claimLootJar(5, deterministicRng);
+      expect(useSaveState.getState().claimLootJar(5, deterministicRng)).toBeNull();
+    });
+
+    it('always returns exactly 3 items with default RNG (registry guarantee)', () => {
+      for (let i = 0; i < 3; i++) {
+        useSaveState.getState().incrementLootJarCounter();
+      }
+      // Default rng = Math.random — relies on the production item registry
+      // having common items at minLevel <= 1.
+      const items = useSaveState.getState().claimLootJar(1);
+      expect(items).not.toBeNull();
+      expect(items).toHaveLength(3);
+    });
+
+    it('returns null gracefully when rollDrop has no eligible item (registry edge case)', () => {
+      for (let i = 0; i < 3; i++) {
+        useSaveState.getState().incrementLootJarCounter();
+      }
+      // Force rollDrop to fail by passing heroLevel = 0.
+      // All common items in registry have minLevel >= 1, so rollDrop will return null.
+      const items = useSaveState.getState().claimLootJar(0);
+      // Should return null gracefully (not throw)
+      expect(items).toBeNull();
+      // Counter should NOT be reset on null return (player can retry)
+      expect(useSaveState.getState().lootJarBattlesSinceLast).toBe(3);
+    });
+  });
+
+  describe('commitLoginClaim + isLoginClaimable', () => {
+    it('isLoginClaimable true when never claimed (anchor=0)', () => {
+      expect(useSaveState.getState().isLoginClaimable()).toBe(true);
+    });
+
+    it('commitLoginClaim sets anchor + streak atomically', () => {
+      const now = Date.now();
+      const todayAnchor = dailyAnchor(now);
+      useSaveState.getState().commitLoginClaim(todayAnchor, 1);
+      expect(useSaveState.getState().lastLoginAnchorUtc7).toBe(todayAnchor);
+      expect(useSaveState.getState().loginStreak).toBe(1);
+    });
+
+    it('isLoginClaimable false same day after commit', () => {
+      const now = Date.now();
+      const todayAnchor = dailyAnchor(now);
+      useSaveState.getState().commitLoginClaim(todayAnchor, 1);
+      expect(useSaveState.getState().isLoginClaimable(now)).toBe(false);
+    });
+
+    it('isLoginClaimable true after 1 day (yesterday anchor stored)', () => {
+      const now = Date.now();
+      const yesterdayAnchor = dailyAnchor(now) - 24 * 60 * 60 * 1000;
+      useSaveState.getState().commitLoginClaim(yesterdayAnchor, 5);
+      expect(useSaveState.getState().loginStreak).toBe(5);
+      expect(useSaveState.getState().isLoginClaimable(now)).toBe(true);
+    });
+
+    it('commitLoginClaim updates streak correctly', () => {
+      useSaveState.getState().commitLoginClaim(12345, 7);
+      expect(useSaveState.getState().loginStreak).toBe(7);
+      useSaveState.getState().commitLoginClaim(99999, 8);
+      expect(useSaveState.getState().loginStreak).toBe(8);
+    });
+  });
+
+  describe('reset', () => {
+    it('clears all 4 v8 fields to 0', () => {
+      useSaveState.getState().addBattleStars(99);
+      useSaveState.getState().incrementLootJarCounter();
+      useSaveState.getState().commitLoginClaim(1234567890, 7);
+      useSaveState.getState().reset();
+      const s = useSaveState.getState();
+      expect(s.battleStars).toBe(0);
+      expect(s.lootJarBattlesSinceLast).toBe(0);
+      expect(s.lastLoginAnchorUtc7).toBe(0);
+      expect(s.loginStreak).toBe(0);
+    });
   });
 });

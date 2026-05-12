@@ -153,3 +153,35 @@ describe('Sprint D EventBus events', () => {
     expect(captured.label).toBeUndefined();
   });
 });
+
+describe('Sprint F — daily reward events', () => {
+  it('BATTLE_STARS_EARNED carries amount + total', () => {
+    const received: Array<{ amount: number; total: number }> = [];
+    const off = eventBus.on('BATTLE_STARS_EARNED', (p) => received.push(p));
+    eventBus.emit('BATTLE_STARS_EARNED', { amount: 15, total: 175 });
+    expect(received).toEqual([{ amount: 15, total: 175 }]);
+    off();
+  });
+
+  it('LOOT_JAR_READY carries battlesSince', () => {
+    const received: Array<{ battlesSince: number }> = [];
+    const off = eventBus.on('LOOT_JAR_READY', (p) => received.push(p));
+    eventBus.emit('LOOT_JAR_READY', { battlesSince: 3 });
+    expect(received).toEqual([{ battlesSince: 3 }]);
+    off();
+  });
+
+  it('LOGIN_CLAIMED carries dayOfCycle, streak, items', () => {
+    const received: Array<{ dayOfCycle: number; streak: number; items: string[] }> = [];
+    const off = eventBus.on('LOGIN_CLAIMED', (p) => received.push(p));
+    eventBus.emit('LOGIN_CLAIMED', {
+      dayOfCycle: 4,
+      streak: 4,
+      items: ['health-potion-small', 'mana-potion-small'],
+    });
+    expect(received).toEqual([
+      { dayOfCycle: 4, streak: 4, items: ['health-potion-small', 'mana-potion-small'] },
+    ]);
+    off();
+  });
+});

@@ -44,7 +44,10 @@ import { dailyAnchor, weeklyAnchor, needsRefresh } from '@/domain/QuestCycle';
 import { rollQuestReward } from '@/domain/QuestReward';
 
 export const SAVE_STATE_KEY = 'game_ss3_save_v1';
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
+
+/** Battles required since last loot-jar claim before the jar is ready to open. */
+export const LOOT_JAR_THRESHOLD = 3;
 
 export function thresholdForLevel(level: number): number {
   return Math.floor(100 * Math.pow(level, 1.5));
@@ -111,6 +114,11 @@ export interface SaveStateData {
   gender: Gender;
   hairStyle: HairStyle;
   hintDifficulty: HintDifficulty;
+  // v8 additions (Sprint F Task 6 — daily login reward + loot jar + battle stars)
+  lastLoginAnchorUtc7: number;
+  loginStreak: number;
+  battleStars: number;
+  lootJarBattlesSinceLast: number;
 }
 
 export interface SaveStateActions {
@@ -149,6 +157,13 @@ export interface SaveStateActions {
   setGender: (gender: Gender) => void;
   setHairStyle: (style: HairStyle) => void;
   setHintDifficulty: (difficulty: HintDifficulty) => void;
+  // v8 actions (Sprint F Task 6 — daily login reward + loot jar + battle stars)
+  addBattleStars: (amount: number) => void;
+  incrementLootJarCounter: () => void;
+  claimLootJar: (heroLevel: number, rng?: () => number) => ItemDef[] | null;
+  commitLoginClaim: (anchorUtc7: number, newStreak: number) => void;
+  isLoginClaimable: (now?: number) => boolean;
+  isLootJarReady: () => boolean;
   reset: () => void;
 }
 
@@ -180,6 +195,10 @@ const INITIAL_STATE: SaveStateData = {
   gender: 'male',
   hairStyle: 'a',
   hintDifficulty: 'medium',
+  lastLoginAnchorUtc7: 0,
+  loginStreak: 0,
+  battleStars: 0,
+  lootJarBattlesSinceLast: 0,
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -244,6 +263,15 @@ function migrate(persisted: unknown, version: number): SaveStateData {
       gender: 'male',
       hairStyle: 'a',
       hintDifficulty: 'medium',
+    };
+  }
+  if (version < 8) {
+    s = {
+      ...s,
+      lastLoginAnchorUtc7: 0,
+      loginStreak: 0,
+      battleStars: 0,
+      lootJarBattlesSinceLast: 0,
     };
   }
   return s;
@@ -510,6 +538,50 @@ export const useSaveState = create<SaveStateStore>()(
 
       setHintDifficulty: (difficulty) => set({ hintDifficulty: difficulty }),
 
+      // v8 actions (Sprint F Task 6 — daily login reward + loot jar + battle stars)
+      addBattleStars: (amount) => {
+        if (amount <= 0) return;
+        set((state) => ({ battleStars: state.battleStars + amount }));
+      },
+
+      incrementLootJarCounter: () =>
+        set((state) => ({ lootJarBattlesSinceLast: state.lootJarBattlesSinceLast + 1 })),
+
+      isLootJarReady: () => get().lootJarBattlesSinceLast >= LOOT_JAR_THRESHOLD,
+
+      claimLootJar: (heroLevel, rng = Math.random) => {
+        const state = get();
+        if (state.lootJarBattlesSinceLast < LOOT_JAR_THRESHOLD) return null;
+        const minted: ItemDef[] = [];
+        const instances: InventoryItem[] = [];
+        for (let i = 0; i < 3; i++) {
+          const item = rollDrop({ pool: ITEM_REGISTRY, level: heroLevel, rng });
+          if (!item) {
+            // Registry edge case: no eligible common item at this hero level.
+            // Mirror claimQuestReward sibling pattern — return null so caller
+            // can render "Phần thưởng chưa sẵn sàng" gracefully. Counter is
+            // NOT reset (player can retry once registry is fixed).
+            return null;
+          }
+          minted.push(item);
+          instances.push({
+            instanceId: genInstanceId(),
+            itemId: item.id,
+            acquiredAt: Date.now(),
+          });
+        }
+        set((s) => ({
+          inventory: [...s.inventory, ...instances],
+          lootJarBattlesSinceLast: 0,
+        }));
+        return minted;
+      },
+
+      commitLoginClaim: (anchorUtc7, newStreak) =>
+        set({ lastLoginAnchorUtc7: anchorUtc7, loginStreak: newStreak }),
+
+      isLoginClaimable: (now = Date.now()) => dailyAnchor(now) > get().lastLoginAnchorUtc7,
+
       reset: () =>
         set({
           ...INITIAL_STATE,
@@ -523,6 +595,10 @@ export const useSaveState = create<SaveStateStore>()(
           gender: 'male',
           hairStyle: 'a',
           hintDifficulty: 'medium',
+          lastLoginAnchorUtc7: 0,
+          loginStreak: 0,
+          battleStars: 0,
+          lootJarBattlesSinceLast: 0,
         }),
     }),
     {

@@ -95,6 +95,18 @@ export type GameEvent =
   | {
       type: 'QUEST_PROGRESS';
       payload: { questId: string; delta: number };
+    }
+  | {
+      type: 'BATTLE_STARS_EARNED';
+      payload: { amount: number; total: number };
+    }
+  | {
+      type: 'LOOT_JAR_READY';
+      payload: { battlesSince: number };
+    }
+  | {
+      type: 'LOGIN_CLAIMED';
+      payload: { dayOfCycle: number; streak: number; items: string[] };
     };
 
 // Strip `type` field and map to payload type

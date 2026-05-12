@@ -629,3 +629,83 @@ Reward minting: NONE — Sprint E is pure UI + persistence.
 
 ### §14 — EventBus catalog additions / extensions
 None. Sprint E is state-driven (Zustand subscriptions handle re-renders).
+
+## Sprint F — Delta (07/05/2026)
+
+Sprint F ships the return-tomorrow retention loop: daily login calendar
++ Loot Jar + Battle Stars currency. Type B (4 new persisted SaveState
+fields + 3 new typed events). No combat code modified.
+
+### §3.1 — Folder structure additions
+- `types/dailyReward.ts`
+- `domain/{StreakMultiplier,LoginCalendar,DailyRewardEngine,performLoginClaim}.ts`
+- `data/staticConfig/loginCalendar.ts`
+- `react/components/BattleStarsBadge.tsx` (new `components/` folder)
+- `react/overlays/{DailyLoginCalendarOverlay,LootJarOverlay}.tsx`
+
+### §11.9 — Daily Reward schema (NEW)
+
+Four SaveState v8 fields drive the daily reward loop:
+- `lastLoginAnchorUtc7: number` — epoch ms of the UTC+7 midnight at
+  which the last login claim happened. 0 = never claimed. Reused
+  `QuestCycle.dailyAnchor` for math (no new helper).
+- `loginStreak: number` — consecutive UTC+7 days claimed. Reset to 1
+  on miss (Q2 strict streak break).
+- `battleStars: number` — currency earned on combat wins + login
+  rewards. Earn-only this sprint; spend in Phase 3 shop.
+- `lootJarBattlesSinceLast: number` — counter from 0..3.
+  `LOOT_JAR_THRESHOLD = 3` exported. Reset to 0 on `claimLootJar`.
+
+7-day calendar template (`LOGIN_CALENDAR_TEMPLATE`):
+- Days 1, 2, 3, 5, 6: `{ kind: 'item', rarity: 'common', qty: 1 }`
+- Day 4: `{ kind: 'stars', amount: 50 }`
+- Day 7 (boss-of-week): `{ kind: 'mixed', rarity: 'rare', starsBonus: 100 }`
+
+Streak multiplier stair (`STREAK_TIERS`, descending):
+- 30+ days → ×2.0 (large flame 🔥🔥🔥)
+- 7-29 days → ×1.5 (medium flame 🔥🔥)
+- 3-6 days → ×1.2 (small flame 🔥)
+- 1-2 days → ×1.0 (no flame)
+
+`applyMultiplier` rounds stars/starsBonus via `Math.round`; item qty
+uses `Math.max(1, Math.round(...))` to floor at 1.
+
+`DailyRewardEngine` observer — listens `EXIT_COMBAT { won: true }`:
+- Earn formula: `5 * heroLevel` (hero level read from SaveState; spec
+  §4.3 originally read `p.combatLevel` but EXIT_COMBAT payload has
+  no such field — documented deviation).
+- Emits `BATTLE_STARS_EARNED { amount, total }` every win.
+- Increments `lootJarBattlesSinceLast`; emits `LOOT_JAR_READY { battlesSince }`
+  when counter reaches threshold (3). Resets to 0 on `claimLootJar`.
+- Idempotent `start()` (subscriptions guard); explicit `stop()` clears.
+
+`performLoginClaim(now, rng)` orchestration helper:
+- Evaluates claimability via `evaluateLoginClaimable`
+- Mints item(s) via `rollDrop` (common at hero level for days 1-6;
+  rare at `GUARANTEED_LEVEL=99` sentinel for day-7 to bypass minLevel
+  gating). Adds via `addInventoryItem`.
+- Adds stars (days 4 + 7) via `addBattleStars`.
+- Calls `commitLoginClaim(dailyAnchor(now), newStreak)` atomically.
+- Emits `LOGIN_CLAIMED { dayOfCycle, streak, items }`.
+- Returns null if not claimable (already claimed today).
+
+`claimLootJar(heroLevel, rng?)` SaveState action:
+- Precondition: `lootJarBattlesSinceLast >= LOOT_JAR_THRESHOLD`. Returns null otherwise.
+- Mints EXACTLY 3 items via `rollDrop` against ITEM_REGISTRY (common pool).
+- THROWS on `rollDrop` returning null — internal-only fail-loud invariant
+  (registry guarantees common items at level >= 1 via test).
+- Resets counter to 0. Returns ItemDef[] length 3.
+
+### §13 — SaveState v8 (additive over v7)
++ `lastLoginAnchorUtc7: number` (default `0`)
++ `loginStreak: number` (default `0`)
++ `battleStars: number` (default `0`)
++ `lootJarBattlesSinceLast: number` (default `0`)
+
+Migration v7→v8 additive: `if (version < 8)` injects defaults. v6 saves
+still upgrade through v7→v8 chain.
+
+### §14 — EventBus catalog additions / extensions
++ `BATTLE_STARS_EARNED { amount: number; total: number }` — engine→bus, consumed by BattleStarsBadge
++ `LOOT_JAR_READY { battlesSince: number }` — engine→bus, consumed by LootJarOverlay
++ `LOGIN_CLAIMED { dayOfCycle: number; streak: number; items: string[] }` — overlay→bus, observability seam

@@ -663,3 +663,28 @@ No placeholder art reaches dev.
 **Sprint E closed.** 8 hair PNG assets bundled with this branch
 (committed pre-T1 per pre-merge gate convention; squash merge bundles
 them with code).
+
+### Phase 2.5 — Sprint F (07/05/2026) — Free Daily Rewards
+
+| # | Step | Status |
+|---|---|---|
+| S-F.0 | Preflight (baseline 874 tests, lint/typecheck/verify green) | ✅ |
+| S-F.1 | types/dailyReward.ts (LoginDayReward + StreakTierDef) | ✅ |
+| S-F.2 | domain/StreakMultiplier.ts stair (1.0/1.2/1.5/2.0) + 7 tests | ✅ |
+| S-F.3 | data/staticConfig/loginCalendar.ts 7-day template + applyMultiplier + 8 tests | ✅ |
+| S-F.4 | domain/LoginCalendar.ts evaluateLoginClaimable + computeNewStreak (pure) + 10 tests | ✅ |
+| S-F.6 | SaveState v7→v8 (4 fields + 6 actions including claimLootJar throw-on-null contract) + 22 tests | ✅ |
+| S-F.7 | EventBus +BATTLE_STARS_EARNED +LOOT_JAR_READY +LOGIN_CLAIMED + 3 tests | ✅ |
+| S-F.5 | domain/DailyRewardEngine.ts observer (EXIT_COMBAT → stars+jar) + 10 tests | ✅ |
+| S-F.8 | react/components/BattleStarsBadge.tsx (new components/ folder) + 4 tests | ✅ |
+| S-F.9 | DailyLoginCalendarOverlay + performLoginClaim orchestration + 13 tests | ✅ |
+| S-F.10 | LootJarOverlay (3-frame reveal + idempotency guard) + 6 tests | ✅ |
+| S-F.11 | MainMenu Battle Stars badge + Quà Hằng Ngày button + 5 tests | ✅ |
+| S-F.12 | AppRouter wire DailyRewardEngine + LootJarOverlay | ✅ |
+| S-F.13 | E2E sprint_f_rewards.spec.ts (login claim + jar reveal flow) | ✅ |
+| S-F.14 | AP §11.9 + §13 + §14 delta + ISP roll-up + tasks/todo.md | ✅ |
+
+**Sprint F closed.** Tasks 5/6/7 reordered (6+7 before 5) per dependency
+analysis. Asset delivery pending Antigravity: calendar plate, jar 3-frame,
+star icon+badge, 3 flame variants — Sprint F ships with emoji/Tailwind
+fallback (CSS shake animation). Phase 2.5 COMPLETE: 6/6 sprints shipped.
