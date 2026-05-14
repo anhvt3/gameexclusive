@@ -73,7 +73,7 @@ async function main() {
   console.log(`[smoke] updated_at before:`, beforeTs);
   console.log(`[smoke] updated_at after :`, afterTs);
   console.log(`[smoke] level after :`, afterUpdate.rows[0].level);
-  console.log(`[smoke] trigger fired: ${new Date(afterTs).getTime() > new Date(beforeTs).getTime()}`);
+  console.log(`[smoke] trigger fired: ${new Date(afterTs as string | number | Date).getTime() > new Date(beforeTs as string | number | Date).getTime()}`);
 
   // UPSERT test
   console.log(`[smoke] formatUpsert test ...`);

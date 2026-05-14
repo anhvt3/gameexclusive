@@ -50,6 +50,45 @@ jobs:
       - name: Build
         run: npm run build
 
+  api:
+    name: API Typecheck (Phase 5 Vercel functions)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    defaults:
+      run:
+        working-directory: api
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: api/package-lock.json
+
+      - name: Install API dependencies
+        run: npm ci || npm install
+
+      - name: API typecheck
+        run: npm run typecheck
+
+  schema-drift:
+    name: SQL schema drift (Postgres UAT vs MySQL canonical)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run drift check
+        run: node scripts/check_sql_drift.mjs
+
   e2e:
     name: E2E Tests
     runs-on: ubuntu-latest

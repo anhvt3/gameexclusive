@@ -1,0 +1,66 @@
+name: Deploy — Sentry release tagging
+
+# Phase 5 D.2 — Vercel handles the actual deploy via its GitHub integration
+# (push to main triggers prod, push to other branches triggers preview). This
+# workflow only handles Sentry release + sourcemap upload so frontend errors
+# get attributed to the correct git SHA.
+#
+# Skips entirely when SENTRY_AUTH_TOKEN secret is unset (em không muốn make
+# CI fail for forks / local devs).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: sentry-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  sentry-release:
+    name: Tag Sentry release + upload sourcemaps
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: ${{ github.repository_owner == 'anhvt3' }}
+    defaults:
+      run:
+        working-directory: app
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build with sourcemaps
+        env:
+          VITE_SENTRY_RELEASE: ${{ github.sha }}
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+          VITE_AMPLITUDE_API_KEY: ${{ secrets.VITE_AMPLITUDE_API_KEY }}
+          VITE_API_BASE: ${{ secrets.VITE_API_BASE }}
+          VITE_BACKEND_ENABLED: 'true'
+          VITE_PHASE5_VALIDATION_SECRET: ${{ secrets.VITE_PHASE5_VALIDATION_SECRET }}
+        run: npm run build
+
+      - name: Create Sentry release
+        if: ${{ env.SENTRY_AUTH_TOKEN != '' }}
+        uses: getsentry/action-release@v1
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+        with:
+          environment: production
+          version: ${{ github.sha }}
+          sourcemaps: app/dist
+          working_directory: .
