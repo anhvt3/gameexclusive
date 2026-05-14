@@ -803,3 +803,76 @@ Migration v8→v9 additive: `if (version < 9)` injects defaults.
 - `isShopStockFresh(now?)` — false when refreshedAt=0, else anchor compare
 - `isBreedingChamberBusy()` — boolean
 
+
+## Phase 4 — Delta (12/05/2026)
+
+Phase 4 ships breeding timer (5/15/60/120 min by rarity) + Rush mechanic (cost = breeding cost) + Telemetry observability seam + Production Deploy design spec. Type B: SaveState v9→v10 + 1 new SaveState action + new observability surface; no new EventBus event family (only optional payload extension to EGG_HATCHED).
+
+### §3.1 — Folder structure additions
+- `domain/{BreedingDurations,BreedingRush,performBreedingRush}.ts`
+- `observability/{Telemetry,TelemetryEngine}.ts` (NEW directory)
+- `react/components/BreedingCountdown.tsx`
+- `server/telemetryRoute.ts`
+- `docs/superpowers/specs/2026-05-12-phase-4-production-deploy.md` (sibling spec)
+
+### §11.11 — Breeding schema (Phase 4 UPDATE)
+
+`BreedingSession` v10 shape:
+- `hatchAt: number` NEW — epoch ms when egg ready
+- `rushedAt: number | null` NEW — permanent flag, non-null = user rushed
+- `durationMs` REMOVED from type (legacy field tolerated in migration)
+
+Duration scale per rarity (Q2):
+- common 5 min · rare 15 min · epic 60 min · legendary 120 min
+
+Rush cost = breeding cost (Q3 parity):
+- common 50 stars · rare 200 · epic 500 · legendary 1000
+
+`performBreedingRush(now)` orchestration:
+- validateRush + server roundtrip + `rushBreeding(now, cost)` SaveState action
+- Returns `'already_rushed' | 'already_ready' | 'insufficient_stars' | 'no_active_session' | 'server_*'` on failure
+- Calls `trackBreedingRush(...)` directly with `timeRemainingMs` context (captured BEFORE rush mutation)
+
+Offline progress UX (Q4): MainMenu Lai Tạo button shows sparkle when `chamber !== null && Date.now() >= chamber.hatchAt`. NO auto-hatch animation. Reload into overlay → enters `ready` state directly.
+
+### §11.14 — Telemetry seam (NEW)
+
+Zod-validated typed events (Q8):
+- `shop_purchase { itemId, priceCharged, battleStarsAfter }`
+- `breeding_start { parentA, parentB, offspringRarity, costPaid, hatchAt }`
+- `breeding_rush { offspringRarity, costPaid, timeRemainingMs }`
+- `breeding_hatch { offspringInstanceId, offspringRarity, wasRushed }`
+
+Dual transport (Q7): `console.log` structured JSON + POST `/api/telemetry`. Soft-fails on network error (`console.warn` + resolves undefined; never throws).
+
+`TelemetryEngine` observer subscribes 3 EventBus events on `start()`:
+- `SHOP_PURCHASE_COMPLETED` → `trackShopPurchase`
+- `BREEDING_STARTED` → `trackBreedingStart`
+- `EGG_HATCHED` → `trackBreedingHatch` (reads `wasRushed` from payload, default false)
+
+`breeding_rush` NOT observer-driven — `performBreedingRush` invokes `trackBreedingRush` directly because it owns the `timeRemainingMs` context.
+
+`TELEMETRY_ENDPOINT = '/api/telemetry'` const. Phase 5 swap to real backend (Amplitude per `2026-05-12-phase-4-production-deploy.md` §5) by replacing `track()` impl while keeping Zod schemas + convenience wrappers stable.
+
+Scope (Q9): Phase 3 spend events only. Sprint F login/jar/stars retro-fit deferred Phase 5.
+
+### §13 — SaveState v10 (additive over v9)
+- `breedingChamber.hatchAt: number` NEW
+- `breedingChamber.rushedAt: number | null` NEW
+- `breedingChamber.durationMs` REMOVED (legacy field tolerated in migration; tests fixtures updated)
+
+Migration v9→v10: if chamber active, compute `hatchAt = startedAt + durationMs`, set `rushedAt = null`. Empty chamber stays null. v8 saves migrate v8→v9→v10 in chain.
+
+### §14 — EventBus catalog (additive extension)
+- `EGG_HATCHED` payload `+wasRushed?: boolean` (backward-compat optional)
+- `BREEDING_STARTED.durationMs` payload field semantically meaningful in Phase 4 (was always 0 in Phase 3, now reflects real incubation time)
+
+### §11.15 — Production deploy seam (NEW, design-only)
+
+Companion spec `docs/superpowers/specs/2026-05-12-phase-4-production-deploy.md` documents the Phase 5 backend implementation design (no code shipped Phase 4). Key items:
+- Cloudflare Pages host (best Vietnam PoP) + Workers for `/api/*` routes
+- HMAC secret rotation: `PHASE3_DEV_SECRET` literal → `env.PHASE3_VALIDATION_SECRET` build-time injection
+- Telemetry destination: Amplitude (10M MTU free tier vs Mixpanel 100K insufficient)
+- Rollout: internal → 10% beta (`flags.phase4_beta_enabled`) → 100%
+- 5 open questions (Q-deploy-1..5) for Phase 5 brainstorm
+

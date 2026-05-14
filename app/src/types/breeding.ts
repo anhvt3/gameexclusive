@@ -13,13 +13,16 @@ export interface BreedingSession {
   readonly parentA: PetInstanceId;
   readonly parentB: PetInstanceId;
   readonly startedAt: number;
-  readonly durationMs: number;
+  /** Phase 4 v10 — epoch ms when egg ready to hatch. */
+  readonly hatchAt: number;
   readonly costBattleStars: number;
   readonly offspringSpec: {
     readonly codename: PetCodename;
     readonly rarity: PetRarity;
     readonly level: number;
   };
+  /** Phase 4 v10 — non-null timestamp when user rushed; permanent flag. */
+  readonly rushedAt: number | null;
 }
 
 export interface CompatResult {
@@ -50,4 +53,6 @@ export type BreedingFailureReason =
   | 'server_bad_nonce'
   | 'server_fetch_failed_soft_allow'
   | 'no_active_session'
-  | 'not_ready';
+  | 'not_ready'
+  | 'already_rushed' // NEW Phase 4
+  | 'already_ready'; // NEW Phase 4

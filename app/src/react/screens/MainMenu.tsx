@@ -37,6 +37,9 @@ export function MainMenu() {
   const playerName = useSaveState((s) => s.playerName);
   const tutorialCompleted = useSaveState((s) => s.flags[TUTORIAL_FLAG] === true);
   const isLoginClaimable = useSaveState((s) => s.isLoginClaimable(Date.now()));
+  const breedingReady = useSaveState(
+    (s) => s.breedingChamber !== null && Date.now() >= s.breedingChamber.hatchAt
+  );
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showLoginCalendar, setShowLoginCalendar] = useState(false);
   const [showShop, setShowShop] = useState(false);
@@ -180,9 +183,15 @@ export function MainMenu() {
           data-testid="main-menu-breeding"
           onMouseEnter={onHover}
           onClick={click(() => setShowBreeding(true))}
-          className="w-full rounded-xl bg-amber-500 px-6 py-3 text-base font-semibold text-white shadow transition hover:bg-amber-600"
+          className="relative w-full rounded-xl bg-amber-500 px-6 py-3 text-base font-semibold text-white shadow transition hover:bg-amber-600"
         >
           🥚 Lai Tạo
+          {breedingReady && (
+            <span
+              data-testid="main-menu-breeding-sparkle"
+              className="absolute -top-1 -right-1 h-3 w-3 animate-pulse rounded-full bg-yellow-300 shadow-[0_0_6px_rgba(253,224,71,0.9)]"
+            />
+          )}
         </button>
         <div className="flex gap-3">
           <button

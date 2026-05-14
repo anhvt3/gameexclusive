@@ -13,9 +13,9 @@ export function performBreedingHatch(now: number = Date.now()): BreedingHatchRes
   const state = useSaveState.getState();
   const session = state.breedingChamber;
   if (!session) return { ok: false, reason: 'no_active_session' };
-  if (now < session.startedAt + session.durationMs) {
-    return { ok: false, reason: 'not_ready' };
-  }
+  if (now < session.hatchAt) return { ok: false, reason: 'not_ready' };
+
+  const wasRushed = session.rushedAt !== null;
 
   const offspring = useSaveState
     .getState()
@@ -32,6 +32,7 @@ export function performBreedingHatch(now: number = Date.now()): BreedingHatchRes
     offspringInstanceId: offspring.instanceId,
     rarity: offspring.rarity,
     codename: offspring.petCodename,
+    wasRushed,
   });
 
   return { ok: true, offspring };

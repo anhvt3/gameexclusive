@@ -232,3 +232,37 @@ describe('Phase 3 — shop + breeding events', () => {
     off();
   });
 });
+
+describe('Phase 4 — EGG_HATCHED carries optional wasRushed', () => {
+  it('accepts wasRushed=true', () => {
+    const received: unknown[] = [];
+    const off = eventBus.on('EGG_HATCHED', (p) => received.push(p));
+    eventBus.emit('EGG_HATCHED', {
+      offspringInstanceId: 'x',
+      rarity: 'rare',
+      codename: 'aquakit',
+      wasRushed: true,
+    });
+    expect(received).toEqual([
+      {
+        offspringInstanceId: 'x',
+        rarity: 'rare',
+        codename: 'aquakit',
+        wasRushed: true,
+      },
+    ]);
+    off();
+  });
+
+  it('still accepts emit without wasRushed (backward-compat)', () => {
+    const received: unknown[] = [];
+    const off = eventBus.on('EGG_HATCHED', (p) => received.push(p));
+    eventBus.emit('EGG_HATCHED', {
+      offspringInstanceId: 'y',
+      rarity: 'common',
+      codename: 'pyropup',
+    });
+    expect(received).toHaveLength(1);
+    off();
+  });
+});

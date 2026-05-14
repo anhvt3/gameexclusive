@@ -68,9 +68,14 @@ describe('performBreedingStart', () => {
     useSaveState.getState().addBattleStars(300);
     const received: unknown[] = [];
     const off = eventBus.on('BREEDING_STARTED', (p) => received.push(p));
-    const result = await performBreedingStart(aId, bId, Date.now(), () => 0.99);
+    const NOW = 5_000_000;
+    const result = await performBreedingStart(aId, bId, NOW, () => 0.99);
     expect(result.ok).toBe(true);
-    expect(useSaveState.getState().breedingChamber).not.toBeNull();
+    const chamber = useSaveState.getState().breedingChamber!;
+    expect(chamber.startedAt).toBe(NOW);
+    // Phase 4: hatchAt = startedAt + duration. For common offspring (rng=0.99 → no upgrade), duration = 5min.
+    expect(chamber.hatchAt).toBe(NOW + 5 * 60_000);
+    expect(chamber.rushedAt).toBeNull();
     expect(useSaveState.getState().battleStars).toBeLessThan(300);
     expect(received).toHaveLength(1);
     off();

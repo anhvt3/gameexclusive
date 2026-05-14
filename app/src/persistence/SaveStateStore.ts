@@ -47,7 +47,7 @@ import type { BreedingSession } from '@/types/breeding';
 import { SHOP_CATALOG } from '@/data/staticConfig/shopCatalog';
 
 export const SAVE_STATE_KEY = 'game_ss3_save_v1';
-export const SCHEMA_VERSION = 9;
+export const SCHEMA_VERSION = 10;
 
 /** Battles required since last loot-jar claim before the jar is ready to open. */
 export const LOOT_JAR_THRESHOLD = 3;
@@ -201,6 +201,7 @@ export interface SaveStateActions {
   applyShopPurchase: (itemId: string, priceCharged: number) => void;
   startBreeding: (session: BreedingSession) => void;
   clearBreeding: () => void;
+  rushBreeding: (now: number, cost: number) => void;
   bumpClientNonce: () => void;
   isShopStockFresh: (now?: number) => boolean;
   isBreedingChamberBusy: () => boolean;
@@ -327,6 +328,35 @@ function migrate(persisted: unknown, version: number): SaveStateData {
       purchaseHistory: {},
       breedingChamber: null,
       clientNonce: 0,
+    };
+  }
+  if (version < 10) {
+    s = {
+      ...s,
+      breedingChamber: s.breedingChamber
+        ? (() => {
+            const v9chamber = s.breedingChamber as unknown as {
+              parentA: string;
+              parentB: string;
+              startedAt: number;
+              durationMs?: number;
+              costBattleStars: number;
+              offspringSpec: { codename: string; rarity: string; level: number };
+              hatchAt?: number;
+              rushedAt?: number | null;
+            };
+            const legacyDuration = v9chamber.durationMs ?? 0;
+            return {
+              parentA: v9chamber.parentA,
+              parentB: v9chamber.parentB,
+              startedAt: v9chamber.startedAt,
+              hatchAt: v9chamber.hatchAt ?? v9chamber.startedAt + legacyDuration,
+              costBattleStars: v9chamber.costBattleStars,
+              offspringSpec: v9chamber.offspringSpec as never,
+              rushedAt: v9chamber.rushedAt ?? null,
+            };
+          })()
+        : null,
     };
   }
   return s;
@@ -709,6 +739,27 @@ export const useSaveState = create<SaveStateStore>()(
 
       clearBreeding: () => {
         set({ breedingChamber: null });
+      },
+
+      rushBreeding: (now, cost) => {
+        const state = get();
+        if (!state.breedingChamber) {
+          throw new Error('rushBreeding: no active session');
+        }
+        if (state.breedingChamber.rushedAt !== null) {
+          throw new Error('rushBreeding: already rushed');
+        }
+        if (state.battleStars < cost) {
+          throw new Error(`rushBreeding: insufficient (${state.battleStars} < ${cost})`);
+        }
+        set({
+          breedingChamber: {
+            ...state.breedingChamber,
+            hatchAt: now,
+            rushedAt: now,
+          },
+          battleStars: state.battleStars - cost,
+        });
       },
 
       bumpClientNonce: () => {

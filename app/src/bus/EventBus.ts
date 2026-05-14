@@ -123,7 +123,12 @@ export type GameEvent =
     }
   | {
       type: 'EGG_HATCHED';
-      payload: { offspringInstanceId: string; rarity: PetRarity; codename: string };
+      payload: {
+        offspringInstanceId: string;
+        rarity: PetRarity;
+        codename: string;
+        wasRushed?: boolean; // Phase 4 — additive optional
+      };
     };
 
 // Strip `type` field and map to payload type

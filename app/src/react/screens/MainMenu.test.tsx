@@ -346,3 +346,48 @@ describe('Phase 3 — shop + breeding buttons', () => {
     expect(screen.getByTestId('breed-overlay')).toBeInTheDocument();
   });
 });
+
+describe('Phase 4 — breedingReady sparkle on Lai Tạo button', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    useSaveState.getState().reset();
+  });
+
+  it('shows sparkle on breeding button when chamber ready', () => {
+    useSaveState.getState().addBattleStars(100);
+    useSaveState.getState().startBreeding({
+      parentA: 'a',
+      parentB: 'b',
+      startedAt: Date.now() - 1000,
+      hatchAt: Date.now() - 500,
+      costBattleStars: 50,
+      offspringSpec: { codename: 'pyropup', rarity: 'common', level: 1 },
+      rushedAt: null,
+    });
+    render(
+      <MemoryRouter>
+        <MainMenu />
+      </MemoryRouter>
+    );
+    expect(screen.getByTestId('main-menu-breeding-sparkle')).toBeInTheDocument();
+  });
+
+  it('hides sparkle when chamber still incubating', () => {
+    useSaveState.getState().addBattleStars(100);
+    useSaveState.getState().startBreeding({
+      parentA: 'a',
+      parentB: 'b',
+      startedAt: Date.now(),
+      hatchAt: Date.now() + 60_000,
+      costBattleStars: 50,
+      offspringSpec: { codename: 'pyropup', rarity: 'common', level: 1 },
+      rushedAt: null,
+    });
+    render(
+      <MemoryRouter>
+        <MainMenu />
+      </MemoryRouter>
+    );
+    expect(screen.queryByTestId('main-menu-breeding-sparkle')).not.toBeInTheDocument();
+  });
+});

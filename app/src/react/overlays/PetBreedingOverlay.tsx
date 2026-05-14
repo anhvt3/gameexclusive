@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useSaveState } from '@/persistence/SaveStateStore';
 import { PetSlot } from '@/react/components/PetSlot';
 import { EggHatchAnim } from '@/react/components/EggHatchAnim';
+import { BreedingCountdown } from '@/react/components/BreedingCountdown';
 import { computeCompatibility, rollOffspring } from '@/domain/PetBreedingEngine';
 import { performBreedingStart } from '@/domain/performBreedingStart';
 import { performBreedingHatch } from '@/domain/performBreedingHatch';
+import { performBreedingRush } from '@/domain/performBreedingRush';
 import { ROSTER_CAP } from '@/types/pet';
 import type { PetInstance } from '@/types/pet';
 
@@ -13,7 +15,7 @@ interface Props {
   onClose: () => void;
 }
 
-type Mode = 'pick' | 'breeding' | 'hatched';
+type Mode = 'pick' | 'incubating' | 'ready' | 'hatching' | 'hatched';
 
 const COMPAT_LABEL: Record<'low' | 'medium' | 'high', string> = {
   low: '💔 LOW',
@@ -24,10 +26,16 @@ const COMPAT_LABEL: Record<'low' | 'medium' | 'high', string> = {
 export function PetBreedingOverlay({ open, onClose }: Props) {
   const ownedPets = useSaveState((s) => s.ownedPets);
   const battleStars = useSaveState((s) => s.battleStars);
+  const chamber = useSaveState((s) => s.breedingChamber);
+
+  const initialMode: Mode = useMemo(() => {
+    if (!chamber) return 'pick';
+    return Date.now() >= chamber.hatchAt ? 'ready' : 'incubating';
+  }, [chamber]);
+  const [mode, setMode] = useState<Mode>(initialMode);
 
   const [parentA, setParentA] = useState<PetInstance | null>(null);
   const [parentB, setParentB] = useState<PetInstance | null>(null);
-  const [mode, setMode] = useState<Mode>('pick');
 
   if (!open) return null;
 
@@ -53,7 +61,11 @@ export function PetBreedingOverlay({ open, onClose }: Props) {
   const handleBreed = async () => {
     if (!parentA || !parentB) return;
     const result = await performBreedingStart(parentA.instanceId, parentB.instanceId);
-    if (result.ok) setMode('breeding');
+    if (result.ok) setMode('incubating'); // Phase 4: was 'breeding'
+  };
+
+  const handleRush = async () => {
+    await performBreedingRush(Date.now());
   };
 
   const handleHatched = () => {
@@ -109,7 +121,24 @@ export function PetBreedingOverlay({ open, onClose }: Props) {
                 ⭐ {cost}
               </span>
             )}
-            {mode === 'breeding' && <EggHatchAnim onHatched={handleHatched} />}
+            {mode === 'incubating' && chamber && (
+              <BreedingCountdown
+                chamber={chamber}
+                battleStars={battleStars}
+                onRush={handleRush}
+                onReady={() => setMode('ready')}
+              />
+            )}
+            {mode === 'ready' && (
+              <button
+                data-testid="breeding-hatch-btn"
+                onClick={() => setMode('hatching')}
+                className="rounded bg-amber-600 px-4 py-2 font-bold text-white"
+              >
+                🥚 Nở trứng
+              </button>
+            )}
+            {mode === 'hatching' && <EggHatchAnim mode="hatching" onHatched={handleHatched} />}
             {mode === 'hatched' && (
               <span aria-hidden="true" className="text-3xl">
                 🌟

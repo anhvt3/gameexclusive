@@ -80,6 +80,8 @@ export interface GameTestBridge {
     emitCombatExit: (won: boolean, expGained?: number) => void;
     // Phase 3 Task 17 — seed a pet into SaveState for breeding E2E without going through rescue flow.
     seedPetForBreeding: (codename: string, level: number) => void;
+    // Phase 4 Task 17 — advance breeding clock so countdown sees "now >= hatchAt" without real wait.
+    advanceBreedingClock: (ms: number) => void;
   };
   __phaser: Phaser.Game;
 }
@@ -285,6 +287,17 @@ export function attachGameTestBridge(game: Phaser.Game): void {
         // Phase 3 Task 17 — dynamic import like setQuestCycleAnchors pattern (avoids module dep)
         void import('@persistence/SaveStateStore').then(({ useSaveState: store }) => {
           store.getState().addPet(codename as never, 'common', level, 0);
+        });
+      },
+      advanceBreedingClock: (ms: number) => {
+        // Phase 4 Task 17 — Move hatchAt backward by `ms` so countdown sees "now >= hatchAt"
+        void import('@persistence/SaveStateStore').then(({ useSaveState: store }) => {
+          const chamber = store.getState().breedingChamber;
+          if (chamber) {
+            store.setState({
+              breedingChamber: { ...chamber, hatchAt: chamber.hatchAt - ms },
+            });
+          }
         });
       },
       walkPathSafe: async () => {

@@ -60,3 +60,44 @@ describe('PetBreedingOverlay', () => {
     expect(screen.queryByTestId('pet-slot-filled')).toBeInTheDocument();
   });
 });
+
+describe('PetBreedingOverlay — Phase 4 timer states', () => {
+  beforeEach(() => {
+    useSaveState.getState().reset();
+    global.fetch = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ ok: true }) } as never);
+    vi.useFakeTimers();
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it('shows countdown when chamber.hatchAt > now', () => {
+    useSaveState.getState().addBattleStars(500);
+    useSaveState.getState().startBreeding({
+      parentA: 'a',
+      parentB: 'b',
+      startedAt: Date.now(),
+      hatchAt: Date.now() + 100_000,
+      costBattleStars: 50,
+      offspringSpec: { codename: 'pyropup', rarity: 'common', level: 1 },
+      rushedAt: null,
+    });
+    render(<PetBreedingOverlay open={true} onClose={() => {}} />);
+    expect(screen.getByTestId('breeding-countdown')).toBeInTheDocument();
+  });
+
+  it('shows ready state (hatch button) when chamber.hatchAt <= now', () => {
+    useSaveState.getState().addBattleStars(500);
+    useSaveState.getState().startBreeding({
+      parentA: 'a',
+      parentB: 'b',
+      startedAt: Date.now() - 1000,
+      hatchAt: Date.now() - 500,
+      costBattleStars: 50,
+      offspringSpec: { codename: 'pyropup', rarity: 'common', level: 1 },
+      rushedAt: null,
+    });
+    render(<PetBreedingOverlay open={true} onClose={() => {}} />);
+    expect(screen.getByTestId('breeding-hatch-btn')).toBeInTheDocument();
+  });
+});

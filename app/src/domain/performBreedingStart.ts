@@ -4,6 +4,7 @@ import { useSaveState } from '@/persistence/SaveStateStore';
 import { eventBus } from '@/bus/EventBus';
 import { rollOffspring } from './PetBreedingEngine';
 import { validateAction } from './ServerValidator';
+import { durationFor } from './BreedingDurations';
 import { ROSTER_CAP } from '@/types/pet';
 import type { BreedingFailureReason, BreedingSession, PetInstanceId } from '@/types/breeding';
 
@@ -41,17 +42,19 @@ export async function performBreedingStart(
     return { ok: false, reason: `server_${server.reason}` as BreedingFailureReason };
   }
 
+  const duration = durationFor(offspring.rarity);
   const session: BreedingSession = {
     parentA: parentAId,
     parentB: parentBId,
     startedAt: now,
-    durationMs: 0,
+    hatchAt: now + duration,
     costBattleStars: offspring.costBattleStars,
     offspringSpec: {
       codename: offspring.codename,
       rarity: offspring.rarity,
       level: offspring.level,
     },
+    rushedAt: null,
   };
 
   useSaveState.getState().startBreeding(session);
@@ -59,7 +62,7 @@ export async function performBreedingStart(
   eventBus.emit('BREEDING_STARTED', {
     parentA: parentAId,
     parentB: parentBId,
-    durationMs: 0,
+    durationMs: duration,
     expectedRarity: offspring.rarity,
   });
 

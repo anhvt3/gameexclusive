@@ -29,3 +29,32 @@ describe('EggHatchAnim', () => {
     expect(onHatched).not.toHaveBeenCalled();
   });
 });
+
+describe('EggHatchAnim — mode prop (Phase 4)', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('mode="incubating" renders static egg, no timer advance', () => {
+    const onHatched = vi.fn();
+    render(<EggHatchAnim onHatched={onHatched} mode="incubating" />);
+    expect(screen.getByTestId('egg-anim')).toHaveAttribute('data-phase', 'idle');
+    act(() => vi.advanceTimersByTime(5000));
+    expect(onHatched).not.toHaveBeenCalled();
+  });
+
+  it('mode="hatching" runs idle→shake→hatch sequence (Phase 3 behavior)', () => {
+    const onHatched = vi.fn();
+    render(<EggHatchAnim onHatched={onHatched} mode="hatching" />);
+    act(() => vi.advanceTimersByTime(500));
+    expect(screen.getByTestId('egg-anim')).toHaveAttribute('data-phase', 'shake');
+    act(() => vi.advanceTimersByTime(1000));
+    expect(onHatched).toHaveBeenCalled();
+  });
+
+  it('no mode prop defaults to "hatching" (backward-compat with Phase 3 callers)', () => {
+    const onHatched = vi.fn();
+    render(<EggHatchAnim onHatched={onHatched} />);
+    act(() => vi.advanceTimersByTime(1500));
+    expect(onHatched).toHaveBeenCalled();
+  });
+});

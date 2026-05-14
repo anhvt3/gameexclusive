@@ -32,6 +32,7 @@ import { QuestProgressToast } from '@react/overlays/QuestProgressToast';
 import { LootJarOverlay } from '@react/overlays/LootJarOverlay';
 import { QuestEngine } from '@/domain/QuestEngine';
 import { DailyRewardEngine } from '@/domain/DailyRewardEngine';
+import { TelemetryEngine } from '@/observability/TelemetryEngine';
 import { useSaveState } from '@/persistence/SaveStateStore';
 import { eventBus } from '@/bus/EventBus';
 import { PlayScreen } from './PlayScreen';
@@ -100,6 +101,10 @@ export function AppRouter() {
   // wins to grant Battle Stars + tick Loot Jar counter.
   const dailyEngineRef = useRef<DailyRewardEngine | null>(null);
 
+  // Phase 4 Task 10 — TelemetryEngine lifecycle. Pure observer — tracks
+  // shop + breeding events for analytics. No state mutation.
+  const telemetryEngineRef = useRef<TelemetryEngine | null>(null);
+
   useEffect(() => {
     const startEngine = () => {
       dailyEngineRef.current = new DailyRewardEngine();
@@ -116,6 +121,23 @@ export function AppRouter() {
     return () => {
       cleanupHydration?.();
       dailyEngineRef.current?.stop();
+    };
+  }, []);
+
+  useEffect(() => {
+    const start = () => {
+      telemetryEngineRef.current = new TelemetryEngine();
+      telemetryEngineRef.current.start();
+    };
+    let cleanup: (() => void) | null = null;
+    if (useSaveState.persist.hasHydrated()) {
+      start();
+    } else {
+      cleanup = useSaveState.persist.onFinishHydration(start);
+    }
+    return () => {
+      cleanup?.();
+      telemetryEngineRef.current?.stop();
     };
   }, []);
 

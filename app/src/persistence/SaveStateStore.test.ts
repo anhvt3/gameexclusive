@@ -136,7 +136,7 @@ describe('SaveStateStore — persistence', () => {
   });
 
   it('SCHEMA_VERSION is at v8 (Sprint F Task 6 daily reward fields)', () => {
-    expect(SCHEMA_VERSION).toBe(9);
+    expect(SCHEMA_VERSION).toBe(10);
   });
 });
 
@@ -430,7 +430,7 @@ describe('SaveState v4 migration', () => {
     localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v3Save));
     await useSaveState.persist.rehydrate();
     const s = useSaveState.getState();
-    expect(SCHEMA_VERSION).toBe(9);
+    expect(SCHEMA_VERSION).toBe(10);
     expect(s.defeatedBossIds).toEqual([]);
     expect(s.claimedChestIds).toEqual([]);
     expect(s.currentZoneId).toBeNull();
@@ -493,7 +493,7 @@ describe('SaveState v4 migration', () => {
     localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v2Save));
     await useSaveState.persist.rehydrate();
     const s = useSaveState.getState();
-    expect(SCHEMA_VERSION).toBe(9);
+    expect(SCHEMA_VERSION).toBe(10);
     expect(s.active_pet_instance_id).toBeNull();
     expect(s.defeatedBossIds).toEqual([]);
     expect(s.claimedChestIds).toEqual([]);
@@ -606,7 +606,7 @@ describe('SaveState v5 migration', () => {
     localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v4Save));
     await useSaveState.persist.rehydrate();
     const s = useSaveState.getState();
-    expect(SCHEMA_VERSION).toBe(9);
+    expect(SCHEMA_VERSION).toBe(10);
     expect(s.ownedPets).toEqual([]);
     // v4 fields preserved
     expect(s.defeatedBossIds).toEqual(['forest-boss']);
@@ -675,7 +675,7 @@ describe('SaveState v5 migration', () => {
     localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v3Save));
     await useSaveState.persist.rehydrate();
     const s = useSaveState.getState();
-    expect(SCHEMA_VERSION).toBe(9);
+    expect(SCHEMA_VERSION).toBe(10);
     expect(s.ownedPets).toEqual([]);
     expect(s.defeatedBossIds).toEqual([]); // v3→v4 step also fired
   });
@@ -1390,13 +1390,15 @@ describe('Phase 3 — v9 schema + actions', () => {
   describe('startBreeding + clearBreeding', () => {
     it('startBreeding sets chamber + charges stars', () => {
       useSaveState.getState().addBattleStars(300);
+      const now = Date.now();
       const session = {
         parentA: 'pet-a',
         parentB: 'pet-b',
-        startedAt: Date.now(),
-        durationMs: 0,
+        startedAt: now,
+        hatchAt: now,
         costBattleStars: 200,
         offspringSpec: { codename: 'aquakit' as const, rarity: 'rare' as const, level: 5 },
+        rushedAt: null,
       };
       useSaveState.getState().startBreeding(session);
       expect(useSaveState.getState().breedingChamber).toEqual(session);
@@ -1409,9 +1411,10 @@ describe('Phase 3 — v9 schema + actions', () => {
         parentA: 'a',
         parentB: 'b',
         startedAt: 0,
-        durationMs: 0,
+        hatchAt: 0,
         costBattleStars: 50,
         offspringSpec: { codename: 'bunbleaf' as const, rarity: 'common' as const, level: 1 },
+        rushedAt: null,
       };
       useSaveState.getState().startBreeding(session);
       expect(() => useSaveState.getState().startBreeding(session)).toThrow();
@@ -1423,9 +1426,10 @@ describe('Phase 3 — v9 schema + actions', () => {
         parentA: 'a',
         parentB: 'b',
         startedAt: 0,
-        durationMs: 0,
+        hatchAt: 0,
         costBattleStars: 100,
         offspringSpec: { codename: 'bunbleaf' as const, rarity: 'common' as const, level: 1 },
+        rushedAt: null,
       };
       expect(() => useSaveState.getState().startBreeding(session)).toThrow();
     });
@@ -1436,9 +1440,10 @@ describe('Phase 3 — v9 schema + actions', () => {
         parentA: 'a',
         parentB: 'b',
         startedAt: 0,
-        durationMs: 0,
+        hatchAt: 0,
         costBattleStars: 50,
         offspringSpec: { codename: 'bunbleaf' as const, rarity: 'common' as const, level: 1 },
+        rushedAt: null,
       });
       useSaveState.getState().clearBreeding();
       expect(useSaveState.getState().breedingChamber).toBeNull();
@@ -1469,9 +1474,10 @@ describe('Phase 3 — v9 schema + actions', () => {
         parentA: 'a',
         parentB: 'b',
         startedAt: 0,
-        durationMs: 0,
+        hatchAt: 0,
         costBattleStars: 50,
         offspringSpec: { codename: 'bunbleaf' as const, rarity: 'common' as const, level: 1 },
+        rushedAt: null,
       });
       expect(useSaveState.getState().isBreedingChamberBusy()).toBe(true);
     });
@@ -1493,6 +1499,70 @@ describe('Phase 3 — v9 schema + actions', () => {
       expect(s.purchaseHistory).toEqual({});
       expect(s.breedingChamber).toBeNull();
       expect(s.clientNonce).toBe(0);
+    });
+  });
+});
+
+describe('Phase 4 — v10 breeding schema + rushBreeding action', () => {
+  beforeEach(() => {
+    useSaveState.getState().reset();
+  });
+
+  describe('startBreeding (v10 shape)', () => {
+    it('accepts hatchAt + rushedAt fields', () => {
+      useSaveState.getState().addBattleStars(100);
+      const session = {
+        parentA: 'a',
+        parentB: 'b',
+        startedAt: 1000,
+        hatchAt: 1000 + 300_000,
+        costBattleStars: 50,
+        offspringSpec: { codename: 'pyropup' as const, rarity: 'common' as const, level: 1 },
+        rushedAt: null,
+      };
+      useSaveState.getState().startBreeding(session);
+      expect(useSaveState.getState().breedingChamber?.hatchAt).toBe(1000 + 300_000);
+      expect(useSaveState.getState().breedingChamber?.rushedAt).toBeNull();
+    });
+  });
+
+  describe('rushBreeding action', () => {
+    function seedChamber(rushedAt: number | null = null) {
+      useSaveState.getState().addBattleStars(500);
+      useSaveState.getState().startBreeding({
+        parentA: 'a',
+        parentB: 'b',
+        startedAt: 1000,
+        hatchAt: 1000 + 300_000,
+        costBattleStars: 50,
+        offspringSpec: { codename: 'pyropup' as const, rarity: 'common' as const, level: 1 },
+        rushedAt,
+      });
+    }
+
+    it('sets hatchAt = now and rushedAt = now, spends cost', () => {
+      seedChamber();
+      const balanceBefore = useSaveState.getState().battleStars;
+      useSaveState.getState().rushBreeding(99999, 50);
+      const chamber = useSaveState.getState().breedingChamber!;
+      expect(chamber.hatchAt).toBe(99999);
+      expect(chamber.rushedAt).toBe(99999);
+      expect(useSaveState.getState().battleStars).toBe(balanceBefore - 50);
+    });
+
+    it('throws when no active session', () => {
+      expect(() => useSaveState.getState().rushBreeding(99999, 50)).toThrow();
+    });
+
+    it('throws when already rushed', () => {
+      seedChamber(5000); // pre-rushed
+      expect(() => useSaveState.getState().rushBreeding(99999, 50)).toThrow();
+    });
+
+    it('throws when insufficient stars', () => {
+      seedChamber();
+      // Drain to insufficient: cost 9999 > balance
+      expect(() => useSaveState.getState().rushBreeding(99999, 9999)).toThrow();
     });
   });
 });

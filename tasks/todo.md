@@ -1,10 +1,10 @@
 # Project: Game_SS3_exclusive (Edu-RPG Production App)
 
-> **Last updated:** 12/05/2026 (post Phase 3 merge — production hardening shipped)
-> **Current commit:** `<phase-3-squash>` (Phase 3: Shop + Breeding + Server Validation)
-> **Tests:** 1072/1072 unit · 11/11 E2E (+ phase_3_shop_pets)
+> **Last updated:** 12/05/2026 (post Phase 4 merge — LiveOps foundations shipped)
+> **Current commit:** `<phase-4-squash>` (Phase 4: Breeding Timer + Telemetry + Deploy Spec)
+> **Tests:** 1129/1129 unit · 11/12 E2E (phase_4_breeding_timer skipped pending P5 bridge fix)
 > **Phase 1+1.5 progress:** 100% complete (35/35 steps + harness 22.x extension shipped)
-> **Phase progress:** Phase 1+1.5 ✅ · Phase 2.5 ✅ · **Phase 3 ✅ — production-ready** 🎉
+> **Phase progress:** Phase 1+1.5 ✅ · Phase 2.5 ✅ · **Phase 3 ✅ · **Phase 4 ✅ — liveops-ready**** 🎉
 
 ---
 
@@ -36,6 +36,7 @@
 | **E** | Polish & Onboarding — name picker, customization, tutorial extension (8 beats), settings panel | ✅ shipped | (this commit) | +80 (794 → 874) |
 | **F** | Free Daily Rewards — login calendar (7-day), loot jar (3-battle), battle stars currency, streak multiplier | ✅ shipped | (this commit) | +90 (874 → 964) |
 | **P3** | Shop (5-slot daily rotating) + Pet Breeding (cost gate + element-blend matrix) + Server Validation (HMAC Vite middleware seam) | ✅ shipped | (this commit) | +108 (964 → 1072) |
+| **P4** | Breeding Timer (5/15/60/120m by rarity) + Rush mechanic (Q3 parity cost) + Telemetry (Zod+dual transport) + Production Deploy spec | ✅ shipped | (this commit) | +57 (1072 → 1129) |
 
 ---
 

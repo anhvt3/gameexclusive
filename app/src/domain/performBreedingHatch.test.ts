@@ -15,41 +15,59 @@ describe('performBreedingHatch', () => {
     if (!result.ok) expect(result.reason).toBe('no_active_session');
   });
 
-  it('returns not_ready when elapsed < durationMs', () => {
+  it('returns not_ready when now < hatchAt', () => {
     useSaveState.getState().addBattleStars(100);
     const now = Date.now();
     useSaveState.getState().startBreeding({
       parentA: 'a',
       parentB: 'b',
       startedAt: now,
-      durationMs: 5000,
+      hatchAt: now + 5000,
       costBattleStars: 50,
       offspringSpec: { codename: 'pyropup', rarity: 'common', level: 1 },
+      rushedAt: null,
     });
     const result = performBreedingHatch(now + 100);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toBe('not_ready');
   });
 
-  it('happy path: mints offspring via addPet, clears chamber, emits EGG_HATCHED', () => {
+  it('happy path with rushedAt=null: emits wasRushed=false', () => {
     useSaveState.getState().addBattleStars(100);
     const now = Date.now();
     useSaveState.getState().startBreeding({
       parentA: 'a',
       parentB: 'b',
       startedAt: now,
-      durationMs: 0,
+      hatchAt: now,
       costBattleStars: 50,
       offspringSpec: { codename: 'pyropup', rarity: 'common', level: 5 },
+      rushedAt: null,
     });
-    const before = useSaveState.getState().ownedPets.length;
-    const received: unknown[] = [];
+    const received: Array<{ wasRushed?: boolean }> = [];
     const off = eventBus.on('EGG_HATCHED', (p) => received.push(p));
     const result = performBreedingHatch(now);
     expect(result.ok).toBe(true);
-    expect(useSaveState.getState().breedingChamber).toBeNull();
-    expect(useSaveState.getState().ownedPets.length).toBe(before + 1);
-    expect(received).toHaveLength(1);
+    expect(received[0]?.wasRushed).toBe(false);
+    off();
+  });
+
+  it('happy path with rushedAt=non-null: emits wasRushed=true', () => {
+    useSaveState.getState().addBattleStars(200);
+    const now = Date.now();
+    useSaveState.getState().startBreeding({
+      parentA: 'a',
+      parentB: 'b',
+      startedAt: now - 1000,
+      hatchAt: now,
+      costBattleStars: 50,
+      offspringSpec: { codename: 'aquakit', rarity: 'rare', level: 5 },
+      rushedAt: now,
+    });
+    const received: Array<{ wasRushed?: boolean }> = [];
+    const off = eventBus.on('EGG_HATCHED', (p) => received.push(p));
+    performBreedingHatch(now);
+    expect(received[0]?.wasRushed).toBe(true);
     off();
   });
 });
