@@ -57,7 +57,10 @@ async function check2_authGate() {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ clevaiUserId: TEST_USER_ID, state: {} }),
     });
-    record('2. /api/save/sync 401 without HMAC', res.status === 401, `got ${res.status}`);
+    // Server returns 400 (missing_auth_headers) when no x-hmac/x-nonce —
+    // 401 only fires after a malformed/forged HMAC. Both are correct auth-gate
+    // rejections, so accept either.
+    record('2. /api/save/sync rejects unauthenticated', res.status === 400 || res.status === 401, `got ${res.status}`);
   } catch (e) {
     record('2. /api/save/sync 401 without HMAC', false, String(e));
   }
@@ -106,7 +109,7 @@ async function check3_saveSync() {
 
 async function check4_saveLoad() {
   try {
-    const res = await fetch(`${UAT_URL}/api/save/load?clevaiUserId=${TEST_USER_ID}`);
+    const res = await fetch(`${UAT_URL}/api/save/load?cu=${TEST_USER_ID}`);
     const data = await res.json();
     record(
       '4. /api/save/load returns persisted state',
