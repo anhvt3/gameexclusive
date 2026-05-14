@@ -4,7 +4,8 @@
 -- Project: Game_SS3_exclusive (Clevai internal Edu-RPG, ~10K students)
 -- Author:  Claude (claude/phase5-vercel-mysql-6e685e)
 -- Date:    2026-05-13
--- Target:  Clevai MySQL Production (database: clevai_prod)
+-- Target:  Clevai MySQL — Staging (mysql.clevai.vn) THEN Production (clevai_prod)
+-- Paired:  2026-05-13-create-game-tables-postgres.sql (Vercel UAT — sub-phase A-E)
 -- Spec:    docs/superpowers/specs/2026-05-13-phase-5-vercel-mysql-design.md
 --
 -- ⚠️  IRON RULES per CLAUDE.md:

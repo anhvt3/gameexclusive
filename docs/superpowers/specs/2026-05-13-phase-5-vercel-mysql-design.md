@@ -26,7 +26,7 @@ POSUP-approved decisions (13/05/2026, batch answer):
 |---|---|
 | Q-deploy-1 | **Vercel** (UAT priority over Cloudflare) |
 | Q-deploy-2 | **Amplitude** (10M MTU free, key events only) |
-| Q-deploy-3 | **Vercel Serverless Functions → Clevai MySQL Production DB** (internal, NOT Cloudflare D1/KV) |
+| Q-deploy-3 | **3-environment workflow**: (1) Vercel Postgres for UAT → (2) Clevai MySQL Staging → (3) Clevai MySQL Production. Vercel Serverless Functions support BOTH drivers (node-pg + mysql2) switched via `DB_DIALECT` env var. |
 | Q-deploy-4 | **Sentry free tier** (5K errors/month) |
 | Q-deploy-5 | **`game.clevai.edu.vn`** domain |
 | Q5-1 Vercel plan | **Pro $20/mo** — required cho static egress IP (whitelist MySQL firewall) |
@@ -38,6 +38,7 @@ POSUP-approved decisions (13/05/2026, batch answer):
 | Q5-7 Migration window | Off-peak ~2am VN time; 5 CREATE TABLE statements (<1 sec, no lock) |
 | Q5-8 Rollback | `VITE_BACKEND_ENABLED=false` flag → behaves like Phase 4 (local-only + mock middlewares) |
 | Sequencing | **Strictly sequential sub-phases A→B→C→D→E→F** với anh approval gate giữa mỗi sub-phase |
+| **3-env DB workflow (POSUP 13/05 override)** | UAT first on Vercel Postgres (sub-phase A-E). After UAT done, sub-phase F migrates schema to Clevai MySQL staging + prod. Em maintains **2 paired SQL files** + drift-detection test. Backend `_lib/db.ts` switches driver based on `DB_DIALECT` env var (`postgres` for UAT, `mysql` for staging/prod). |
 
 ---
 
@@ -375,3 +376,98 @@ Hard gates:
 **End Phase 5 design spec.**
 
 Next: anh review this spec → approve → em invoke `superpowers:writing-plans` → 30-task TDD plan → Sub-phase A.1 SQL migration.
+
+---
+
+## 12. 3-Environment DB Workflow (POSUP override 13/05/2026)
+
+Anh's clarification 13/05: UAT phải HOÀN TOÀN cách ly khỏi Clevai infra. Vercel Postgres = UAT. Clevai staging/prod chỉ chạm khi UAT done.
+
+### 12.1 Environment matrix
+
+| Env | DB type | Connection | When written | Sub-phase gate |
+|---|---|---|---|---|
+| **UAT** | Vercel Postgres (Neon, free 256MB) | `POSTGRES_URL` env var (Vercel-provisioned) | Sub-phases A-E | `APPROVE DB EXEC UAT` |
+| **Staging** | Clevai MySQL `staging_s2_bp_log_v2` @ `mysql.clevai.vn` | Via `db_guard.py` (R-rules enforced) | Sub-phase F.0-F.1 | `APPROVE DB EXEC STAGING` |
+| **Prod** | Clevai MySQL `clevai_prod` | Anh's DBA executes directly | Sub-phase F.2-F.4 | DBA-owned, em never executes |
+
+### 12.2 Paired SQL files
+
+- `Masterdata/migrations/2026-05-13-create-game-tables-postgres.sql` — Vercel UAT (Postgres syntax)
+- `Masterdata/migrations/2026-05-13-create-game-tables-mysql.sql` — Clevai staging + prod (MySQL syntax, canonical)
+
+### 12.3 Backend driver switching
+
+`api/_lib/db.ts` reads `DB_DIALECT` env var:
+- `DB_DIALECT=postgres` → uses `pg` (node-postgres) with `POSTGRES_URL`
+- `DB_DIALECT=mysql` → uses `mysql2/promise` with `CLEVAI_DB_*` vars
+
+Driver abstraction layer normalizes:
+- Parameter placeholders: `$1, $2, ...` (pg) vs `?, ?, ...` (mysql2) — em uses helper `formatQuery(sql, dialect)` to convert
+- Upsert syntax: `ON CONFLICT (col) DO UPDATE` (pg) vs `ON DUPLICATE KEY UPDATE` (mysql) — em maintains 2 query strings per upsert, picked by dialect
+- JSON columns: `JSONB` (pg) returns parsed objects natively; `JSON` (mysql) returns strings → em parses
+
+### 12.4 Drift-detection test
+
+`Masterdata/scripts/check_schema_parity.py` runs in CI:
+- Parses both SQL files via regex (or sqlparse library)
+- Extracts column names + types + nullability per table
+- Asserts symmetric difference == empty set
+- Tolerates expected differences: `BIGINT UNSIGNED` ↔ `BIGINT`, `JSON` ↔ `JSONB`, `ENUM` ↔ `TEXT CHECK`, `TIMESTAMP DEFAULT CURRENT_TIMESTAMP` ↔ `TIMESTAMPTZ DEFAULT NOW()`, `AUTO_INCREMENT` ↔ `GENERATED IDENTITY`, `TINYINT(1)` ↔ `BOOLEAN`, `TINYINT UNSIGNED` ↔ `SMALLINT`
+- Exit 1 if drift detected — fails CI before deploy
+
+### 12.5 Updated sub-phase plan (~40 tasks)
+
+```
+Sub-phase A — Foundation + Schema (UAT only) (7 tasks)
+  A.0 Preflight
+  A.1 SQL files: Postgres + MySQL paired
+  A.2 Drift-detection test
+  A.3 Vercel Postgres provision
+  A.4 Run Postgres SQL on Vercel UAT DB                       ← Gate: APPROVE DB EXEC UAT
+  A.5 §A verification queries on UAT
+  A.6 Audit log + commit
+
+Sub-phase B — Backend functions (12 tasks)
+  Same 11 functions as before, BUT with driver abstraction layer.
+  B.0 vercel.json + api/package.json + DB_DIALECT env
+  B.1 _lib/db.ts (pg + mysql2 switch)
+  B.2-B.4 _lib/auth, _lib/nonce, _lib/amplitude
+  B.5-B.10 6 endpoint handlers (parameterized queries via helper)
+  B.11 vercel dev smoke test against UAT Postgres
+
+Sub-phase C — Frontend rewire (8 tasks) — unchanged
+
+Sub-phase D — CI/CD + UAT deploy (6 tasks)
+  D.0 Vercel preview deploy
+  D.1 .github/workflows/test.yml
+  D.2 .github/workflows/deploy.yml
+  D.3 DNS staging.game.clevai.edu.vn → Vercel preview (NEW intermediate domain)
+  D.4 Production smoke test on UAT
+  D.5 Drift-detection test in CI
+
+Sub-phase E — UAT validation (4 tasks)
+  E.0 Manual UAT: anh test 30-60 min trên Vercel preview
+  E.1 Performance baseline: latency p50/p95 from UAT
+  E.2 Telemetry forwarding check (Amplitude dashboard)
+  E.3 Sub-phase A-E sign-off                                  ← Gate: anh approve "UAT DONE"
+
+Sub-phase F — Staging + Prod cutover (8 tasks)
+  F.0 Run MySQL canonical SQL on Clevai staging               ← Gate: APPROVE DB EXEC STAGING
+  F.1 Smoke test backend pointed at Clevai staging (DB_DIALECT=mysql)
+  F.2 Anh's DBA runs MySQL canonical on Clevai PROD           ← Gate: DBA-owned
+  F.3 Switch Vercel env: DB_DIALECT=mysql, CLEVAI_DB_* set
+  F.4 Cutover DNS: game.clevai.edu.vn → Vercel production
+  F.5 Live UAT with real student session
+  F.6 Phase 5 closure
+  F.7 (Optional cleanup) Drop Vercel Postgres UAT DB or keep for next phase
+
+Total: 7+12+8+6+4+8 = ~45 tasks (was 30).
+```
+
+### 12.6 New risks (added 13/05)
+
+- **R13** Schema drift between Postgres + MySQL files | High | Drift-detection test in CI (A.2 + D.5) |
+- **R14** Driver abstraction layer bugs (different syntax for upserts, etc.) | Med | Test against UAT Postgres trước, test against staging MySQL ở F.1 |
+- **R15** Backend assumes JSONB native parsing in UAT, gets JSON strings in MySQL prod | High | Driver layer normalizes JSON → always returns parsed objects |
+- **R16** Cutover at F.3 breaks active sessions | Med | Maintenance window + announce; Sub-phase F.4 covers reconnection |
