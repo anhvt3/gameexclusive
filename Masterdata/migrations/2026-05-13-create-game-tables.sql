@@ -13,7 +13,7 @@
 --   • R3: Scope = `game_*` namespace ONLY ✅
 --   • R4: NEVER auto-execute on prod. Anh's DBA runs. ✅
 --   • R5: Audit trail → Masterdata/.write_log.md after execution ✅
---   • R6: Plan-Approve-Write gate — anh must approve "APPROVE SQL" before staging dry-run ✅
+--   • R6: Plan-Approve-Write gate — anh must approve "APPROVE DB" before staging dry-run ✅
 --   • R7: Post-write report after execution ✅
 --   • R8: Self-verify SELECT queries included at bottom of this file ✅
 --

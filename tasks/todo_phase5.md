@@ -12,7 +12,7 @@
 
 **Branch:** `claude/phase5-vercel-mysql-6e685e` from `main@2444199`
 
-**Sequencing:** Strictly sequential sub-phases A→B→C→D→E→F. Anh approval gate between each sub-phase. **Hard gate at A.3 + A.4: requires anh's "APPROVE SQL" keyword.**
+**Sequencing:** Strictly sequential sub-phases A→B→C→D→E→F. Anh approval gate between each sub-phase. **Hard gate at A.3 + A.4: requires anh's "APPROVE DB" keyword.**
 
 ---
 
@@ -20,7 +20,7 @@
 
 | Gate | Trigger | Action required |
 |---|---|---|
-| **G1** | Before A.3 (staging DB write) | Anh types "APPROVE SQL" → em runs `db_guard.py --exec --confirm-commit` on staging |
+| **G1** | Before A.3 (staging DB write) | Anh types "APPROVE DB" → em runs `db_guard.py --exec --confirm-commit` on staging |
 | **G2** | Before A.4 (prod DB write) | Anh's DBA executes migration directly; em provides post-execution verification queries |
 | **G3** | Between sub-phases B → C | Anh reviews backend endpoint smoke tests, approves frontend rewire |
 | **G4** | Before D.3 (DNS cutover) | Anh + Clevai infra team configure CNAME `game.clevai.edu.vn` → Vercel |
@@ -59,12 +59,12 @@
   - Indexes on right columns?
   - Engine + charset (InnoDB + utf8mb4)?
   - No accidental DROP/DELETE statements?
-- [ ] **Step 3:** Anh provides feedback or types "APPROVE SQL" → unlock A.2
+- [ ] **Step 3:** Anh provides feedback or types "APPROVE DB" → unlock A.2
 - [ ] **Step 4:** (If feedback) Em edits SQL file, re-prints, re-loops to Step 2
 
 ### Task A.2 — Dry-run on staging via `db_guard.py`
 
-**⚠️ GATE G1: Requires anh's "APPROVE SQL" keyword before this task.**
+**⚠️ GATE G1: Requires anh's "APPROVE DB" keyword before this task.**
 
 **Files:** No file changes; runs SQL.
 
@@ -77,21 +77,21 @@
     --user-request "Phase 5 schema bootstrap — staging dry-run per spec 2026-05-13"
   ```
 - [ ] **Step 3:** Confirm `--check` exits 0 + reports no R-rule violations
-- [ ] **Step 4:** Em reports to anh: "Dry-run passes. Awaiting 'APPROVE SQL' to execute on staging."
+- [ ] **Step 4:** Em reports to anh: "Dry-run passes. Awaiting 'APPROVE DB' to execute on staging."
 
 ### Task A.3 — Execute on STAGING
 
-**⚠️ GATE G1 (continued): Requires anh's explicit "APPROVE SQL" keyword.**
+**⚠️ GATE G1 (continued): Requires anh's explicit "APPROVE DB" keyword.**
 
 **Files:** No file changes; writes staging DB.
 
-- [ ] **Step 1:** Anh types "APPROVE SQL" → em proceeds
+- [ ] **Step 1:** Anh types "APPROVE DB" → em proceeds
 - [ ] **Step 2:** Execute on staging:
   ```bash
   python Masterdata/scripts/db_guard.py --exec --confirm-commit \
     --sql-file Masterdata/migrations/2026-05-13-create-game-tables.sql \
     --tables "game_players,game_telemetry_events,game_breeding_sessions,game_shop_validation_log,game_nonces" \
-    --user-request "Phase 5 schema bootstrap — staging APPROVE SQL 13/05/2026"
+    --user-request "Phase 5 schema bootstrap — staging APPROVE DB 13/05/2026"
   ```
 - [ ] **Step 3:** Verify 5 tables exist on staging via §A verification queries from SQL file
 - [ ] **Step 4:** Audit log entry auto-appended to `Masterdata/.write_log.md` (R5 enforced by `db_guard.py`)
@@ -454,10 +454,10 @@
 
 **Total: 30 tasks across 6 sub-phases.**
 
-**Hard gates:** G1 (APPROVE SQL → A.3), G2 (anh DBA → A.4), G3 (B done → C), G4 (DNS cutover → D.3), G5 (live UAT → F.4).
+**Hard gates:** G1 (APPROVE DB → A.3), G2 (anh DBA → A.4), G3 (B done → C), G4 (DNS cutover → D.3), G5 (live UAT → F.4).
 
 **Sequential discipline:** Em does NOT proceed to next sub-phase without anh's explicit approval.
 
-**SQL execution rule:** Em NEVER auto-executes SQL on staging or prod. Anh's "APPROVE SQL" keyword is the only trigger for A.3 staging dry-run. Anh's DBA owns A.4 prod migration.
+**SQL execution rule:** Em NEVER auto-executes SQL on staging or prod. Anh's "APPROVE DB" keyword is the only trigger for A.3 staging dry-run. Anh's DBA owns A.4 prod migration.
 
 **Rollback:** `VITE_BACKEND_ENABLED=false` flag at any time falls back to Phase 4 local-only behavior.

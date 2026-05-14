@@ -262,7 +262,7 @@ Frontend env vars prefixed `VITE_` (Vite convention — exposed to client bundle
 - **E. Migration & Backfill** (E.0-E.2, 3 tasks) — cron cleanup + Sentry release
 - **F. Verification + docs** (F.0-F.5, 6 tasks) — E2E + AP/ISP + manual UAT
 
-Anh approval gate between sub-phases. **Sub-phase A is hard-gated by anh's "APPROVE SQL" keyword** before any DB write (staging or prod).
+Anh approval gate between sub-phases. **Sub-phase A is hard-gated by anh's "APPROVE DB" keyword** before any DB write (staging or prod).
 
 ---
 
@@ -350,7 +350,7 @@ All Q-deploy + Q5-1..8 answered batch 13/05/2026 với Q5-4 override (2000ms). N
 
 ```
 A (Schema)
-  ↓ anh APPROVE SQL → staging dry-run → prod migration
+  ↓ anh APPROVE DB → staging dry-run → prod migration
 B (Backend functions)
   ↓ anh approve B done → C
 C (Frontend rewire)
@@ -365,7 +365,7 @@ Phase 5 closed
 ```
 
 Hard gates:
-- **A.3 (staging dry-run)** requires anh approval keyword "APPROVE SQL"
+- **A.3 (staging dry-run)** requires anh approval keyword "APPROVE DB"
 - **A.4 (prod migration)** executed by anh's DBA — Claude provides SQL + post-migration verification queries
 - **D.3 (DNS cutover)** requires anh + Clevai infra team action
 - **F.4 (live UAT)** requires anh confirming real student session works end-to-end
