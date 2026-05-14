@@ -22,9 +22,15 @@ async function deriveKey(): Promise<AuthKey> {
     throw new Error(`Phase 5 auth.ts: ${SECRET_ENV} env var not set`);
   }
   const enc = new TextEncoder();
+  // Mirror client deriveKeyFromString (app/src/persistence/hmac.ts):
+  // SHA-256 hash the secret to 32 bytes BEFORE importing as HMAC key, so
+  // both sides feed identical key material into HMAC. Without this, the
+  // server uses raw secret bytes while the client uses hashed bytes → every
+  // HMAC verify fails.
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', enc.encode(secret));
   cachedKey = await globalThis.crypto.subtle.importKey(
     'raw',
-    enc.encode(secret),
+    digest,
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     ['sign', 'verify'],
