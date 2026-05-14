@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS game_players (
   gender                       ENUM('male','female') NOT NULL DEFAULT 'male',
   hair_style                   ENUM('a','b','c','d') NOT NULL DEFAULT 'a',
   hint_difficulty              ENUM('easy','medium','hard') NOT NULL DEFAULT 'medium',
-  client_nonce                 INT UNSIGNED NOT NULL DEFAULT 0
+  client_nonce                 BIGINT UNSIGNED NOT NULL DEFAULT 0
                                COMMENT 'Monotonic counter for replay protection (Phase 3 seam)',
   position_x                   SMALLINT NOT NULL DEFAULT 0,
   position_y                   SMALLINT NOT NULL DEFAULT 0,
@@ -135,7 +135,7 @@ CREATE TABLE IF NOT EXISTS game_telemetry_events (
   server_received_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   payload_json            JSON NOT NULL
                           COMMENT 'Zod-validated event payload (discriminated union)',
-  client_nonce            INT UNSIGNED NOT NULL,
+  client_nonce            BIGINT UNSIGNED NOT NULL,
   forwarded_to_amplitude  TINYINT(1) NOT NULL DEFAULT 0
                           COMMENT '0=pending forward, 1=acknowledged by Amplitude',
 
@@ -198,7 +198,7 @@ CREATE TABLE IF NOT EXISTS game_shop_validation_log (
   battle_stars_before     INT UNSIGNED NOT NULL,
   battle_stars_after      INT UNSIGNED NOT NULL,
   validated_at            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  client_nonce            INT UNSIGNED NOT NULL,
+  client_nonce            BIGINT UNSIGNED NOT NULL,
   hmac_verified           TINYINT(1) NOT NULL
                           COMMENT '1 = HMAC matched, 0 = forged request',
   rejected                TINYINT(1) NOT NULL DEFAULT 0
@@ -223,7 +223,7 @@ CREATE TABLE IF NOT EXISTS game_shop_validation_log (
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS game_nonces (
   clevai_user_id          BIGINT UNSIGNED NOT NULL,
-  client_nonce            INT UNSIGNED NOT NULL,
+  client_nonce            BIGINT UNSIGNED NOT NULL,
   used_at                 TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   endpoint                VARCHAR(32) NOT NULL
                           COMMENT '"/api/shop/validate" | "/api/breed/validate" | "/api/save/sync" | "/api/telemetry"',

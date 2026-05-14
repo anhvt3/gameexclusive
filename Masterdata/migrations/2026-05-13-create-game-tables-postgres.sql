@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS game_players (
   gender                       TEXT NOT NULL DEFAULT 'male'  CHECK (gender IN ('male','female')),
   hair_style                   TEXT NOT NULL DEFAULT 'a'     CHECK (hair_style IN ('a','b','c','d')),
   hint_difficulty              TEXT NOT NULL DEFAULT 'medium' CHECK (hint_difficulty IN ('easy','medium','hard')),
-  client_nonce                 INTEGER NOT NULL DEFAULT 0    CHECK (client_nonce >= 0),
+  client_nonce                 BIGINT NOT NULL DEFAULT 0    CHECK (client_nonce >= 0),
   position_x                   SMALLINT NOT NULL DEFAULT 0,
   position_y                   SMALLINT NOT NULL DEFAULT 0,
   current_zone_id              VARCHAR(32) DEFAULT NULL,
@@ -147,7 +147,7 @@ CREATE TABLE IF NOT EXISTS game_telemetry_events (
   event_ts                BIGINT NOT NULL,
   server_received_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   payload_json            JSONB NOT NULL,
-  client_nonce            INTEGER NOT NULL CHECK (client_nonce >= 0),
+  client_nonce            BIGINT NOT NULL CHECK (client_nonce >= 0),
   forwarded_to_amplitude  BOOLEAN NOT NULL DEFAULT FALSE
 );
 
@@ -202,7 +202,7 @@ CREATE TABLE IF NOT EXISTS game_shop_validation_log (
   battle_stars_before     INTEGER NOT NULL CHECK (battle_stars_before >= 0),
   battle_stars_after      INTEGER NOT NULL CHECK (battle_stars_after >= 0),
   validated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  client_nonce            INTEGER NOT NULL CHECK (client_nonce >= 0),
+  client_nonce            BIGINT NOT NULL CHECK (client_nonce >= 0),
   hmac_verified           BOOLEAN NOT NULL,
   rejected                BOOLEAN NOT NULL DEFAULT FALSE,
   rejection_reason        VARCHAR(64) DEFAULT NULL
@@ -221,7 +221,7 @@ COMMENT ON COLUMN game_shop_validation_log.rejection_reason IS 'NULL when reject
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS game_nonces (
   clevai_user_id          BIGINT NOT NULL CHECK (clevai_user_id > 0),
-  client_nonce            INTEGER NOT NULL CHECK (client_nonce >= 0),
+  client_nonce            BIGINT NOT NULL CHECK (client_nonce >= 0),
   used_at                 TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   endpoint                VARCHAR(32) NOT NULL,
 
