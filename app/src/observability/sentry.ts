@@ -23,6 +23,9 @@ export function initSentry(): boolean {
     dsn,
     tracesSampleRate: 0.1,
     environment: import.meta.env.MODE ?? 'dev',
+    // Phase 5: release tag from Vercel build-time injection
+    // (VITE_SENTRY_RELEASE=$VERCEL_GIT_COMMIT_SHA in deploy.yml)
+    release: import.meta.env.VITE_SENTRY_RELEASE ?? undefined,
   });
   initialized = true;
   return true;

@@ -1,8 +1,12 @@
 import { defineConfig, mergeConfig } from 'vitest/config';
 import viteConfig from './vite.config';
 
+// Phase 5 C.4 — vite.config.ts is now a function (mode-aware). Resolve it
+// for test mode so vitest sees a plain UserConfig.
+const resolvedViteConfig = viteConfig({ mode: 'test', command: 'serve' });
+
 export default mergeConfig(
-  viteConfig,
+  resolvedViteConfig,
   defineConfig({
     test: {
       globals: true,

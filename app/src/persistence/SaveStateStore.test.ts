@@ -136,7 +136,7 @@ describe('SaveStateStore — persistence', () => {
   });
 
   it('SCHEMA_VERSION is at v8 (Sprint F Task 6 daily reward fields)', () => {
-    expect(SCHEMA_VERSION).toBe(10);
+    expect(SCHEMA_VERSION).toBe(11);
   });
 });
 
@@ -430,7 +430,7 @@ describe('SaveState v4 migration', () => {
     localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v3Save));
     await useSaveState.persist.rehydrate();
     const s = useSaveState.getState();
-    expect(SCHEMA_VERSION).toBe(10);
+    expect(SCHEMA_VERSION).toBe(11);
     expect(s.defeatedBossIds).toEqual([]);
     expect(s.claimedChestIds).toEqual([]);
     expect(s.currentZoneId).toBeNull();
@@ -493,7 +493,7 @@ describe('SaveState v4 migration', () => {
     localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v2Save));
     await useSaveState.persist.rehydrate();
     const s = useSaveState.getState();
-    expect(SCHEMA_VERSION).toBe(10);
+    expect(SCHEMA_VERSION).toBe(11);
     expect(s.active_pet_instance_id).toBeNull();
     expect(s.defeatedBossIds).toEqual([]);
     expect(s.claimedChestIds).toEqual([]);
@@ -606,7 +606,7 @@ describe('SaveState v5 migration', () => {
     localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v4Save));
     await useSaveState.persist.rehydrate();
     const s = useSaveState.getState();
-    expect(SCHEMA_VERSION).toBe(10);
+    expect(SCHEMA_VERSION).toBe(11);
     expect(s.ownedPets).toEqual([]);
     // v4 fields preserved
     expect(s.defeatedBossIds).toEqual(['forest-boss']);
@@ -675,7 +675,7 @@ describe('SaveState v5 migration', () => {
     localStorage.setItem(SAVE_STATE_KEY, JSON.stringify(v3Save));
     await useSaveState.persist.rehydrate();
     const s = useSaveState.getState();
-    expect(SCHEMA_VERSION).toBe(10);
+    expect(SCHEMA_VERSION).toBe(11);
     expect(s.ownedPets).toEqual([]);
     expect(s.defeatedBossIds).toEqual([]); // v3→v4 step also fired
   });

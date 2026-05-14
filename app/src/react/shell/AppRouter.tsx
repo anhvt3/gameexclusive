@@ -33,6 +33,7 @@ import { LootJarOverlay } from '@react/overlays/LootJarOverlay';
 import { QuestEngine } from '@/domain/QuestEngine';
 import { DailyRewardEngine } from '@/domain/DailyRewardEngine';
 import { TelemetryEngine } from '@/observability/TelemetryEngine';
+import { SaveSyncEngine } from '@/persistence/SaveSyncEngine';
 import { useSaveState } from '@/persistence/SaveStateStore';
 import { eventBus } from '@/bus/EventBus';
 import { PlayScreen } from './PlayScreen';
@@ -105,6 +106,11 @@ export function AppRouter() {
   // shop + breeding events for analytics. No state mutation.
   const telemetryEngineRef = useRef<TelemetryEngine | null>(null);
 
+  // Phase 5 Task C.7 — SaveSyncEngine lifecycle. Debounced full-state POST
+  // to /api/save/sync (2000ms idle window, Q5-4 override). Skips when
+  // VITE_BACKEND_ENABLED=false (Phase 4 fallback).
+  const saveSyncEngineRef = useRef<SaveSyncEngine | null>(null);
+
   useEffect(() => {
     const startEngine = () => {
       dailyEngineRef.current = new DailyRewardEngine();
@@ -138,6 +144,23 @@ export function AppRouter() {
     return () => {
       cleanup?.();
       telemetryEngineRef.current?.stop();
+    };
+  }, []);
+
+  useEffect(() => {
+    const start = () => {
+      saveSyncEngineRef.current = new SaveSyncEngine();
+      saveSyncEngineRef.current.start();
+    };
+    let cleanup: (() => void) | null = null;
+    if (useSaveState.persist.hasHydrated()) {
+      start();
+    } else {
+      cleanup = useSaveState.persist.onFinishHydration(start);
+    }
+    return () => {
+      cleanup?.();
+      saveSyncEngineRef.current?.stop();
     };
   }, []);
 

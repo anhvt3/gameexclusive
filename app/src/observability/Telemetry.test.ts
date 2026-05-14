@@ -7,6 +7,7 @@ import {
   trackBreedingHatch,
   TelemetryEventSchema,
 } from './Telemetry';
+import { useSaveState } from '@/persistence/SaveStateStore';
 
 describe('TelemetryEventSchema', () => {
   it('parses shop_purchase shape', () => {
@@ -58,7 +59,9 @@ describe('track', () => {
   beforeEach(() => {
     logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    global.fetch = vi.fn().mockResolvedValue({ ok: true } as never);
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) } as never);
+    // Phase 5 — Telemetry now requires clevaiUserId for POST attribution.
+    useSaveState.getState().setUserId(1);
   });
 
   it('logs to console + POSTs to /api/telemetry', async () => {
@@ -102,7 +105,8 @@ describe('track', () => {
 describe('convenience wrappers', () => {
   beforeEach(() => {
     vi.spyOn(console, 'log').mockImplementation(() => {});
-    global.fetch = vi.fn().mockResolvedValue({ ok: true } as never);
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) } as never);
+    useSaveState.getState().setUserId(1);
   });
 
   it('trackShopPurchase shapes the event correctly', async () => {

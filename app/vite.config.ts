@@ -4,17 +4,23 @@ import path from 'node:path';
 import { shopValidateRoute, breedValidateRoute } from './src/server/validationRoutes';
 import { telemetryRoute } from './src/server/telemetryRoute';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
-    {
-      name: 'phase-3-validation-routes',
-      configureServer(server) {
-        server.middlewares.use(shopValidateRoute());
-        server.middlewares.use(breedValidateRoute());
-        server.middlewares.use(telemetryRoute());
-      },
-    },
+    // Phase 5: mock middlewares dev-only. Production builds (Vercel) skip
+    // these — real Vercel Functions at /api/* handle the same endpoints.
+    ...(mode === 'development'
+      ? [
+          {
+            name: 'phase-3-validation-routes',
+            configureServer(server: { middlewares: { use: (handler: unknown) => void } }) {
+              server.middlewares.use(shopValidateRoute());
+              server.middlewares.use(breedValidateRoute());
+              server.middlewares.use(telemetryRoute());
+            },
+          },
+        ]
+      : []),
   ],
   resolve: {
     alias: {
@@ -31,4 +37,4 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
   },
-});
+}));

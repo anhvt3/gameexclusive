@@ -51,11 +51,32 @@ export const TelemetryEventSchema = z.discriminatedUnion('event', [
 
 export type TelemetryEvent = z.infer<typeof TelemetryEventSchema>;
 
-const TELEMETRY_ENDPOINT = '/api/telemetry';
+// Phase 5: env-driven base + Phase 4 fallback path
+const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? '';
+const TELEMETRY_ENDPOINT = `${API_BASE}/api/telemetry`;
+const BACKEND_ENABLED = import.meta.env.VITE_BACKEND_ENABLED !== 'false';
+
+// HMAC sign — mirrors api/_lib/auth.ts (server-side verify).
+// Em uses existing Phase 3 helpers (deriveKeyFromString, signHex from
+// app/src/persistence/hmac.ts) so the secret flow stays consistent.
+import { deriveKeyFromString, signHex } from '@/persistence/hmac';
+import { useSaveState } from '@/persistence/SaveStateStore';
+
+const SECRET = (import.meta.env.VITE_PHASE5_VALIDATION_SECRET as string | undefined)
+  ?? 'phase5-game-ss3-validation-secret-v1';
+
+let cachedKey: CryptoKey | null = null;
+async function getKey(): Promise<CryptoKey> {
+  if (cachedKey === null) cachedKey = await deriveKeyFromString(SECRET);
+  return cachedKey;
+}
 
 /**
- * Track a single event. Always logs to console; also POSTs to mock
- * endpoint. Soft-fail on network error (never throws).
+ * Track a single event. Always logs to console; POSTs to /api/telemetry
+ * (Phase 5 Vercel function) with HMAC + nonce. Soft-fail on network error.
+ *
+ * When VITE_BACKEND_ENABLED=false (Phase 4 fallback), only console.log;
+ * skip POST entirely.
  */
 export async function track(event: TelemetryEvent): Promise<void> {
   const parsed = TelemetryEventSchema.safeParse(event);
@@ -64,11 +85,30 @@ export async function track(event: TelemetryEvent): Promise<void> {
     return;
   }
   console.log(`[Telemetry] ${event.event}`, parsed.data);
+
+  if (!BACKEND_ENABLED) return;
+
+  // Add clevaiUserId from SaveState; if not set (anonymous session), skip POST
+  const clevaiUserId = useSaveState.getState().clevaiUserId;
+  if (clevaiUserId === null || clevaiUserId === undefined) {
+    return; // anonymous session — telemetry needs user attribution
+  }
+
+  const nonce = useSaveState.getState().clientNonce + 1;
+  const bodyObj = { clevaiUserId, ...parsed.data };
+  const rawBody = JSON.stringify(bodyObj);
   try {
+    const key = await getKey();
+    const hmac = await signHex(`${nonce}:${rawBody}`, key);
+    useSaveState.getState().bumpClientNonce();
     await fetch(TELEMETRY_ENDPOINT, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(parsed.data),
+      headers: {
+        'content-type': 'application/json',
+        'x-nonce': String(nonce),
+        'x-hmac': hmac,
+      },
+      body: rawBody,
     });
   } catch (err) {
     console.warn('[Telemetry] POST failed (soft-fail):', err);

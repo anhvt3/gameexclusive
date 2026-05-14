@@ -47,7 +47,7 @@ import type { BreedingSession } from '@/types/breeding';
 import { SHOP_CATALOG } from '@/data/staticConfig/shopCatalog';
 
 export const SAVE_STATE_KEY = 'game_ss3_save_v1';
-export const SCHEMA_VERSION = 10;
+export const SCHEMA_VERSION = 11;
 
 /** Battles required since last loot-jar claim before the jar is ready to open. */
 export const LOOT_JAR_THRESHOLD = 3;
@@ -150,6 +150,8 @@ export interface SaveStateData {
   purchaseHistory: Record<string, number>;
   breedingChamber: BreedingSession | null;
   clientNonce: number;
+  // v11 additions (Phase 5 — Vercel + MySQL backend attribution)
+  clevaiUserId: number | null;
 }
 
 export interface SaveStateActions {
@@ -203,6 +205,8 @@ export interface SaveStateActions {
   clearBreeding: () => void;
   rushBreeding: (now: number, cost: number) => void;
   bumpClientNonce: () => void;
+  // v11 actions (Phase 5)
+  setUserId: (id: number | null) => void;
   isShopStockFresh: (now?: number) => boolean;
   isBreedingChamberBusy: () => boolean;
   reset: () => void;
@@ -245,6 +249,7 @@ const INITIAL_STATE: SaveStateData = {
   purchaseHistory: {},
   breedingChamber: null,
   clientNonce: 0,
+  clevaiUserId: null,
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -358,6 +363,9 @@ function migrate(persisted: unknown, version: number): SaveStateData {
           })()
         : null,
     };
+  }
+  if (version < 11) {
+    s = { ...s, clevaiUserId: null };
   }
   return s;
 }
@@ -765,6 +773,8 @@ export const useSaveState = create<SaveStateStore>()(
       bumpClientNonce: () => {
         set({ clientNonce: get().clientNonce + 1 });
       },
+
+      setUserId: (id) => set({ clevaiUserId: id }),
 
       isShopStockFresh: (now = Date.now()) => {
         const refreshedAt = get().shopStockRefreshedAt;

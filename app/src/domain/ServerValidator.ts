@@ -17,7 +17,13 @@
 import { deriveKeyFromString, signHex } from '@/persistence/hmac';
 import { useSaveState } from '@/persistence/SaveStateStore';
 
-const PHASE3_DEV_SECRET = 'phase3-game-ss3-validation-secret-v1';
+// Phase 5: env-driven secret (matches PHASE5_VALIDATION_SECRET on backend).
+// Falls back to Phase 3 literal so existing tests + dev workflow still work.
+const PHASE3_DEV_SECRET = (import.meta.env.VITE_PHASE5_VALIDATION_SECRET as string | undefined)
+  ?? 'phase3-game-ss3-validation-secret-v1';
+
+// Phase 5: API base URL for production vs preview vs dev environments.
+const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? '';
 
 let cachedKey: CryptoKey | null = null;
 
@@ -56,7 +62,10 @@ export async function validateAction<T>(
   useSaveState.getState().bumpClientNonce();
 
   try {
-    const res = await fetch(endpoint, {
+    // Phase 5: concatenate API_BASE so production builds hit Vercel functions
+    // at absolute URL (e.g. https://game.clevai.edu.vn/api/shop/validate).
+    // Dev/test with empty API_BASE → relative URL (mock middleware on Vite).
+    const res = await fetch(`${API_BASE}${endpoint}`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
