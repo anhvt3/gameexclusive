@@ -19,5 +19,11 @@
         { "key": "Cache-Control", "value": "no-store, max-age=0" }
       ]
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/cleanup-nonces",
+      "schedule": "0 3 * * *"
+    }
   ]
 }

@@ -90,8 +90,14 @@ export async function query<T = Record<string, unknown>>(
     // mysql2 expects ExecuteValues[]; cast unknown[] is safe since the
     // driver serializes anything stringifiable.
     const [rows] = await pool.execute(sql, params as unknown as (string | number | null)[]);
-    const arr = Array.isArray(rows) ? rows : [];
-    return { rows: arr as T[], rowCount: arr.length };
+    // mysql2 returns row arrays for SELECT but ResultSetHeader for
+    // INSERT/UPDATE/DELETE. Normalize both into the QueryResult shape so
+    // callers (cron cleanup, etc.) get a consistent rowCount.
+    if (Array.isArray(rows)) {
+      return { rows: rows as T[], rowCount: rows.length };
+    }
+    const header = rows as unknown as { affectedRows?: number };
+    return { rows: [] as T[], rowCount: header.affectedRows ?? 0 };
   }
 }
 
