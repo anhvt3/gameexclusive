@@ -75,6 +75,27 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
       'import/no-restricted-paths': 'off',
+      // Test specs sometimes inline `import('@playwright/test').Page` for
+      // typing helpers — allowed in test code.
+      '@typescript-eslint/consistent-type-imports': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+      'no-empty-pattern': 'off',
+    },
+  },
+  // .mjs scripts (Node runtime — Playwright UAT runners, etc.) have full
+  // Node + browser globals (browser globals available inside page.evaluate).
+  {
+    files: ['**/*.mjs', 'scripts/**/*.{js,mjs}'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: { ...globals.browser, ...globals.node },
+    },
+    rules: {
+      'no-undef': 'off',
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      'import/no-restricted-paths': 'off',
     },
   },
   prettier

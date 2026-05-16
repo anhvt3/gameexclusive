@@ -33,11 +33,9 @@ import { expect, test } from '@playwright/test';
 // To wire as hard CI gate later:
 //   1. Generate Linux baselines (run CI with --update-snapshots, download
 //      artifact, commit *-linux.png files)
-//   2. Remove this test.skip()
-test.skip(
-  ({}, testInfo) => Boolean(process.env.CI) && !process.env.RUN_VISUAL_REGRESSION,
-  'Visual regression skipped in CI — set RUN_VISUAL_REGRESSION=1 once Linux baselines committed'
-);
+//   2. Remove the SKIP_VISUAL_REGRESSION env condition below.
+const SKIP_VISUAL_REGRESSION =
+  Boolean(process.env.CI) && !process.env.RUN_VISUAL_REGRESSION;
 
 
 const ROUTES: Array<{ name: string; path: string }> = [
@@ -91,6 +89,10 @@ async function maskVolatileOverlays(page: import('@playwright/test').Page): Prom
 for (const route of ROUTES) {
   const hasPhaser = route.path === '/play';
   test(`visual regression — ${route.name} (${route.path})`, async ({ page }) => {
+    test.skip(
+      SKIP_VISUAL_REGRESSION,
+      'Visual regression skipped in CI — set RUN_VISUAL_REGRESSION=1 once Linux baselines committed'
+    );
     // Seed minimal save state via localStorage so onboarding doesn't loop.
     await page.goto('/');
     await page.evaluate(() => {
