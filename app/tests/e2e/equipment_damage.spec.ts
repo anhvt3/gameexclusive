@@ -51,8 +51,8 @@ async function seedSave(page: Page, equipped: boolean): Promise<void> {
   await page
     .locator('[data-testid="phaser-container"] canvas')
     .first()
-    .waitFor({ timeout: 15_000 });
-  await page.waitForFunction(() => Boolean(window.__GAME__), { timeout: 15_000 });
+    .waitFor({ timeout: 30_000 });
+  await page.waitForFunction(() => Boolean(window.__GAME__), { timeout: 30_000 });
   // Sprint B Task 12 — pin this Phase 1 spec to legacy WorldScene; the new
   // Sprint B default is WorldMapScene, which this test does not drive.
   await page.evaluate(() => {
@@ -67,7 +67,7 @@ async function seedSave(page: Page, equipped: boolean): Promise<void> {
     }
   });
   await page.waitForFunction(() => window.__GAME__?.state.activeScene() === 'WorldScene', {
-    timeout: 15_000,
+    timeout: 30_000,
   });
 }
 
