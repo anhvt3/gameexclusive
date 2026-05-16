@@ -173,20 +173,25 @@ async function check5_shopValidate() {
 
 // ─── Test 6: /api/breed/validate ─────────────────────────────────────────────
 async function check6_breedValidate() {
+  // Per api/breed/validate.ts contract: action='start' INSERTs a row in
+  // game_breeding_sessions. Spec §5.10 acceptance criterion.
   const nonce = Date.now() + 60000;
   const body = JSON.stringify({
     clevaiUserId: USER_A,
-    parentA: 'flame-pup',
-    parentB: 'aqua-fin',
+    action: 'start',
+    parentA: `parent-a-${nonce}`,
+    parentB: `parent-b-${nonce}`,
     offspringRarity: 'rare',
-    costPaid: 200,
+    offspringCodename: 'flame-pup',
+    offspringLevel: 1,
+    costBattleStars: 200,
   });
   const res = await postSigned('/api/breed/validate', body, nonce);
   const data = await res.json().catch(() => ({}));
   record(
-    '6. /api/breed/validate endpoint live (HMAC+routing OK)',
-    res.status < 500 && (data.ok !== undefined || data.reason !== undefined),
-    `status=${res.status} ok=${data.ok} reason=${data.reason ?? '?'}`,
+    '6. /api/breed/validate action=start inserts breeding session',
+    res.ok && data.ok === true && typeof data.hatchAt === 'number',
+    `status=${res.status} ok=${data.ok} hatchAt=${data.hatchAt ?? '?'} reason=${data.reason ?? '-'}`,
   );
 }
 
