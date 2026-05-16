@@ -14,6 +14,9 @@ playwright-report/
 test-results/
 .playwright/
 
+# Local QA artifacts (uat_visual_smoke.mjs screenshots, ad-hoc)
+.gstack/
+
 # Logs
 logs/
 *.log
