@@ -88,11 +88,6 @@ export const PHASE1_ASSETS = {
     { key: 'banner_victory', path: '/assets/ui/banner_victory_800x120.png' },
     { key: 'banner_defeat', path: '/assets/ui/banner_defeat.png' },
     { key: 'banner_levelup', path: '/assets/ui/banner_levelup_800x120.png' },
-    // Step 22.12 — base player body for layered avatar
-    {
-      key: PLAYER_BASE_MALE_KEY,
-      path: '/assets/juice/base_player_male_transparent.png',
-    },
     // Step 22.12 — equipment overlay sprites (10 keys per Appendix H §H.5)
     ...ITEM_REGISTRY.map((item) => ({
       key: item.spriteKey,
@@ -143,6 +138,12 @@ export const PHASE1_ASSETS = {
     {
       key: 'wizard_walk',
       path: '/assets/player/wizard_male_walk_spritesheet_128x128.png',
+      frameWidth: 128,
+      frameHeight: 128,
+    },
+    {
+      key: PLAYER_BASE_MALE_KEY,
+      path: '/assets/juice/base_player_male_transparent.png',
       frameWidth: 128,
       frameHeight: 128,
     },
