@@ -23,8 +23,9 @@ const SYNC_DEBOUNCE_MS = 2000;
 const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? '';
 const ENDPOINT = `${API_BASE}/api/save/sync`;
 const BACKEND_ENABLED = import.meta.env.VITE_BACKEND_ENABLED !== 'false';
-const SECRET = (import.meta.env.VITE_PHASE5_VALIDATION_SECRET as string | undefined)
-  ?? 'phase5-game-ss3-validation-secret-v1';
+const SECRET =
+  (import.meta.env.VITE_PHASE5_VALIDATION_SECRET as string | undefined) ??
+  'phase5-game-ss3-validation-secret-v1';
 
 let cachedKey: CryptoKey | null = null;
 async function getKey(): Promise<CryptoKey> {
@@ -42,7 +43,9 @@ export class SaveSyncEngine {
   start(): void {
     if (this.started) return;
     if (!BACKEND_ENABLED) {
-      console.info('[SaveSyncEngine] VITE_BACKEND_ENABLED=false — sync disabled (Phase 4 fallback)');
+      console.info(
+        '[SaveSyncEngine] VITE_BACKEND_ENABLED=false — sync disabled (Phase 4 fallback)'
+      );
       return;
     }
     this.started = true;
@@ -130,13 +133,20 @@ export class SaveSyncEngine {
     }
   }
 
-  private buildPayload(clevaiUserId: number, s: ReturnType<typeof useSaveState.getState>): Record<string, unknown> {
+  private buildPayload(
+    clevaiUserId: number,
+    s: ReturnType<typeof useSaveState.getState>
+  ): Record<string, unknown> {
     return {
       clevaiUserId,
       lastKnownUpdatedAt: this.lastKnownUpdatedAt,
       state: {
-        hp: s.hp, maxHp: s.maxHp, mp: s.mp, maxMp: s.maxMp,
-        level: s.level, exp: s.exp,
+        hp: s.hp,
+        maxHp: s.maxHp,
+        mp: s.mp,
+        maxMp: s.maxMp,
+        level: s.level,
+        exp: s.exp,
         battleStars: s.battleStars,
         loginStreak: s.loginStreak,
         lastLoginAnchorUtc7: s.lastLoginAnchorUtc7,

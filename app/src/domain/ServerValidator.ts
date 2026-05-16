@@ -19,8 +19,9 @@ import { useSaveState } from '@/persistence/SaveStateStore';
 
 // Phase 5: env-driven secret (matches PHASE5_VALIDATION_SECRET on backend).
 // Falls back to Phase 3 literal so existing tests + dev workflow still work.
-const PHASE3_DEV_SECRET = (import.meta.env.VITE_PHASE5_VALIDATION_SECRET as string | undefined)
-  ?? 'phase3-game-ss3-validation-secret-v1';
+const PHASE3_DEV_SECRET =
+  (import.meta.env.VITE_PHASE5_VALIDATION_SECRET as string | undefined) ??
+  'phase3-game-ss3-validation-secret-v1';
 
 // Phase 5: API base URL for production vs preview vs dev environments.
 const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? '';

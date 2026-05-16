@@ -62,8 +62,9 @@ const BACKEND_ENABLED = import.meta.env.VITE_BACKEND_ENABLED !== 'false';
 import { deriveKeyFromString, signHex } from '@/persistence/hmac';
 import { useSaveState } from '@/persistence/SaveStateStore';
 
-const SECRET = (import.meta.env.VITE_PHASE5_VALIDATION_SECRET as string | undefined)
-  ?? 'phase5-game-ss3-validation-secret-v1';
+const SECRET =
+  (import.meta.env.VITE_PHASE5_VALIDATION_SECRET as string | undefined) ??
+  'phase5-game-ss3-validation-secret-v1';
 
 let cachedKey: CryptoKey | null = null;
 async function getKey(): Promise<CryptoKey> {

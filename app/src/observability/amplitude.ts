@@ -23,7 +23,7 @@ export async function initAmplitudeIfConfigured(clevaiUserId: number | null): Pr
   try {
     const amp = await import('@amplitude/analytics-browser');
     amp.init(apiKey, undefined, {
-      defaultTracking: false,        // Disable auto-tracking — em manually track
+      defaultTracking: false, // Disable auto-tracking — em manually track
       autocapture: false,
     });
     if (clevaiUserId !== null) {
