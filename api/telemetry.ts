@@ -18,6 +18,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { query, serializeJsonForInsert } from './_lib/db.js';
 import { verifyHmacRequest } from './_lib/auth.js';
 import { forwardEvent } from './_lib/amplitude.js';
+import { withSentry } from './_lib/sentry.js';
 
 interface TelemetryBody {
   clevaiUserId: number;
@@ -26,7 +27,7 @@ interface TelemetryBody {
   [key: string]: unknown;
 }
 
-export default async function handler(
+async function handler(
   req: VercelRequest,
   res: VercelResponse,
 ): Promise<void> {
@@ -102,3 +103,5 @@ export default async function handler(
 
   res.status(200).json({ ok: true, inserted, forwarded });
 }
+
+export default withSentry(handler);

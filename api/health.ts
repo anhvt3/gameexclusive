@@ -11,8 +11,9 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ping, DIALECT } from './_lib/db.js';
+import { withSentry } from './_lib/sentry.js';
 
-export default async function handler(
+async function handler(
   _req: VercelRequest,
   res: VercelResponse,
 ): Promise<void> {
@@ -29,3 +30,5 @@ export default async function handler(
     ...(db.error ? { db_error: db.error } : {}),
   });
 }
+
+export default withSentry(handler);

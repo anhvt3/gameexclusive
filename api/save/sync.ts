@@ -21,6 +21,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { query, formatUpsert, serializeJsonForInsert } from '../_lib/db.js';
 import { verifyHmacRequest } from '../_lib/auth.js';
 import { checkAndInsertNonce } from '../_lib/nonce.js';
+import { withSentry } from '../_lib/sentry.js';
 
 interface SyncPayload {
   clevaiUserId: number;
@@ -28,7 +29,7 @@ interface SyncPayload {
   lastKnownUpdatedAt?: string;
 }
 
-export default async function handler(
+async function handler(
   req: VercelRequest,
   res: VercelResponse,
 ): Promise<void> {
@@ -120,3 +121,5 @@ export default async function handler(
     res.status(500).json({ error: 'internal', detail: String(e) });
   }
 }
+
+export default withSentry(handler);

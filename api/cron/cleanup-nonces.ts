@@ -18,8 +18,9 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { query, DIALECT } from '../_lib/db.js';
+import { withSentry } from '../_lib/sentry.js';
 
-export default async function handler(
+async function handler(
   req: VercelRequest,
   res: VercelResponse,
 ): Promise<void> {
@@ -56,3 +57,5 @@ export default async function handler(
     res.status(500).json({ error: 'cleanup_failed', message });
   }
 }
+
+export default withSentry(handler);
