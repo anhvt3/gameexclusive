@@ -166,15 +166,7 @@ export class ZoneScene extends Phaser.Scene {
     this.bgKey = this.screen === 'entrance' ? zone.bgEntrance : zone.bgPath;
     if (typeof this.add?.image === 'function') {
       const img = this.add.image(640, 360, this.bgKey);
-      const imgX = img as unknown as {
-        setOrigin?: (x: number, y: number) => unknown;
-        setDisplaySize?: (w: number, h: number) => unknown;
-      };
-      imgX.setOrigin?.(0.5, 0.5);
-      // FIX (LESSONS L2): AI-generated zone backgrounds ship at 1024×1024
-      // native even though filename advertises 1280×720. Force the design
-      // size so the scene fills the 1280×720 viewport correctly.
-      imgX.setDisplaySize?.(1280, 720);
+      (img as unknown as { setOrigin?: (x: number, y: number) => unknown }).setOrigin?.(0.5, 0.5);
     }
   }
 

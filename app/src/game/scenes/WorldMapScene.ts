@@ -28,22 +28,17 @@ export class WorldMapScene extends Phaser.Scene {
     this.lastTooltipIslandId = null;
 
     // Background — preloaded by PreloadScene (Sprint B Task 7).
+    // Assets are now correctly exported at native design size (Antigravity
+    // re-export per Appendix J, 2026-05-16), so no setDisplaySize needed.
     if (typeof this.add.image === 'function') {
       const bg = this.add.image(960, 540, 'world-map-bg');
       bg.setOrigin?.(0.5);
-      // FIX (LESSONS L2): AI-generated PNGs ship at 1024×1024 native even
-      // though filename advertises 1920×1080. Force the design size so the
-      // background fills the 1920×1080 viewport instead of being a 1024px
-      // square that lets other oversized sprites bleed through.
-      bg.setDisplaySize?.(1920, 1080);
     }
 
     for (const island of ISLANDS) {
       const m = this.add.image(island.worldMapAnchor.x, island.worldMapAnchor.y, island.iconKey);
       m.setData?.('islandId', island.id);
       m.setInteractive?.({ useHandCursor: true });
-      // FIX (LESSONS L2): AI assets are 1024×1024 native; ép về 192×192 design.
-      m.setDisplaySize?.(192, 192);
       if (island.status === 'locked') {
         m.setTint?.(0x666666);
       }

@@ -138,14 +138,7 @@ export class BossHallScene extends Phaser.Scene {
   private renderBackground(zone: ZoneDef): void {
     if (typeof this.add?.image === 'function') {
       const img = this.add.image(640, 360, zone.bgBossHall);
-      const imgX = img as unknown as {
-        setOrigin?: (x: number, y: number) => unknown;
-        setDisplaySize?: (w: number, h: number) => unknown;
-      };
-      imgX.setOrigin?.(0.5, 0.5);
-      // FIX (LESSONS L2): AI-generated boss-hall backgrounds ship at
-      // 1024×1024 native even though filename advertises 1280×720.
-      imgX.setDisplaySize?.(1280, 720);
+      (img as unknown as { setOrigin?: (x: number, y: number) => unknown }).setOrigin?.(0.5, 0.5);
     }
   }
 
