@@ -107,5 +107,97 @@ Anh opens `https://uat.game.clevai.edu.vn/?cu=999001` and walks the flows:
 
 ## F.0+ — Clevai cutover (gated by anh's "UAT DONE" keyword)
 
-See `tasks/todo_phase5.md` for full F sequence. F is BLOCKED until anh types
-"UAT DONE" after E.3 sign-off.
+F is BLOCKED until anh types **"UAT DONE"** after E.3 sign-off. Once unlocked,
+the flow is:
+
+### F.0 — Run MySQL canonical SQL on Clevai staging (DB Gate G2)
+
+**Pre-validated by em**: `db_guard.py --check` PASSED (5/5 tables in scope, no
+DELETE/DROP/TRUNCATE, INSERT/UPDATE/DDL only, audit trail wired).
+
+```bash
+# Em runs (after anh types "APPROVE DB EXEC STAGING"):
+python Masterdata/scripts/db_guard.py --exec --confirm-commit \
+  --sql-file Game_exclusive/.claude/worktrees/phase5-vercel-mysql-6e685e/Masterdata/migrations/2026-05-13-create-game-tables-mysql.sql \
+  --tables game_players,game_telemetry_events,game_breeding_sessions,game_shop_validation_log,game_nonces \
+  --user-request "Phase 5 F.0 — anh approved staging cutover" \
+  --user-approved
+```
+
+Connection string: `CLEVAI_DB_*` env vars on `mysql.clevai.vn` staging
+(`staging_s2_bp_log_v2`). Anh provides creds at cutover time.
+
+Post-execution: em runs §A MySQL verification queries (the SELECTs at bottom
+of canonical SQL file), reports R7 + R8 to anh.
+
+### F.1 — Smoke-test backend against Clevai staging
+
+1. Anh provides Clevai staging DB creds: `CLEVAI_DB_HOST`, `CLEVAI_DB_USER`,
+   `CLEVAI_DB_PASS`, `CLEVAI_DB_NAME`
+2. Em (or anh in Vercel dashboard) sets Vercel Preview env vars:
+   - `DB_DIALECT=mysql` (was `pg`)
+   - `CLEVAI_DB_HOST=mysql.clevai.vn`
+   - `CLEVAI_DB_USER=game_backend_writer`
+   - `CLEVAI_DB_PASS=<staging password>`
+   - `CLEVAI_DB_NAME=staging_s2_bp_log_v2`
+3. Em triggers Vercel redeploy (push to branch)
+4. Em runs:
+   ```bash
+   UAT_URL=https://gameexclusive-git-claude-phase5-vercel-mysql-6e685e-anhvt3.vercel.app \
+     node scripts/uat_smoke.mjs       # 5/5 must PASS
+   UAT_URL=...same... \
+     node scripts/uat_integration.mjs  # 7/7 must PASS
+   ```
+5. SELECT verify rows landed in Clevai `game_players`, `game_nonces`,
+   `game_telemetry_events` (not Vercel Postgres anymore)
+6. Anh signs off F.1
+
+### F.2 — Anh's DBA runs MySQL canonical on Clevai PROD (Gate G3)
+
+Em does NOT touch prod. DBA executes off-peak (~2am VN per Q5-7):
+
+1. Em emails DBA the canonical SQL file + checklist (Lark/Slack)
+2. DBA schedules window
+3. DBA runs SQL on `clevai_prod`
+4. DBA creates `game_backend_writer` user with §B GRANTs
+5. DBA confirms back to anh; anh confirms to em; em logs audit
+
+### F.3 — Switch Vercel Production env: prod MySQL
+
+1. Vercel Settings → Environment Variables → Production scope only:
+   - `DB_DIALECT=mysql`
+   - `CLEVAI_DB_*` = prod creds
+2. Vercel auto-deploys `main` → Production
+3. `curl https://gameexclusive.vercel.app/api/health` → `{ ok: true, db: 'connected', dialect: 'mysql' }`
+
+### F.4 — Cutover DNS (game.clevai.edu.vn)
+
+1. Anh + Clevai infra: CNAME `game.clevai.edu.vn` → `cname.vercel-dns.com`
+2. Vercel Settings → Domains → add `game.clevai.edu.vn`, assign to Production
+3. Verify HTTPS + SSL chain valid
+4. `curl https://game.clevai.edu.vn/api/health` → 200
+
+### F.5 — Live UAT with real Clevai student
+
+1. Anh logs in via real Clevai SSO → game.clevai.edu.vn
+2. Plays 5–10 min: combat, shop, breed, login claim
+3. Anh's DBA: `SELECT * FROM clevai_prod.game_players WHERE clevai_user_id = <anh's id>`
+   → row present with current state
+4. Amplitude dashboard: anh's events visible
+5. Sentry: no errors in last 10 min on prod release tag
+
+### F.6 — Phase 5 closure
+
+1. AP §11.16 + §11.17 updated (anh authors)
+2. ISP Phase 5 row marked DONE
+3. `tasks/todo.md` Phase 5 roll-up entry
+4. Final audit log in `Masterdata/.write_log.md`
+5. Squash merge `claude/phase5-vercel-mysql-6e685e` → `main`
+6. Cleanup worktree: `git worktree remove .claude/worktrees/phase5-vercel-mysql-6e685e`
+
+### F.7 — UAT DB cleanup (optional)
+
+Vercel Postgres UAT DB can stay (cost ≈ $0 on free tier) for Phase 6 dev
+work, or anh can drop it via Storage → game-uat-db → Delete. SQL rollback
+script lives in §C of `2026-05-13-create-game-tables-postgres.sql` if a
+clean DROP is wanted before delete.
