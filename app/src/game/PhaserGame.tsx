@@ -82,14 +82,21 @@ export function PhaserGame({ width = 960, height = 640 }: Props) {
       }
     });
 
-    // DEV/test bridge: expose window.__GAME__ so Playwright (Step 22) can drive
-    // the game without pixel-matching the canvas. Stripped in prod by Vite.
-    if (import.meta.env.DEV) {
+    // DEV/test bridge: expose window.__GAME__ so Playwright + UAT test
+    // scripts can drive the game without pixel-matching the canvas.
+    // Enabled in dev build OR when `?test=1` query is set (production
+    // E2E gameplay verification — opt-in, no real-user impact since
+    // the flag must be in the URL).
+    const testQueryGate =
+      typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).get('test') === '1';
+    const bridgeEnabled = import.meta.env.DEV || testQueryGate;
+    if (bridgeEnabled) {
       attachGameTestBridge(game);
     }
 
     return () => {
-      if (import.meta.env.DEV) {
+      if (bridgeEnabled) {
         detachGameTestBridge();
       }
       game.destroy(true, false);
