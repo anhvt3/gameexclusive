@@ -84,13 +84,22 @@ export function PhaserGame({ width = 960, height = 640 }: Props) {
 
     // DEV/test bridge: expose window.__GAME__ so Playwright + UAT test
     // scripts can drive the game without pixel-matching the canvas.
-    // Enabled in dev build OR when `?test=1` query is set (production
-    // E2E gameplay verification — opt-in, no real-user impact since
-    // the flag must be in the URL).
-    const testQueryGate =
-      typeof window !== 'undefined' &&
-      new URLSearchParams(window.location.search).get('test') === '1';
-    const bridgeEnabled = import.meta.env.DEV || testQueryGate;
+    // Enabled in dev build OR when `?test=1` was ever seen in the URL
+    // this session (React router strips query on /play transition, so
+    // we persist the flag in sessionStorage for the remainder).
+    let testGateActive = false;
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('test') === '1') {
+        try { window.sessionStorage.setItem('__game_test_gate', '1'); } catch { /* private mode */ }
+      }
+      try {
+        testGateActive = window.sessionStorage.getItem('__game_test_gate') === '1';
+      } catch {
+        testGateActive = params.get('test') === '1';
+      }
+    }
+    const bridgeEnabled = import.meta.env.DEV || testGateActive;
     if (bridgeEnabled) {
       attachGameTestBridge(game);
     }

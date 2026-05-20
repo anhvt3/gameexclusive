@@ -29,7 +29,24 @@ function bootstrapClevaiUserId(): number | null {
   }
 }
 
+/**
+ * Capture `?test=1` query at boot and persist via sessionStorage so the
+ * PhaserGame test bridge stays open even after React router strips the
+ * query string on /play navigation. Opt-in by URL — no real-user impact.
+ */
+function bootstrapTestGate(): void {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('test') === '1') {
+      window.sessionStorage.setItem('__game_test_gate', '1');
+    }
+  } catch {
+    /* private mode / SSR — bridge stays closed, expected */
+  }
+}
+
 const bootedUserId = bootstrapClevaiUserId();
+bootstrapTestGate();
 void initAmplitudeIfConfigured(bootedUserId);
 
 createRoot(document.getElementById('root')!).render(
