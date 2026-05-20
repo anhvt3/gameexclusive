@@ -413,6 +413,12 @@ export class CombatScene extends Phaser.Scene {
       type: correct ? 'QUIZ_CORRECT' : 'QUIZ_WRONG',
     });
 
+    // B-11: floating feedback text so the user knows WHY damage didn't land.
+    // Without this, "đánh chưởng quái không mất máu" reads as a bug instead
+    // of "you answered wrong → spell missed". Float above the monster on
+    // wrong, above the hero on correct (tiny crit cue).
+    this.showFloatingFeedback(correct);
+
     if (correct) {
       // state now RESOLVE_DAMAGE — apply player spell damage
       // resolveHeroSpell mutates target.hp; FSM sets VICTORY if remainingHp=0
@@ -590,6 +596,51 @@ export class CombatScene extends Phaser.Scene {
       }
     }
     this.scene.stop();
+  }
+
+  /**
+   * B-11: spawn a floating feedback text above the monster (wrong answer →
+   * "Đánh hụt!") or the hero (correct → "Chuẩn xác!"). Fades upward + alpha
+   * over 800ms then destroys. Gracefully no-ops when scene.add.text /
+   * scene.tweens.add aren't stubbed (unit tests).
+   */
+  private showFloatingFeedback(correct: boolean): void {
+    const addText = (this.add as unknown as {
+      text?: (
+        x: number,
+        y: number,
+        msg: string,
+        style?: Record<string, unknown>
+      ) => { x: number; y: number; alpha: number; setOrigin?: (v: number) => unknown; destroy: () => void };
+    }).text;
+    if (typeof addText !== 'function') return;
+    const target = correct ? this.playerPos : this.monsterPos;
+    const label = correct ? 'Chuẩn xác!' : 'Đánh hụt!';
+    const color = correct ? '#7cb342' : '#e63946';
+    const t = addText.call(this.add, target.x, target.y - 90, label, {
+      fontFamily: '"VT323", "Press Start 2P", monospace',
+      fontSize: '32px',
+      color,
+      stroke: '#000000',
+      strokeThickness: 4,
+    });
+    t.setOrigin?.(0.5);
+    const tweens = (this as unknown as {
+      tweens?: { add: (cfg: Record<string, unknown>) => unknown };
+    }).tweens;
+    if (tweens && typeof tweens.add === 'function') {
+      tweens.add({
+        targets: t,
+        y: t.y - 60,
+        alpha: 0,
+        duration: 800,
+        ease: 'Quad.easeOut',
+        onComplete: () => t.destroy(),
+      });
+    } else {
+      // Test fallback: clean up immediately
+      t.destroy();
+    }
   }
 
   /** Sprint A Task 13b: return lowest-HP living entity in a faction (first match tiebreak). */

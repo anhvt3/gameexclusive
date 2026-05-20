@@ -28,8 +28,11 @@ export const PLAYER_SPEED = 200;
 export const PLAYER_WIDTH = 224;
 export const PLAYER_HEIGHT = 280;
 export const PLAYER_COLOR_PLACEHOLDER = 0xd4691e;
-/** Preferred world-sprite key — falls through to wizard_walk then placeholder. */
-export const PLAYER_SPRITE_KEY = 'base_player_male';
+/** B-10: switched primary sprite from `base_player_male` (a 6-wizard reference
+ * sheet that required setCrop hacks and only gave us 1 facing direction) to
+ * `wizard_walk` — a proper 128×128 4-direction walk spritesheet preloaded in
+ * PreloadScene. Frames 0-3=down, 4-7=left, 8-11=right, 12-15=up. */
+export const PLAYER_SPRITE_KEY = 'wizard_walk';
 export const PLAYER_SPRITE_FALLBACK_KEY = 'wizard_walk';
 /** Min ms between footstep SFX while moving — tuned for tile-pace cadence. */
 export const PLAYER_STEP_INTERVAL_MS = 350;
@@ -74,27 +77,31 @@ export class Player {
             : null
         : null;
     if (tex) {
-      const img =
-        tex === PLAYER_SPRITE_FALLBACK_KEY
-          ? scene.add.sprite(x, y, tex, 0)
-          : scene.add.sprite(x, y, tex);
-
-      // ROOT CAUSE B-04: base_player_male_transparent.png is a 1024x1024
-      // "character reference sheet" with 6 wizards baked into 1 image (2
-      // figures top half + 4 figures bottom half). Antigravity shipped a
-      // concept sheet, not a game sprite. Without cropping, setScale renders
-      // all 6 wizards stacked at the player position.
-      //
-      // Workaround until Antigravity round-2: crop to the top-left wizard
-      // (front-facing idle pose) which occupies roughly the top-left 512x512
-      // quadrant. setCrop(x, y, w, h) is in unscaled texture pixels.
-      if (tex === PLAYER_SPRITE_KEY) {
-        img.setCrop?.(0, 0, 512, 512);
-        img.setDisplaySize(PLAYER_WIDTH, PLAYER_HEIGHT);
-      } else {
-        img.setDisplaySize(PLAYER_WIDTH, PLAYER_HEIGHT);
-      }
+      const img = scene.add.sprite(x, y, tex, 0);
+      img.setDisplaySize(PLAYER_WIDTH, PLAYER_HEIGHT);
       this.sprite = img as unknown as typeof this.sprite;
+
+      // B-10: register 4-direction walk animations once. Phaser AnimationManager
+      // is scene-level singleton — guard so re-entering ZoneScene doesn't dupe.
+      // wizard_male_walk_spritesheet_128x128.png is 4 rows × 4 cols of 128-px
+      // frames: row 0 (down), row 1 (left), row 2 (right), row 3 (up).
+      const anims = scene.anims;
+      if (anims && typeof anims.exists === 'function' && typeof anims.create === 'function') {
+        const ensure = (key: string, start: number, end: number) => {
+          if (!anims.exists(key)) {
+            anims.create({
+              key,
+              frames: anims.generateFrameNumbers(tex, { start, end }),
+              frameRate: 8,
+              repeat: -1,
+            });
+          }
+        };
+        ensure('walk-down', 0, 3);
+        ensure('walk-left', 4, 7);
+        ensure('walk-right', 8, 11);
+        ensure('walk-up', 12, 15);
+      }
     } else {
       this.sprite = scene.add.rectangle(
         x,
@@ -133,21 +140,18 @@ export class Player {
     if (up) this.body.setVelocityY(-this.speed);
     else if (down) this.body.setVelocityY(this.speed);
 
-    // B-08: direction-aware sprite facing. The base_player_male asset is a
-    // 6-figure reference sheet (not a proper 4-direction spritesheet), so we
-    // can't switch full poses without an Antigravity round-2 redraw. As a
-    // first pass, flip horizontally so the wizard at least faces the
-    // direction of horizontal motion. Up/Down still use the front-facing
-    // frame 0 — round-2 will deliver up/down/left/right walk strips.
-    const spriteRef = this.sprite as unknown as { setFlipX?: (v: boolean) => void };
-    if (typeof spriteRef.setFlipX === 'function') {
-      if (left) spriteRef.setFlipX(true);
-      else if (right) spriteRef.setFlipX(false);
-    }
-    const hairRef = this.hairSprite as unknown as { setFlipX?: (v: boolean) => void } | null;
-    if (hairRef && typeof hairRef.setFlipX === 'function') {
-      if (left) hairRef.setFlipX(true);
-      else if (right) hairRef.setFlipX(false);
+    // B-10: play the correct 4-direction walk anim. Priority order matches
+    // typical top-down RPG: vertical input wins tie-break so diagonal walks
+    // play the up/down strip (looks better than awkwardly side-stepping).
+    const anims = (this.sprite as unknown as {
+      anims?: { play: (k: string, ignoreIfPlaying?: boolean) => void; stop: () => void };
+    }).anims;
+    if (anims) {
+      if (down) anims.play('walk-down', true);
+      else if (up) anims.play('walk-up', true);
+      else if (left) anims.play('walk-left', true);
+      else if (right) anims.play('walk-right', true);
+      else anims.stop();
     }
 
     if (movingX || movingY) {
