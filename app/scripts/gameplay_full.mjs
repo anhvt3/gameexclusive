@@ -140,31 +140,45 @@ async function main() {
     // leaving FSM in RESOLVE_DAMAGE forever), fall back to the bridge's
     // setMonsterHp(0) + emitCombatExit shortcut so we still verify the
     // ASSET LOAD + scene transitions end-to-end.
-    const playCombat = async (maxTicks, label) => {
+    // Reads monster HP from the live CombatScene via the __phaser escape
+    // hatch — exposes the private monsterCurrentHp field we need to verify
+    // that damage actually lands each round (catches B-07-style bugs where
+    // the FSM advances but HP never decreases).
+    const getMonsterHp = () => call(page, () => {
+      const scene = window.__GAME__.__phaser?.scene?.getScene?.('CombatScene');
+      return scene ? { cur: scene.monsterCurrentHp, max: scene.monsterMaxHp } : null;
+    });
+    const playCombat = async (maxTicks, label, assertDamageLands = true) => {
       let ticks = 0;
       let lastState = null;
-      let stuckCount = 0;
+      let lastHp = null;
+      const hpHistory = [];
       while (ticks++ < maxTicks) {
         const cs = await call(page, () => window.__GAME__.state.combatState());
+        const hp = await getMonsterHp();
         if (cs !== lastState) {
-          log(`  [${label}] tick=${ticks} state=${cs}`);
+          log(`  [${label}] tick=${ticks} state=${cs} hp=${hp ? `${hp.cur}/${hp.max}` : 'n/a'}`);
           lastState = cs;
-          stuckCount = 0;
-        } else {
-          stuckCount++;
         }
-        if (cs === 'VICTORY' || cs === 'DEFEAT') return cs;
+        if (hp && hp.cur !== lastHp) {
+          hpHistory.push({ tick: ticks, state: cs, hp: hp.cur });
+          lastHp = hp.cur;
+        }
+        if (cs === 'VICTORY' || cs === 'DEFEAT') {
+          // Damage-lands assertion: at least one HP decrease must have happened
+          if (assertDamageLands) {
+            const decreased = hpHistory.length >= 2 && hpHistory.some((e, i) => i > 0 && e.hp < hpHistory[i - 1].hp);
+            if (!decreased) {
+              log(`  [${label}] ⚠️  HP history: ${JSON.stringify(hpHistory)}`);
+              throw new Error(`B-07: combat ended ${cs} but monster HP never decreased — damage=0 bug`);
+            }
+          }
+          return cs;
+        }
         if (cs === 'PLAYER_TURN') {
           await call(page, () => { try { window.__GAME__.simulate.clickSpell('fire_blast'); } catch (_e) { /* swallow */ } });
         } else if (cs === 'QUIZ_GATE') {
           await call(page, () => { try { window.__GAME__.simulate.submitQuiz(true); } catch (_e) { /* swallow */ } });
-        } else if (stuckCount > 4) {
-          // FSM stalled (likely RESOLVE_DAMAGE without DAMAGE_APPLIED firing)
-          // — use bridge escape hatch to assert the scene+assets work even
-          // if the spell-damage path has a separate bug.
-          log(`  [${label}] FSM stuck in ${cs} for ${stuckCount} ticks — using emitCombatExit(true) shortcut`);
-          await call(page, () => { try { window.__GAME__.simulate.emitCombatExit(true, 25); } catch (_e) { /* swallow */ } });
-          return 'VICTORY';
         }
         await page.waitForTimeout(500);
       }

@@ -20,8 +20,11 @@ import type Phaser from 'phaser';
 import { audioManager } from '@/utils/AudioManager';
 
 export const PLAYER_SPEED = 200;
-export const PLAYER_WIDTH = 64;
-export const PLAYER_HEIGHT = 80;
+// B-07: bumped from 64x80 to 128x160 — anh reported player looked tí hon
+// (~30px on a 1280-wide background). 2x size matches the monster sprite
+// rendering scale + keeps walking-path collisions sane.
+export const PLAYER_WIDTH = 128;
+export const PLAYER_HEIGHT = 160;
 export const PLAYER_COLOR_PLACEHOLDER = 0xd4691e;
 /** Preferred world-sprite key — falls through to wizard_walk then placeholder. */
 export const PLAYER_SPRITE_KEY = 'base_player_male';

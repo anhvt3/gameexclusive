@@ -195,9 +195,10 @@ export class CombatScene extends Phaser.Scene {
     // shows up on the actual character mid-combat.
     // Antigravity delivered 1024×1024 base + equipment textures (Appendix
     // I §1.1 originally specced 32-base, but real assets shipped 32× larger
-    // for Retina). Use 0.18 so the rendered avatar is ~184 px tall — fits
-    // alongside the monster on the 648-wide combat viewport.
-    this.playerAvatar = new PlayerAvatar(this, playerX, playerY, 0.18);
+    // for Retina). B-07: bumped from 0.18 to 0.35 (~180 → ~360 px) since
+    // we now setCrop to the top-left 512x512 frame only — anh reported
+    // the previous size looked tí hon next to full-sized monster art.
+    this.playerAvatar = new PlayerAvatar(this, playerX, playerY, 0.35);
 
     const state = useSaveState.getState();
     // AP §11.3 / Step 22.10 — player bar reads effective max (base + equip maxHp).
