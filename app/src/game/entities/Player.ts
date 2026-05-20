@@ -73,7 +73,15 @@ export class Player {
         tex === PLAYER_SPRITE_FALLBACK_KEY
           ? scene.add.sprite(x, y, tex, 0)
           : scene.add.sprite(x, y, tex);
-      img.setDisplaySize(PLAYER_WIDTH, PLAYER_HEIGHT);
+      
+      // Fix bug B-01: "tí hon". If tex is 1024x1024, setDisplaySize(64, 80) makes the avatar ~24px.
+      // Instead, we set a reasonable visual scale (like CombatScene uses 0.18) so it's ~184px,
+      // and manually correct the physics body.
+      if (tex === PLAYER_SPRITE_KEY) {
+        img.setScale(0.18);
+      } else {
+        img.setDisplaySize(PLAYER_WIDTH, PLAYER_HEIGHT);
+      }
       this.sprite = img as unknown as typeof this.sprite;
     } else {
       this.sprite = scene.add.rectangle(
@@ -87,10 +95,21 @@ export class Player {
     scene.physics.add.existing(this.sprite);
     this.body = this.sprite.body as Phaser.Physics.Arcade.Body;
     this.body.setCollideWorldBounds(true);
-    // NOTE: deliberately do NOT call body.setSize — Phaser's arcade body
-    // setSize takes TEXTURE-space pixels, so on a 1024-px source displayed
-    // at 64 px the body would shrink to ~4 px and break overlap detection.
-    // Default body size equals the display size, which is what we want.
+    
+    // Adjust physics body to stay exactly PLAYER_WIDTH x PLAYER_HEIGHT (64x80)
+    // Phaser 3 body.setSize() expects unscaled texture pixels.
+    if (tex === PLAYER_SPRITE_KEY) {
+      const scale = 0.18;
+      const unscaledW = PLAYER_WIDTH / scale;
+      const unscaledH = PLAYER_HEIGHT / scale;
+      const unscaledOffsetX = (1024 - unscaledW) / 2;
+      // Anchor body to the bottom so feet align with tiles
+      const unscaledOffsetY = 1024 - unscaledH - (20 / scale); 
+      this.body.setSize(unscaledW, unscaledH);
+      this.body.setOffset(unscaledOffsetX, unscaledOffsetY);
+    } else if (tex === null) {
+      // For placeholder rectangle, body size matches display size automatically.
+    }
 
     const kb = scene.input.keyboard;
     if (!kb) {

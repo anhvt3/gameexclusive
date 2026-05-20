@@ -17,20 +17,15 @@ export function CustomizationPicker({ initialGender, initialHair, onComplete }: 
 
       <div className="mb-6 flex justify-center">
         <div className="relative h-48 w-48">
-          {/* base_player_*_transparent.png is a 512x512 spritesheet (4x4 grid of
-              128x128 frames). Render only frame 0 (top-left) via CSS background
-              tiling so the React preview matches the in-game Phaser sprite. */}
-          <div
+          {/* base_player_*_transparent.png is a single 1024x1024 character
+              (not a spritesheet — content bbox ~947x966 fills almost the
+              whole canvas). Render full image with object-contain so the
+              wizard matches the in-game scaled sprite. */}
+          <img
             data-testid="preview-base"
-            aria-label="Base"
-            role="img"
-            className="absolute inset-0 h-full w-full"
-            style={{
-              backgroundImage: `url(/assets/juice/base_player_${gender}_transparent.png)`,
-              backgroundSize: '400% 400%',
-              backgroundPosition: '0% 0%',
-              backgroundRepeat: 'no-repeat',
-            }}
+            src={`/assets/juice/base_player_${gender}_transparent.png`}
+            alt="Base"
+            className="absolute inset-0 h-full w-full object-contain"
           />
           <img
             data-testid="preview-hair"

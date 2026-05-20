@@ -125,8 +125,11 @@ export const PHASE1_ASSETS = {
         },
       ])
     ),
-    // Sprint E Task 7b — Hair customization sprites (PNG-32 RGBA, 1024×1024)
-    // 8 textures: 2 genders × 4 styles. Layered atop base player by Player.setHairOverlay.
+    // Step 22.12 — base player body for layered avatar
+    {
+      key: PLAYER_BASE_MALE_KEY,
+      path: '/assets/juice/base_player_male_transparent.png',
+    },
     ...['male', 'female'].flatMap((g) =>
       ['a', 'b', 'c', 'd'].map((s) => ({
         key: `hair-${g}-${s}`,
@@ -138,12 +141,6 @@ export const PHASE1_ASSETS = {
     {
       key: 'wizard_walk',
       path: '/assets/player/wizard_male_walk_spritesheet_128x128.png',
-      frameWidth: 128,
-      frameHeight: 128,
-    },
-    {
-      key: PLAYER_BASE_MALE_KEY,
-      path: '/assets/juice/base_player_male_transparent.png',
       frameWidth: 128,
       frameHeight: 128,
     },
