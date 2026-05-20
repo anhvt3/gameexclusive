@@ -21,7 +21,13 @@ export const PRELOAD_SCENE_KEY = 'PreloadScene';
  * Keys follow convention: category_codename_state.
  */
 
+// Base monsters — 128x128 sprites
 const MONSTERS = ['embershed', 'tidus', 'applepot', 'frostfang', 'voltee'] as const;
+// Boss-tier monsters — 256x256 sprites (different file suffix)
+// B-05: previously missing → Enemy fell back to black-with-gradient rect.
+// Antigravity ships aldergasp_{state}_256.png; other boss IDs (99 etc.)
+// alias to aldergasp art until per-island boss art lands in round-2.
+const BOSS_MONSTERS = ['aldergasp'] as const;
 const MONSTER_STATES = ['idle', 'attack', 'hurt', 'death'] as const;
 const SPELL_ELEMENTS = [
   'fire',
@@ -63,11 +69,18 @@ export const PHASE1_ASSETS = {
       key: 'wizard_portrait_focused',
       path: '/assets/player/wizard_male_portrait_focused_128.png',
     },
-    // Monsters — 5 starters × 4 states = 20
+    // Monsters — 5 starters × 4 states = 20 (128×128)
     ...MONSTERS.flatMap((codename) =>
       MONSTER_STATES.map((state) => ({
         key: `monster_${codename}_${state}`,
         path: `/assets/monsters/${codename}_${state}_128.png`,
+      }))
+    ),
+    // Boss monsters — 256×256 (B-05 fix)
+    ...BOSS_MONSTERS.flatMap((codename) =>
+      MONSTER_STATES.map((state) => ({
+        key: `monster_${codename}_${state}`,
+        path: `/assets/monsters/${codename}_${state}_256.png`,
       }))
     ),
     // UI — HP/MP bars 4 states each

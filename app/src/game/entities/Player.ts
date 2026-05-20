@@ -42,10 +42,6 @@ export interface PlayerKeys {
   RIGHT: Phaser.Input.Keyboard.Key;
 }
 
-// DEBUG B-04 — counter to detect duplicate Player spawns across scenes
-// Remove after root cause confirmed.
-let __PLAYER_SPAWN_COUNT = 0;
-
 export class Player {
   public sprite: Phaser.GameObjects.GameObject & {
     x: number;
@@ -64,14 +60,6 @@ export class Player {
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     this.scene = scene;
-    __PLAYER_SPAWN_COUNT++;
-    // eslint-disable-next-line no-console
-    console.log(
-      `[DEBUG B-04] Player spawn #${__PLAYER_SPAWN_COUNT}`,
-      `scene=${scene?.scene?.key ?? '?'}`,
-      `pos=(${x},${y})`,
-      `time=${Date.now()}`
-    );
     const tex =
       scene.textures && typeof scene.textures.exists === 'function'
         ? scene.textures.exists(PLAYER_SPRITE_KEY)

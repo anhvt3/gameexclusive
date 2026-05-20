@@ -33,13 +33,6 @@ export class Enemy {
       scene.textures && typeof scene.textures.exists === 'function'
         ? scene.textures.exists(textureKey)
         : false;
-    // eslint-disable-next-line no-console
-    console.log(
-      `[DEBUG B-04] Enemy spawn id=${def.id} codename=${def.codename}`,
-      `scene=${scene?.scene?.key ?? '?'}`,
-      `pos=(${x},${y})`,
-      `texKey=${textureKey} loaded=${hasTexture}`
-    );
     if (hasTexture) {
       const img = scene.add.sprite(x, y, textureKey);
       img.setDisplaySize(ENEMY_SIZE, ENEMY_SIZE);
