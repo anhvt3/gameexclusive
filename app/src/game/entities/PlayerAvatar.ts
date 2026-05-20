@@ -52,7 +52,12 @@ export class PlayerAvatar {
     this.x = x;
     this.y = y;
     this.scale = scale;
-    this.base = scene.add.sprite(x, y, PLAYER_BASE_MALE_KEY).setScale(scale);
+    // Crop to top-left 512x512 (frame 0) — see B-04 in Player.ts:
+    // base_player_male_transparent.png is a 6-wizard reference sheet, not
+    // a single character. Without crop, this renders all 6 wizards.
+    this.base = scene.add.sprite(x, y, PLAYER_BASE_MALE_KEY);
+    this.base.setCrop?.(0, 0, 512, 512);
+    this.base.setScale(scale);
     this.syncOverlays();
     this.unsub = useSaveState.subscribe(() => this.syncOverlays());
   }

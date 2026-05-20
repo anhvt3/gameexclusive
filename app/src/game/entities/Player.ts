@@ -85,12 +85,19 @@ export class Player {
         tex === PLAYER_SPRITE_FALLBACK_KEY
           ? scene.add.sprite(x, y, tex, 0)
           : scene.add.sprite(x, y, tex);
-      
-      // Fix bug B-01: "tí hon". If tex is 1024x1024, setDisplaySize(64, 80) makes the avatar ~24px.
-      // Instead, we set a reasonable visual scale (like CombatScene uses 0.18) so it's ~184px,
-      // and manually correct the physics body.
+
+      // ROOT CAUSE B-04: base_player_male_transparent.png is a 1024x1024
+      // "character reference sheet" with 6 wizards baked into 1 image (2
+      // figures top half + 4 figures bottom half). Antigravity shipped a
+      // concept sheet, not a game sprite. Without cropping, setScale renders
+      // all 6 wizards stacked at the player position.
+      //
+      // Workaround until Antigravity round-2: crop to the top-left wizard
+      // (front-facing idle pose) which occupies roughly the top-left 512x512
+      // quadrant. setCrop(x, y, w, h) is in unscaled texture pixels.
       if (tex === PLAYER_SPRITE_KEY) {
-        img.setScale(0.18);
+        img.setCrop?.(0, 0, 512, 512);
+        img.setDisplaySize(PLAYER_WIDTH, PLAYER_HEIGHT);
       } else {
         img.setDisplaySize(PLAYER_WIDTH, PLAYER_HEIGHT);
       }
@@ -107,21 +114,8 @@ export class Player {
     scene.physics.add.existing(this.sprite);
     this.body = this.sprite.body as Phaser.Physics.Arcade.Body;
     this.body.setCollideWorldBounds(true);
-    
-    // Adjust physics body to stay exactly PLAYER_WIDTH x PLAYER_HEIGHT (64x80)
-    // Phaser 3 body.setSize() expects unscaled texture pixels.
-    if (tex === PLAYER_SPRITE_KEY) {
-      const scale = 0.18;
-      const unscaledW = PLAYER_WIDTH / scale;
-      const unscaledH = PLAYER_HEIGHT / scale;
-      const unscaledOffsetX = (1024 - unscaledW) / 2;
-      // Anchor body to the bottom so feet align with tiles
-      const unscaledOffsetY = 1024 - unscaledH - (20 / scale); 
-      this.body.setSize(unscaledW, unscaledH);
-      this.body.setOffset(unscaledOffsetX, unscaledOffsetY);
-    } else if (tex === null) {
-      // For placeholder rectangle, body size matches display size automatically.
-    }
+    // Default body size matches display size (64x80) after setDisplaySize +
+    // setCrop above — no manual setSize/setOffset needed.
 
     const kb = scene.input.keyboard;
     if (!kb) {
