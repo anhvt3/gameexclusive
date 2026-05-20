@@ -340,6 +340,7 @@ export class ZoneScene extends Phaser.Scene {
     if (!this.playerSprite || index >= waypoints.length) {
       this.isWalking = false;
       this.currentTween = null;
+      this.stopPlayerAnim();
       return;
     }
     const target = waypoints[index]!;
@@ -347,6 +348,14 @@ export class ZoneScene extends Phaser.Scene {
     const dy = target.y - this.playerSprite.y;
     const dist = Math.hypot(dx, dy);
     const duration = dist > 0 ? (dist / PLAYER_WALK_SPEED) * 1000 : 0;
+
+    // B-12: drive walk anim from tween direction. Without this, click-to-walk
+    // never calls Player.update() (Phaser doesn't auto-invoke entity update
+    // hooks) so the sprite stayed on frame 0 idle "quay đi quay lại" while
+    // tween-sliding across the path. Pick the dominant axis: vertical
+    // movement plays walk-up/down (looks correct top-down), horizontal
+    // plays walk-left/right.
+    this.playPlayerAnimForDelta(dx, dy);
 
     const cfg = {
       targets: this.playerSprite,
@@ -368,6 +377,30 @@ export class ZoneScene extends Phaser.Scene {
     this.currentTween = this.tweens.add(cfg) as unknown as TweenLike;
   }
 
+  /** B-12: pick the appropriate walk anim from a movement delta. */
+  private playPlayerAnimForDelta(dx: number, dy: number): void {
+    const anims = (this.playerSprite as unknown as {
+      anims?: { play: (k: string, ignoreIfPlaying?: boolean) => void };
+    })?.anims;
+    if (!anims) return;
+    const absX = Math.abs(dx);
+    const absY = Math.abs(dy);
+    let key: string;
+    if (absY > absX) key = dy > 0 ? 'walk-down' : 'walk-up';
+    else key = dx > 0 ? 'walk-right' : 'walk-left';
+    anims.play(key, true);
+  }
+
+  /** B-12: stop the walk anim + reset to the idle (down-facing) frame. */
+  private stopPlayerAnim(): void {
+    const ref = this.playerSprite as unknown as {
+      anims?: { stop: () => void };
+      setFrame?: (f: number) => void;
+    };
+    ref?.anims?.stop();
+    ref?.setFrame?.(0);
+  }
+
   checkMonsterOverlap(): void {
     if (!this.playerSprite) return;
     for (const m of this.monsters) {
@@ -383,6 +416,7 @@ export class ZoneScene extends Phaser.Scene {
   private triggerCombat(monsterId: number): void {
     this.stopCurrentTween();
     this.isWalking = false;
+    this.stopPlayerAnim();
     eventBus.emit('ENTER_COMBAT', { monster_id: monsterId });
     this.scene.pause();
     this.paused = true;
