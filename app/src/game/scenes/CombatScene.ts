@@ -448,15 +448,32 @@ export class CombatScene extends Phaser.Scene {
   }
 
   private applyPlayerDamage(): void {
-    if (!this.selectedSpellId || !this.activeLo) return;
+    if (!this.selectedSpellId || !this.activeLo) {
+      // eslint-disable-next-line no-console
+      console.warn('[B-06] applyPlayerDamage early-return: selectedSpellId=', this.selectedSpellId, 'activeLo=', this.activeLo?.id ?? null);
+      return;
+    }
     const spell = SPELLS.find((s) => s.id === this.selectedSpellId);
-    if (!spell) return;
+    if (!spell) {
+      // eslint-disable-next-line no-console
+      console.warn('[B-06] applyPlayerDamage early-return: spell not found for id=', this.selectedSpellId);
+      return;
+    }
 
     // Sprint A Task 13b: resolve against locked target or first living enemy
     const target =
       this.entities.find((e) => e.id === this.selectedTargetId && e.hp > 0) ??
       this.lowestHpFromFaction('enemy');
-    if (!target) return;
+    if (!target) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        '[B-06] applyPlayerDamage early-return: no target. selectedTargetId=',
+        this.selectedTargetId,
+        'entities=',
+        this.entities.map((e) => ({ id: e.id, faction: e.faction, hp: e.hp }))
+      );
+      return;
+    }
 
     const difficulty = parseInt(
       this.activeLo.learning_object_difficulty.learning_object_difficulty_name,
