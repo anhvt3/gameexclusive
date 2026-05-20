@@ -116,6 +116,14 @@ export class ZoneScene extends Phaser.Scene {
   create(): void {
     // Reset per-create state (scene.start re-runs create on the same instance
     // in Phaser, so we cannot rely on field-initializer defaults alone).
+    //
+    // FIX B-04: also destroy lingering sprites from previous screen. Without
+    // this, transitioning entrance→path→bossHall stacks Player + Enemy game
+    // objects in the Phaser display list (JS refs get overwritten but the
+    // GameObjects persist), producing the "6 wizards" cluster anh reported.
+    if (this.playerSprite?.destroy) this.playerSprite.destroy();
+    this.playerSprite = null;
+    for (const m of this.monsters) m.sprite?.destroy?.();
     this.monsters = [];
     this.mask = null;
     this.currentTween = null;
