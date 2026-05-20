@@ -43,21 +43,28 @@ export class PlayerAvatar {
   private x: number;
   private y: number;
   private scale: number;
+  /** B-08: when true, base + all overlays are mirrored horizontally so the
+   * hero can face left toward the monster in CombatScene (player anchored
+   * on the right side of the viewport). Anchor offsets X-flip too so
+   * equipment stays aligned with the (now-mirrored) body. */
+  private flipX: boolean;
   private base: Phaser.GameObjects.Sprite;
   private overlays = new Map<EquipmentSlot, Phaser.GameObjects.Sprite>();
   private unsub: (() => void) | null = null;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, scale = 2) {
+  constructor(scene: Phaser.Scene, x: number, y: number, scale = 2, flipX = false) {
     this.scene = scene;
     this.x = x;
     this.y = y;
     this.scale = scale;
+    this.flipX = flipX;
     // Crop to top-left 512x512 (frame 0) — see B-04 in Player.ts:
     // base_player_male_transparent.png is a 6-wizard reference sheet, not
     // a single character. Without crop, this renders all 6 wizards.
     this.base = scene.add.sprite(x, y, PLAYER_BASE_MALE_KEY);
     this.base.setCrop?.(0, 0, 512, 512);
     this.base.setScale(scale);
+    this.base.setFlipX?.(this.flipX);
     this.syncOverlays();
     this.unsub = useSaveState.subscribe(() => this.syncOverlays());
   }
@@ -76,13 +83,18 @@ export class PlayerAvatar {
 
       if (def) {
         const offset = ANCHOR_OFFSETS[slot];
-        const ox = this.x + offset.x * this.scale;
+        // B-08: flip the X offset when the avatar faces left so e.g. the
+        // wand stays in the (now-left) hand instead of jumping to the
+        // wrong side. Y offset stays put (vertical anchors don't mirror).
+        const ox = this.x + (this.flipX ? -offset.x : offset.x) * this.scale;
         const oy = this.y + offset.y * this.scale;
         if (existing && existing.texture.key === def.spriteKey) {
           existing.setPosition(ox, oy);
+          existing.setFlipX?.(this.flipX);
         } else {
           existing?.destroy();
           const sprite = this.scene.add.sprite(ox, oy, def.spriteKey).setScale(this.scale);
+          sprite.setFlipX?.(this.flipX);
           this.overlays.set(slot, sprite);
         }
       } else if (existing) {
