@@ -360,6 +360,15 @@ export class CombatScene extends Phaser.Scene {
   onSpellClick(spellId: string): void {
     if (this.combatState !== 'PLAYER_TURN') return;
 
+    // Defensive: reject unknown spell IDs at entry so we never advance the
+    // FSM into QUIZ_GATE with an id that applyPlayerDamage can't resolve.
+    // Without this guard a bad id leaves the FSM stuck in RESOLVE_DAMAGE
+    // and runMonsterTurn throws "Invalid transition" (B-06 root cause).
+    if (!SPELLS.some((s) => s.id === spellId)) {
+      console.warn(`[CombatScene] onSpellClick: unknown spellId=${spellId} — ignored`);
+      return;
+    }
+
     this.selectedSpellId = spellId;
     this.combatState = nextCombatState(this.combatState, { type: 'CLICK_SPELL', spellId });
 
@@ -448,32 +457,15 @@ export class CombatScene extends Phaser.Scene {
   }
 
   private applyPlayerDamage(): void {
-    if (!this.selectedSpellId || !this.activeLo) {
-      // eslint-disable-next-line no-console
-      console.warn('[B-06] applyPlayerDamage early-return: selectedSpellId=', this.selectedSpellId, 'activeLo=', this.activeLo?.id ?? null);
-      return;
-    }
+    if (!this.selectedSpellId || !this.activeLo) return;
     const spell = SPELLS.find((s) => s.id === this.selectedSpellId);
-    if (!spell) {
-      // eslint-disable-next-line no-console
-      console.warn('[B-06] applyPlayerDamage early-return: spell not found for id=', this.selectedSpellId);
-      return;
-    }
+    if (!spell) return;
 
     // Sprint A Task 13b: resolve against locked target or first living enemy
     const target =
       this.entities.find((e) => e.id === this.selectedTargetId && e.hp > 0) ??
       this.lowestHpFromFaction('enemy');
-    if (!target) {
-      // eslint-disable-next-line no-console
-      console.warn(
-        '[B-06] applyPlayerDamage early-return: no target. selectedTargetId=',
-        this.selectedTargetId,
-        'entities=',
-        this.entities.map((e) => ({ id: e.id, faction: e.faction, hp: e.hp }))
-      );
-      return;
-    }
+    if (!target) return;
 
     const difficulty = parseInt(
       this.activeLo.learning_object_difficulty.learning_object_difficulty_name,

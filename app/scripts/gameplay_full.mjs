@@ -54,7 +54,9 @@ async function main() {
   const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
   const page = await context.newPage();
   page.on('console', (m) => {
-    if (m.type() === 'error') console.error('[browser:error]', m.text());
+    const t = m.type();
+    if (t === 'error') console.error('[browser:error]', m.text());
+    else if (t === 'warning' && m.text().includes('B-06')) console.warn('[browser:warn]', m.text());
   });
 
   try {
@@ -153,7 +155,7 @@ async function main() {
         }
         if (cs === 'VICTORY' || cs === 'DEFEAT') return cs;
         if (cs === 'PLAYER_TURN') {
-          await call(page, () => { try { window.__GAME__.simulate.clickSpell('fire'); } catch (_e) { /* swallow */ } });
+          await call(page, () => { try { window.__GAME__.simulate.clickSpell('fire_blast'); } catch (_e) { /* swallow */ } });
         } else if (cs === 'QUIZ_GATE') {
           await call(page, () => { try { window.__GAME__.simulate.submitQuiz(true); } catch (_e) { /* swallow */ } });
         } else if (stuckCount > 4) {
