@@ -34,8 +34,10 @@ const ELEMENT_PLACEHOLDER: Record<Element, number> = {
   Astral: 0x7209b7,
 };
 
-export const SPELL_VFX_DURATION_MS = 400;
+export const SPELL_VFX_DURATION_MS = 450;
 export const SPELL_VFX_PLACEHOLDER_SIZE = 24;
+/** B-09: glow orb radius for the upgraded placeholder. */
+export const SPELL_VFX_ORB_RADIUS = 36;
 
 interface DestroyableObject {
   destroy: () => void;
@@ -58,8 +60,49 @@ export function wireSpellVfx(scene: Phaser.Scene): Unsubscribe {
     if (hasSheet) {
       obj = scene.add.sprite(origin.x, origin.y, sheetKey) as unknown as DestroyableObject;
     } else {
-      // Brand-coloured square as a stand-in until Antigravity drops the real sheet.
-      console.warn(`[SpellVfx] missing texture "${sheetKey}" — using placeholder`);
+      // B-09: brand-coloured glow ORB (was a 24×24 square — anh reported
+      // "ô vuông xanh đỏ xấu thế"). Two stacked circles give a halo +
+      // core feel with no extra asset, and the scale-pulse tween below
+      // sells motion better than a static rectangle slide.
+      const color = ELEMENT_PLACEHOLDER[element];
+      const addCircle = (scene.add as unknown as {
+        circle?: (x: number, y: number, r: number, c: number, a?: number) => DestroyableObject;
+      }).circle;
+      if (typeof addCircle === 'function') {
+        const halo = addCircle.call(scene.add, origin.x, origin.y, SPELL_VFX_ORB_RADIUS * 1.6, color, 0.35);
+        const core = addCircle.call(scene.add, origin.x, origin.y, SPELL_VFX_ORB_RADIUS, color, 0.95);
+        obj = {
+          destroy: () => {
+            (halo as unknown as DestroyableObject).destroy();
+            (core as unknown as DestroyableObject).destroy();
+          },
+        };
+        // Animate both layers
+        scene.tweens.add({
+          targets: [halo, core],
+          x: target.x,
+          y: target.y,
+          duration: SPELL_VFX_DURATION_MS,
+          ease: 'Quad.easeOut',
+        });
+        scene.tweens.add({
+          targets: halo,
+          scale: { from: 0.8, to: 1.6 },
+          alpha: { from: 0.5, to: 0 },
+          duration: SPELL_VFX_DURATION_MS,
+          ease: 'Quad.easeOut',
+        });
+        scene.tweens.add({
+          targets: core,
+          scale: { from: 1.0, to: 1.4 },
+          duration: SPELL_VFX_DURATION_MS,
+          ease: 'Quad.easeOut',
+          onComplete: () => obj.destroy(),
+        });
+        return;
+      }
+      // Fallback for test mocks that don't stub scene.add.circle
+      console.warn(`[SpellVfx] missing texture "${sheetKey}" — rectangle fallback`);
       obj = scene.add.rectangle(
         origin.x,
         origin.y,

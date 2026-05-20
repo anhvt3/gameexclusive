@@ -45,7 +45,7 @@ describe('Player entity — Step 12', () => {
   });
 
   it('constructor creates rectangle at given position', () => {
-    expect(scene.add.rectangle).toHaveBeenCalledWith(100, 200, 128, 160, 0xd4691e);
+    expect(scene.add.rectangle).toHaveBeenCalledWith(100, 200, 224, 280, 0xd4691e);
   });
 
   it('constructor attaches physics body', () => {

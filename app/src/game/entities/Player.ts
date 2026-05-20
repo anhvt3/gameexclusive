@@ -20,11 +20,13 @@ import type Phaser from 'phaser';
 import { audioManager } from '@/utils/AudioManager';
 
 export const PLAYER_SPEED = 200;
-// B-07: bumped from 64x80 to 128x160 — anh reported player looked tí hon
-// (~30px on a 1280-wide background). 2x size matches the monster sprite
-// rendering scale + keeps walking-path collisions sane.
-export const PLAYER_WIDTH = 128;
-export const PLAYER_HEIGHT = 160;
+// B-07/B-08: bumped 64×80 → 128×160 → 224×280 after anh re-confirmed
+// "bé tí" on the volcanic entrance — at 128 the wizard was still ~7%
+// of viewport height, which reads as ant-sized vs the 256-px monsters.
+// 224×280 makes the wizard ~30% taller than the largest monster sprite
+// and matches the hand-drawn RPG scale anh expects.
+export const PLAYER_WIDTH = 224;
+export const PLAYER_HEIGHT = 280;
 export const PLAYER_COLOR_PLACEHOLDER = 0xd4691e;
 /** Preferred world-sprite key — falls through to wizard_walk then placeholder. */
 export const PLAYER_SPRITE_KEY = 'base_player_male';
@@ -130,6 +132,23 @@ export class Player {
 
     if (up) this.body.setVelocityY(-this.speed);
     else if (down) this.body.setVelocityY(this.speed);
+
+    // B-08: direction-aware sprite facing. The base_player_male asset is a
+    // 6-figure reference sheet (not a proper 4-direction spritesheet), so we
+    // can't switch full poses without an Antigravity round-2 redraw. As a
+    // first pass, flip horizontally so the wizard at least faces the
+    // direction of horizontal motion. Up/Down still use the front-facing
+    // frame 0 — round-2 will deliver up/down/left/right walk strips.
+    const spriteRef = this.sprite as unknown as { setFlipX?: (v: boolean) => void };
+    if (typeof spriteRef.setFlipX === 'function') {
+      if (left) spriteRef.setFlipX(true);
+      else if (right) spriteRef.setFlipX(false);
+    }
+    const hairRef = this.hairSprite as unknown as { setFlipX?: (v: boolean) => void } | null;
+    if (hairRef && typeof hairRef.setFlipX === 'function') {
+      if (left) hairRef.setFlipX(true);
+      else if (right) hairRef.setFlipX(false);
+    }
 
     if (movingX || movingY) {
       const now = Date.now();
