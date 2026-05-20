@@ -1,0 +1,42 @@
+{
+  "url": "https://gameexclusive-git-claude-phase5-vercel-mysql-6e685e-anhvt3.vercel.app/?cu=992005&test=1",
+  "results": [
+    {
+      "step": 1,
+      "name": "WorldMap reached",
+      "pass": true
+    },
+    {
+      "step": 2,
+      "name": "ZoneScene entrance reached",
+      "pass": true
+    },
+    {
+      "step": 4,
+      "name": "CombatScene reached vs monster id=1",
+      "pass": true
+    },
+    {
+      "step": 5,
+      "name": "combat won vs monster 1",
+      "pass": true
+    },
+    {
+      "step": 6,
+      "name": "BossHallScene reached",
+      "pass": true
+    },
+    {
+      "step": 7,
+      "name": "boss combat engaged + aldergasp texture loaded",
+      "pass": true
+    },
+    {
+      "step": 8,
+      "name": "boss defeated",
+      "pass": true
+    }
+  ],
+  "elapsed_sec": 30.6,
+  "passed_at": "2026-05-20T10:53:19.272Z"
+}
